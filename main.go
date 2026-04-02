@@ -184,6 +184,9 @@ func main() {
 		playModeRandom.SetChecked(true)
 	})
 
+	playModeOrder.SetChecked(true)
+	playModeLoop.SetChecked(false)
+	playModeRandom.SetChecked(false)
 	playModeMenu := application.NewMenuFromItems(
 		playModeOrder,
 		playModeLoop,
