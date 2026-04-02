@@ -65,23 +65,30 @@ func main() {
 	tray.SetIcon(trayIcon)
 	tray.SetTooltip("Haoyun Music Player")
 
+	// 先声明所有菜单项变量（以便在闭包中使用）
+	var playPauseItem, prevItem, nextItem, showItem, browseItem *application.MenuItem
+	var downloadItem, wakeItem, launchItem, settingItem, versionItem, quitItem *application.MenuItem
+	var playModeItem, musicLibItem *application.MenuItem
+	var musicLibMenu *application.Menu
+	var menu *application.Menu
+
 	// 创建基本播放控制菜单项
-	playPauseItem := application.NewMenuItem("播放")
+	playPauseItem = application.NewMenuItem("播放")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		musicService.TogglePlayPause()
 	})
 
-	prevItem := application.NewMenuItem("上一曲")
+	prevItem = application.NewMenuItem("上一曲")
 	prevItem.OnClick(func(ctx *application.Context) {
 		musicService.Previous()
 	})
 
-	nextItem := application.NewMenuItem("下一曲")
+	nextItem = application.NewMenuItem("下一曲")
 	nextItem.OnClick(func(ctx *application.Context) {
 		musicService.Next()
 	})
 
-	showItem := application.NewMenuItem("显示主窗口")
+	showItem = application.NewMenuItem("显示主窗口")
 	showItem.OnClick(func(ctx *application.Context) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -110,7 +117,7 @@ func main() {
 	})
 
 	// 创建浏览歌曲菜单项（带快捷键 Cmd+F）
-	browseItem := application.NewMenuItem("浏览歌曲")
+	browseItem = application.NewMenuItem("浏览歌曲")
 	browseItem.SetAccelerator("CmdOrCtrl+F")
 	browseItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现浏览歌曲功能
@@ -123,91 +130,120 @@ func main() {
 		application.NewMenuItem("循环播放"),
 		application.NewMenuItem("随机播放"),
 	)
-	playModeItem := application.NewSubmenu("播放模式", playModeMenu)
+	playModeItem = application.NewSubmenu("播放模式", playModeMenu)
 
-	// 创建音乐库子菜单
-	// 先创建"添加新音乐库"菜单项
-	addLibItem := application.NewMenuItem("添加新音乐库")
-	addLibItem.OnClick(func(ctx *application.Context) {
-		log.Println("添加新音乐库")
+	// 构建音乐库菜单的辅助函数
+	var buildMusicLibMenu func()
+	buildMusicLibMenu = func() {
+		// 先创建"添加新音乐库"菜单项
+		addLibItem := application.NewMenuItem("添加新音乐库")
+		addLibItem.OnClick(func(ctx *application.Context) {
+			log.Println("添加新音乐库")
 
-		if libraryManager == nil {
-			log.Println("❌ libraryManager 为 nil")
-			return
-		}
-
-		// 添加音乐库
-		if err := libraryManager.AddLibrary(); err != nil {
-			log.Printf("添加音乐库失败：%v", err)
-			return
-		}
-
-	})
-
-	// 创建"刷新当前音乐库"菜单项
-	refreshLibItem := application.NewMenuItem("刷新当前音乐库")
-	refreshLibItem.SetAccelerator("CmdOrCtrl+R")
-	refreshLibItem.OnClick(func(ctx *application.Context) {
-		log.Println("刷新当前音乐库")
-
-		if libraryManager == nil {
-			return
-		}
-
-		currentLib := libraryManager.GetCurrentLibrary()
-		if currentLib == nil {
-			log.Println("当前没有音乐库")
-			return
-		}
-
-		go func() {
-			if err := libraryManager.RefreshLibrary(currentLib.Name); err != nil {
-				log.Printf("刷新音乐库失败：%v", err)
+			if libraryManager == nil {
+				log.Println("❌ libraryManager 为 nil")
+				return
 			}
-		}()
-	})
 
-	// 创建"重命名当前音乐库"菜单项
-	renameLibItem := application.NewMenuItem("重命名当前音乐库")
-	renameLibItem.OnClick(func(ctx *application.Context) {
-		log.Println("重命名当前音乐库")
-		// TODO: 实现重命名功能
-	})
+			// 添加音乐库
+			if err := libraryManager.AddLibrary(); err != nil {
+				log.Printf("添加音乐库失败：%v", err)
+				return
+			}
 
-	// 动态生成音乐库列表菜单
-	var libItems []*application.MenuItem
-	libraries := libraryManager.GetLibraries()
-	for _, libName := range libraries {
-		libItem := application.NewMenuItemCheckbox(libName, true)
-		libItem.OnClick(func(ctx *application.Context) {
-			log.Printf("切换到音乐库：%s", libName)
-			// TODO: 实现切换音乐库功能
+			// 添加成功后，重建音乐库菜单
+			log.Println("✓ 音乐库添加成功，刷新菜单")
+			buildMusicLibMenu()
 		})
-		libItems = append(libItems, libItem)
-	}
 
-	// 如果没有音乐库，显示提示
-	if len(libItems) == 0 {
-		noLibItem := application.NewMenuItem("暂无音乐库")
-		noLibItem.SetEnabled(false)
-		libItems = append(libItems, noLibItem)
-	}
+		// 创建"刷新当前音乐库"菜单项
+		refreshLibItem := application.NewMenuItem("刷新当前音乐库")
+		refreshLibItem.SetAccelerator("CmdOrCtrl+R")
+		refreshLibItem.OnClick(func(ctx *application.Context) {
+			log.Println("刷新当前音乐库")
 
-	// 组装音乐库菜单
-	musicLibMenuItems := append([]*application.MenuItem{}, libItems...)
-	musicLibMenuItems = append(musicLibMenuItems, application.NewMenuItemSeparator())
-	musicLibMenuItems = append(musicLibMenuItems, refreshLibItem, addLibItem, renameLibItem)
+			if libraryManager == nil {
+				return
+			}
 
-	var musicLibMenu *application.Menu
-	if len(musicLibMenuItems) > 0 {
-		musicLibMenu = application.NewMenuFromItems(musicLibMenuItems[0], musicLibMenuItems[1:]...)
-	} else {
-		musicLibMenu = application.NewMenu()
+			currentLib := libraryManager.GetCurrentLibrary()
+			if currentLib == nil {
+				log.Println("当前没有音乐库")
+				return
+			}
+
+			go func() {
+				if err := libraryManager.RefreshLibrary(currentLib.Name); err != nil {
+					log.Printf("刷新音乐库失败：%v", err)
+				}
+			}()
+		})
+
+		// 创建"重命名当前音乐库"菜单项
+		renameLibItem := application.NewMenuItem("重命名当前音乐库")
+		renameLibItem.OnClick(func(ctx *application.Context) {
+			log.Println("重命名当前音乐库")
+			// TODO: 实现重命名功能
+		})
+
+		// 动态生成音乐库列表菜单
+		var libItems []*application.MenuItem
+		libraries := libraryManager.GetLibraries()
+		for _, libName := range libraries {
+			libItem := application.NewMenuItemCheckbox(libName, true)
+			libItem.OnClick(func(ctx *application.Context) {
+				log.Printf("切换到音乐库：%s", libName)
+				// TODO: 实现切换音乐库功能
+			})
+			libItems = append(libItems, libItem)
+		}
+
+		// 如果没有音乐库，显示提示
+		if len(libItems) == 0 {
+			noLibItem := application.NewMenuItem("暂无音乐库")
+			noLibItem.SetEnabled(false)
+			libItems = append(libItems, noLibItem)
+		}
+
+		// 组装音乐库菜单
+		musicLibMenuItems := append([]*application.MenuItem{}, libItems...)
+		musicLibMenuItems = append(musicLibMenuItems, application.NewMenuItemSeparator())
+		musicLibMenuItems = append(musicLibMenuItems, refreshLibItem, addLibItem, renameLibItem)
+
+		if len(musicLibMenuItems) > 0 {
+			musicLibMenu = application.NewMenuFromItems(musicLibMenuItems[0], musicLibMenuItems[1:]...)
+		} else {
+			musicLibMenu = application.NewMenu()
+		}
+		
+		// 更新音乐库子菜单
+		musicLibItem = application.NewSubmenu("音乐库", musicLibMenu)
+		
+		// 重新创建并设置托盘菜单
+		menu = application.NewMenuFromItems(
+			playPauseItem,
+			prevItem,
+			nextItem,
+			application.NewMenuItemSeparator(),
+			browseItem,
+			playModeItem,
+			musicLibItem,
+			downloadItem,
+			wakeItem,
+			launchItem,
+			settingItem,
+			showItem,
+			application.NewMenuItemSeparator(),
+			versionItem,
+			quitItem,
+		)
+		
+		// 重新设置托盘菜单
+		tray.SetMenu(menu)
 	}
-	musicLibItem := application.NewSubmenu("音乐库", musicLibMenu)
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
-	downloadItem := application.NewMenuItem("下载音乐")
+	downloadItem = application.NewMenuItem("下载音乐")
 	downloadItem.SetAccelerator("CmdOrCtrl+D")
 	downloadItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现下载音乐功能
@@ -215,21 +251,21 @@ func main() {
 	})
 
 	// 创建保持系统唤醒菜单项（带复选框）
-	wakeItem := application.NewMenuItemCheckbox("保持系统唤醒", true)
+	wakeItem = application.NewMenuItemCheckbox("保持系统唤醒", true)
 	wakeItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现保持唤醒功能
 		log.Println("保持系统唤醒")
 	})
 
 	// 创建开机启动菜单项（带复选框）
-	launchItem := application.NewMenuItemCheckbox("开机启动", true)
+	launchItem = application.NewMenuItemCheckbox("开机启动", true)
 	launchItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现开机启动功能
 		log.Println("开机启动")
 	})
 
 	// 创建设置菜单项（带快捷键 Cmd+S）
-	settingItem := application.NewMenuItem("设置")
+	settingItem = application.NewMenuItem("设置")
 	settingItem.SetAccelerator("CmdOrCtrl+S")
 	settingItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现设置功能
@@ -237,36 +273,17 @@ func main() {
 	})
 
 	// 创建版本信息（禁用状态）
-	versionItem := application.NewMenuItem("Version 0.5.0")
+	versionItem = application.NewMenuItem("Version 0.5.0")
 	versionItem.SetEnabled(false)
 
 	// 创建退出菜单项
-	quitItem := application.NewMenuItem("退出")
+	quitItem = application.NewMenuItem("退出")
 	quitItem.OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
 
-	// 创建菜单
-	menu := application.NewMenuFromItems(
-		playPauseItem,
-		prevItem,
-		nextItem,
-		application.NewMenuItemSeparator(),
-		browseItem,
-		playModeItem,
-		musicLibItem,
-		downloadItem,
-		wakeItem,
-		launchItem,
-		settingItem,
-		showItem,
-		application.NewMenuItemSeparator(),
-		versionItem,
-		quitItem,
-	)
-
-	// 设置菜单
-	tray.SetMenu(menu)
+	// 初始构建音乐库菜单（已包含菜单创建和设置）
+	buildMusicLibMenu()
 
 	// 交互事件
 	// 注意：macOS 上单击托盘图标会自动显示菜单
