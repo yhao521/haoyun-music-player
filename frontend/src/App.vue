@@ -2,9 +2,9 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import {
   AddToPlaylist,
-  LoadFile,
+  // LoadFile,
   Next,
-  OpenFilePicker,
+  // OpenFilePicker,
   Play,
   PlayIndex,
   Previous,
@@ -84,11 +84,11 @@ const seek = async (value: number) => {
 const openFile = async () => {
   try {
     // 注意：当前版本需要通过系统托盘或菜单栏打开文件
-    const path = await OpenFilePicker();
-    if (path && path.length > 0) {
-      await LoadFile(path[0]);
-      await Play();
-    }
+    // const path = await OpenFilePicker();
+    // if (path && path.length > 0) {
+    //   await LoadFile(path[0]);
+    //   await Play();
+    // }
   } catch (error) {
     console.error("Failed to open file:", error);
   }

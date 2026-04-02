@@ -265,7 +265,7 @@ func main() {
 
 			go func() {
 				// 刷新音乐库（重新扫描）
-				if err := musicService.RefreshLibrary(currentLib.Name); err != nil {
+				if err := musicService.RefreshLibrary(); err != nil {
 					log.Printf("刷新音乐库失败：%v", err)
 					return
 				}
