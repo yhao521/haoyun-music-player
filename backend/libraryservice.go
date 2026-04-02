@@ -1,7 +1,6 @@
-package main
+package backend
 
 import (
-	"changeme/backend"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -39,7 +38,7 @@ type TrackInfo struct {
 type LibraryManager struct {
 	ctx context.Context
 	app *application.App
-	backend.Com
+	Com
 	libraries  map[string]*MusicLibrary
 	currentLib string
 	mu         sync.RWMutex
@@ -270,6 +269,49 @@ func getTrackPaths(tracks []TrackInfo) []string {
 	return paths
 }
 
+// GetCurrentLibraryTracks 获取当前音乐库的所有音轨路径
+func (lm *LibraryManager) GetCurrentLibraryTracks() ([]string, error) {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+
+	if lib, ok := lm.libraries[lm.currentLib]; ok {
+		return getTrackPaths(lib.Tracks), nil
+	}
+	return nil, fmt.Errorf("当前音乐库不存在")
+}
+
+// // LoadLibraryToPlaylist 加载当前音乐库到播放列表
+// func (lm *LibraryManager) LoadLibraryToPlaylist(musicService *MusicController) error {
+// 	tracks, err := lm.GetCurrentLibraryTracks()
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if len(tracks) == 0 {
+// 		return fmt.Errorf("音乐库中没有音轨")
+// 	}
+
+// 	// 清空当前播放列表
+// 	musicService.ClearPlaylist()
+
+// 	// 将所有音轨添加到播放列表
+// 	for _, track := range tracks {
+// 		if err := musicService.AddToPlaylist(track); err != nil {
+// 			log.Printf("添加音轨失败 %s: %v", track, err)
+// 		}
+// 	}
+
+// 	// 播放第一首
+// 	if len(tracks) > 0 {
+// 		if err := musicService.PlayIndex(0); err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", lm.currentLib, len(tracks))
+// 	return nil
+// }
+
 // GetCurrentLibrary 获取当前音乐库
 func (lm *LibraryManager) GetCurrentLibrary() *MusicLibrary {
 	lm.mu.RLock()
@@ -324,6 +366,20 @@ func (lm *LibraryManager) RenameLibrary(oldName, newName string) error {
 
 	// 保存新文件
 	return lm.SaveLibrary(lib)
+}
+
+// SetCurrentLibrary 设置当前音乐库
+func (lm *LibraryManager) SetCurrentLibrary(name string) error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	if _, ok := lm.libraries[name]; !ok {
+		return fmt.Errorf("音乐库 %s 不存在", name)
+	}
+
+	lm.currentLib = name
+	log.Printf("切换到音乐库：%s", name)
+	return nil
 }
 
 // RefreshLibrary 刷新音乐库

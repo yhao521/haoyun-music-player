@@ -11,7 +11,7 @@ import {
   Seek,
   SetVolume,
   TogglePlayPause,
-} from "../bindings/changeme/musicservice";
+} from "../bindings/changeme/backend/musiccontroller";
 
 // 播放状态
 const isPlaying = ref(false);
