@@ -4,6 +4,7 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"runtime/debug"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -74,10 +75,30 @@ func main() {
 
 	showItem := application.NewMenuItem("显示主窗口")
 	showItem.OnClick(func(ctx *application.Context) {
-		if mainWindow != nil {
-			mainWindow.Show()
-			mainWindow.Focus()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ 显示窗口时发生 panic: %v", r)
+				debug.PrintStack()
+			}
+		}()
+
+		log.Println("=== 显示主窗口菜单项被点击 ===")
+
+		if mainWindow == nil {
+			log.Println("❌ mainWindow 为 nil")
+			return
 		}
+
+		isvisible := mainWindow.IsVisible()
+		log.Println("✓ IsVisible() = ", isvisible)
+		log.Println("准备调用 Maximise()...")
+		mainWindow.Maximise()
+		log.Println("✓ Maximise() 完成")
+
+		mainWindow.Focus()
+		log.Println("✓ Focus() 完成")
+
+		log.Println("=== 操作完成 ===")
 	})
 
 	quitItem := application.NewMenuItem("退出")
@@ -104,10 +125,29 @@ func main() {
 	// 注意：macOS 上单击托盘图标会自动显示菜单
 	// 如果需要双击显示窗口，保留 OnDoubleClick
 	tray.OnDoubleClick(func() {
-		if mainWindow != nil {
-			mainWindow.Show()
-			mainWindow.Focus()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ 双击显示窗口时发生 panic: %v", r)
+				debug.PrintStack()
+			}
+		}()
+
+		log.Println("=== 托盘双击事件 ===")
+
+		if mainWindow == nil {
+			log.Println("❌ mainWindow 为 nil")
+			return
 		}
+		isvisible := mainWindow.IsVisible()
+		log.Println("✓ IsVisible() = ", isvisible)
+
+		mainWindow.Maximise()
+		log.Println("✓ Maximise() 完成")
+
+		mainWindow.Focus()
+		log.Println("✓ Focus() 完成")
+
+		log.Println("=== 操作完成 ===")
 	})
 
 	log.Println("✓ System tray menu created")
@@ -128,8 +168,8 @@ func main() {
 	})
 
 	// 初始隐藏窗口
-	mainWindow.Hide()
-	log.Println("✓ Main window created (hidden)")
+	mainWindow.Minimise()
+	log.Println("✓ Main window created (Minimise)")
 
 	go func() {
 		for {
