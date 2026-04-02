@@ -9,22 +9,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gopxl/beep/v2"
-	"github.com/gopxl/beep/v2/effects"
-	"github.com/gopxl/beep/v2/flac"
-	"github.com/gopxl/beep/v2/speaker"
-	"github.com/gopxl/beep/v2/wav"
+	"github.com/ebitengine/oto/v3"
+	"github.com/go-audio/wav"
+	"github.com/mewkiz/flac"
 	"github.com/tosone/minimp3"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// MP3Streamer 基于 minimp3 的流式读取器
+// MP3Streamer 基于 minimp3 的流式读取器，实现 io.Reader 接口供 oto 使用
 type MP3Streamer struct {
-	pcmData []byte      // 完全解码后的 PCM 数据
-	pos     int         // 当前读取位置 (字节)
-	format  beep.Format // 音频格式
-	mu      sync.Mutex  // 并发保护
-	closed  bool        // 是否已关闭
+	pcmData    []byte     // 完全解码后的 PCM 数据
+	pos        int        // 当前读取位置 (字节)
+	sampleRate int        // 采样率
+	channels   int        // 声道数
+	mu         sync.Mutex // 并发保护
+	closed     bool       // 是否已关闭
 }
 
 // NewMP3Streamer 创建 MP3 流式读取器
@@ -41,131 +40,188 @@ func NewMP3Streamer(file *os.File) (*MP3Streamer, error) {
 		return nil, fmt.Errorf("MP3 解码失败：%w", err)
 	}
 
-	// 确定音频格式
-	var sampleRate beep.SampleRate
-	switch decoder.SampleRate {
-	case 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000:
-		sampleRate = beep.SampleRate(decoder.SampleRate)
-	default:
-		sampleRate = beep.SampleRate(44100) // 默认
-	}
-
-	numChannels := decoder.Channels
-	if numChannels < 1 || numChannels > 2 {
-		numChannels = 2
-	}
-
 	streamer := &MP3Streamer{
-		pcmData: pcmData,
-		pos:     0,
-		format: beep.Format{
-			SampleRate:  sampleRate,
-			NumChannels: numChannels,
-			Precision:   2, // 16-bit
-		},
+		pcmData:    pcmData,
+		pos:        0,
+		sampleRate: decoder.SampleRate,
+		channels:   decoder.Channels,
+		closed:     false,
 	}
 
 	return streamer, nil
 }
 
-// Stream 实现 beep.Streamer 接口
-func (m *MP3Streamer) Stream(samples [][2]float64) (n int, ok bool) {
+// Read 实现 io.Reader 接口，供 oto 使用
+func (m *MP3Streamer) Read(p []byte) (n int, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.closed || m.pos >= len(m.pcmData) {
-		return 0, false
+		return 0, io.EOF
 	}
 
-	channels := m.format.NumChannels
-	bytesPerSample := channels * 2 // 每个声道 2 字节 (16-bit)
+	n = copy(p, m.pcmData[m.pos:])
+	m.pos += n
 	
-	decodedSamples := 0
-	
-	for decodedSamples < len(samples) && m.pos+bytesPerSample <= len(m.pcmData) {
-		sample := [2]float64{}
-		
-		if channels == 1 {
-			// 单声道
-			val := int16(binary.LittleEndian.Uint16(m.pcmData[m.pos : m.pos+2]))
-			sample[0] = float64(val) / 32768.0
-			sample[1] = sample[0]
-		} else if channels >= 2 {
-			// 立体声
-			left := int16(binary.LittleEndian.Uint16(m.pcmData[m.pos : m.pos+2]))
-			right := int16(binary.LittleEndian.Uint16(m.pcmData[m.pos+2 : m.pos+4]))
-			sample[0] = float64(left) / 32768.0
-			sample[1] = float64(right) / 32768.0
-		}
-		
-		samples[decodedSamples] = sample
-		decodedSamples++
-		m.pos += bytesPerSample
+	if m.pos >= len(m.pcmData) {
+		return n, io.EOF
 	}
-
-	return decodedSamples, decodedSamples > 0
-}
-
-// Err 实现 beep.Streamer 接口
-func (m *MP3Streamer) Err() error {
-	return nil
-}
-
-// Close 实现 beep.StreamSeekCloser 接口
-func (m *MP3Streamer) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	
-	// 释放 PCM 数据占用
-	m.pcmData = nil
-	m.closed = true
-	return nil
+	return n, nil
 }
 
 // Len 返回总时长 (秒)
 func (m *MP3Streamer) Len() int {
-	bytesPerSample := int(m.format.NumChannels) * m.format.Precision
-	totalSamples := len(m.pcmData) / bytesPerSample
-	return totalSamples / int(m.format.SampleRate)
+	if m.sampleRate == 0 || m.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := m.sampleRate * m.channels * 2 // 16-bit = 2 bytes per channel
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return len(m.pcmData) / bytesPerSecond
 }
 
 // Position 返回当前位置 (秒)
 func (m *MP3Streamer) Position() int {
-	bytesPerSample := int(m.format.NumChannels) * m.format.Precision
-	currentSamples := m.pos / bytesPerSample
-	return currentSamples / int(m.format.SampleRate)
+	if m.sampleRate == 0 || m.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := m.sampleRate * m.channels * 2
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return m.pos / bytesPerSecond
 }
 
-// Seek 跳转位置
+// Seek 跳转到指定位置 (秒)
 func (m *MP3Streamer) Seek(position int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	bytesPerSample := int(m.format.NumChannels) * m.format.Precision
-	m.pos = position * int(m.format.SampleRate) * bytesPerSample
-
-	if m.pos < 0 {
-		m.pos = 0
+	
+	if position < 0 {
+		position = 0
 	}
+	
+	bytesPerSecond := m.sampleRate * m.channels * 2
+	m.pos = position * bytesPerSecond
+	
 	if m.pos > len(m.pcmData) {
 		m.pos = len(m.pcmData)
 	}
-
+	
 	return nil
 }
 
-// AudioPlayer 基于 beep 的音频播放器
+// Close 关闭流
+func (m *MP3Streamer) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	if !m.closed {
+		m.pcmData = nil
+		m.closed = true
+	}
+	return nil
+}
+
+// PcmStreamer 通用 PCM 流式读取器 (用于 WAV, FLAC 等)
+type PcmStreamer struct {
+	pcmData    []byte     // PCM 数据
+	pos        int        // 当前位置
+	sampleRate int        // 采样率
+	channels   int        // 声道数
+	mu         sync.Mutex // 并发保护
+	closed     bool       // 是否已关闭
+}
+
+// Read 实现 io.Reader 接口
+func (p *PcmStreamer) Read(data []byte) (n int, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed || p.pos >= len(p.pcmData) {
+		return 0, io.EOF
+	}
+
+	n = copy(data, p.pcmData[p.pos:])
+	p.pos += n
+	
+	if p.pos >= len(p.pcmData) {
+		return n, io.EOF
+	}
+	
+	return n, nil
+}
+
+// Len 返回总时长 (秒)
+func (p *PcmStreamer) Len() int {
+	if p.sampleRate == 0 || p.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := p.sampleRate * p.channels * 2
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return len(p.pcmData) / bytesPerSecond
+}
+
+// Position 返回当前位置 (秒)
+func (p *PcmStreamer) Position() int {
+	if p.sampleRate == 0 || p.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := p.sampleRate * p.channels * 2
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return p.pos / bytesPerSecond
+}
+
+// Seek 跳转到指定位置 (秒)
+func (p *PcmStreamer) Seek(position int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	if position < 0 {
+		position = 0
+	}
+	
+	bytesPerSecond := p.sampleRate * p.channels * 2
+	p.pos = position * bytesPerSecond
+	
+	if p.pos > len(p.pcmData) {
+		p.pos = len(p.pcmData)
+	}
+	
+	return nil
+}
+
+// Close 关闭流
+func (p *PcmStreamer) Close() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	if !p.closed {
+		p.pcmData = nil
+		p.closed = true
+	}
+	return nil
+}
+
+// AudioPlayer 音频播放器 (使用 oto + 各种解码器)
 type AudioPlayer struct {
-	mu                 sync.Mutex
-	isPlaying          bool
-	paused             bool
-	volume             float64
-	ctrl               *beep.Ctrl
-	streamer           beep.StreamSeekCloser
-	format             beep.Format
-	gain               *effects.Gain
-	app                *application.App
-	speakerInitialized bool // 添加：跟踪 speaker 是否已初始化
+	mu        sync.Mutex
+	isPlaying bool
+	paused    bool
+	volume    float64
+	otoCtx    *oto.Context       // oto 上下文
+	player    *oto.Player        // oto 播放器
+	streamer  AudioReader        // 音频流式读取器
+	stopChan  chan struct{}      // 停止信号通道
+	app       *application.App   // Wails 应用引用
+	sampleRate int               // 采样率
+	channels   int                // 声道数
 }
 
 // NewAudioPlayer 创建音频播放器实例
@@ -180,65 +236,144 @@ func (ap *AudioPlayer) SetApp(app *application.App) {
 	ap.app = app
 }
 
+// AudioReader 音频读取器接口
+type AudioReader interface {
+	io.Reader
+	io.Closer
+	Len() int
+	Position() int
+	Seek(position int) error
+}
+
 // loadAudioFile 加载音频文件
-func (ap *AudioPlayer) loadAudioFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
+func (ap *AudioPlayer) loadAudioFile(path string) (AudioReader, int, int, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, beep.Format{}, fmt.Errorf("打开文件失败：%w", err)
+		return nil, 0, 0, fmt.Errorf("打开文件失败：%w", err)
 	}
 
 	ext := filepath.Ext(path)
-	var streamer beep.StreamSeekCloser
-	var format beep.Format
 
 	switch ext {
 	case ".mp3":
-		// 使用 minimp3 解码 MP3 文件
-		streamer, err = NewMP3Streamer(file)
+		// 使用 minimp3 解码 MP3 文件 (主要方案)
+		streamer, err := NewMP3Streamer(file)
 		if err != nil {
 			file.Close()
-			return nil, beep.Format{}, err
+			return nil, 0, 0, err
 		}
-		format = streamer.(*MP3Streamer).format
-		return streamer, format, nil // minimp3 streamer 已经包含了格式信息
+		return streamer, streamer.sampleRate, streamer.channels, nil
+
 	case ".wav":
-		streamer, format, err = wav.Decode(file)
+		// 使用 go-audio/wav 解码 WAV 文件
+		decoder := wav.NewDecoder(file)
+
+		// 读取所有 PCM 数据
+		pcmBuffer, err := decoder.FullPCMBuffer()
+		if err != nil {
+			file.Close()
+			return nil, 0, 0, fmt.Errorf("WAV 解码失败：%w", err)
+		}
+
+		// 将 int 数组转换为 byte 数组 (16-bit PCM)
+		pcmData := make([]byte, len(pcmBuffer.Data)*2)
+		for i, sample := range pcmBuffer.Data {
+			binary.LittleEndian.PutUint16(pcmData[i*2:i*2+2], uint16(sample))
+		}
+
+		// 创建流式读取器
+		streamer := &PcmStreamer{
+			pcmData:    pcmData,
+			sampleRate: int(decoder.SampleRate),
+			channels:   int(decoder.NumChans),
+		}
+		return streamer, streamer.sampleRate, streamer.channels, nil
+
 	case ".flac":
-		streamer, format, err = flac.Decode(file)
+		// 使用 mewkiz/flac 解码 FLAC 文件
+		stream, err := flac.New(file)
+		if err != nil {
+			file.Close()
+			return nil, 0, 0, fmt.Errorf("FLAC 解码失败：%w", err)
+		}
+
+		// 获取音频信息
+		sampleRate := int(stream.Info.SampleRate)
+		channels := int(stream.Info.NChannels)
+
+		// 读取所有 PCM 数据 (使用 frame 包)
+		var pcmData []byte
+		for {
+			frame, err := stream.ParseNext()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, 0, 0, fmt.Errorf("FLAC 解析失败：%w", err)
+			}
+			
+			// 将帧数据转换为字节
+			for _, subFrame := range frame.Subframes {
+				for _, sample := range subFrame.Samples {
+					buf := make([]byte, 2)
+					binary.LittleEndian.PutUint16(buf, uint16(sample))
+					pcmData = append(pcmData, buf...)
+				}
+			}
+		}
+		stream.Close()
+
+		streamer := &PcmStreamer{
+			pcmData:    pcmData,
+			sampleRate: sampleRate,
+			channels:   channels,
+		}
+		return streamer, streamer.sampleRate, streamer.channels, nil
+
 	default:
 		file.Close()
-		return nil, beep.Format{}, fmt.Errorf("不支持的音频格式：%s", ext)
+		return nil, 0, 0, fmt.Errorf("不支持的音频格式：%s", ext)
 	}
-
-	if err != nil {
-		file.Close()
-		return nil, beep.Format{}, fmt.Errorf("解码音频文件失败：%w", err)
-	}
-
-	return streamer, format, nil
 }
 
-// initSpeaker 初始化扬声器 (优化版本，避免重复初始化)
-func (ap *AudioPlayer) initSpeaker(format beep.Format) error {
-	// 如果 speaker 已经初始化且格式相同，则不需要重新初始化
-	if ap.speakerInitialized && ap.format.SampleRate == format.SampleRate && ap.format.NumChannels == format.NumChannels {
-		return nil
-	}
+// initOto 初始化 oto 音频上下文
+func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
+	// 先关闭现有的播放器和上下文
+	ap.closeOto()
 
-	// 第一次初始化或格式改变时需要初始化
-	speaker.Close()
-
-	// 等待异步关闭完成
-	time.Sleep(100 * time.Millisecond)
-
-	err := speaker.Init(format.SampleRate, format.NumChannels*format.SampleRate.N(time.Second/10))
+	// 准备 oto 上下文
+	ctx, readyChan, err := oto.NewContext(&oto.NewContextOptions{
+		SampleRate:   sampleRate,
+		ChannelCount: channelCount,
+		Format:       oto.FormatSignedInt16LE,
+		BufferSize:   time.Second / 10,
+	})
 	if err != nil {
-		ap.speakerInitialized = false
-		return fmt.Errorf("初始化扬声器失败：%w", err)
+		return fmt.Errorf("初始化 oto 上下文失败：%w", err)
 	}
 
-	ap.speakerInitialized = true
+	// 等待初始化完成
+	<-readyChan
+
+	// 检查是否有错误
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("oto 上下文错误：%w", err)
+	}
+
+	ap.otoCtx = ctx
+	ap.sampleRate = sampleRate
+	ap.channels = channelCount
 	return nil
+}
+
+// closeOto 关闭 oto 资源
+func (ap *AudioPlayer) closeOto() {
+	if ap.player != nil {
+		ap.player.Close()
+		ap.player = nil
+	}
+	// oto v3 的 Context 不需要显式关闭，由底层自动管理
+	ap.otoCtx = nil
 }
 
 // Play 播放音频文件
@@ -247,50 +382,95 @@ func (ap *AudioPlayer) Play(path string) error {
 	defer ap.mu.Unlock()
 
 	// 停止当前播放并清理资源
-	if ap.ctrl != nil {
-		speaker.Clear()
-		if ap.streamer != nil {
-			ap.streamer.Close()
-		}
-		ap.ctrl = nil
-		ap.streamer = nil
-	}
+	ap.stopPlayback()
 
 	// 加载音频文件
-	streamer, format, err := ap.loadAudioFile(path)
+	reader, sampleRate, channels, err := ap.loadAudioFile(path)
 	if err != nil {
 		return err
 	}
 
-	// 初始化扬声器 (如果格式相同则跳过)
-	if err := ap.initSpeaker(format); err != nil {
-		streamer.Close()
+	// 初始化 oto
+	if err := ap.initOto(sampleRate, channels); err != nil {
+		reader.Close()
 		return err
 	}
 
-	// 创建增益控制器
-	gain := &effects.Gain{
-		Streamer: streamer,
-		Gain:     ap.volume - 1,
-	}
-	ap.gain = gain
+	// 创建 oto player
+	ap.player = ap.otoCtx.NewPlayer(reader)
+	
+	// 保存流引用
+	ap.streamer = reader
 
-	// 创建播放控制器
-	ctrl := &beep.Ctrl{
-		Streamer: gain,
-		Paused:   false,
-	}
-	ap.ctrl = ctrl
-	ap.streamer = streamer
-	ap.format = format
+	// 启动播放
+	ap.player.Play()
 
-	// 开始播放
-	speaker.Play(ctrl)
+	// 启动监控协程
+	ap.stopChan = make(chan struct{}, 1)
+	go ap.monitorPlayback()
 
 	ap.isPlaying = true
 	ap.paused = false
 
+	if ap.app != nil {
+		ap.app.Event.Emit("playbackStateChanged", "playing")
+	}
+
 	return nil
+}
+
+// monitorPlayback 监控播放状态
+func (ap *AudioPlayer) monitorPlayback() {
+	for {
+		select {
+		case <-ap.stopChan:
+			return
+		default:
+		}
+
+		// 检查是否暂停
+		ap.mu.Lock()
+		if ap.paused {
+			ap.mu.Unlock()
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		ap.mu.Unlock()
+
+		// 检查播放是否完成 (oto v3 使用 IsPlaying())
+		if ap.player != nil && !ap.player.IsPlaying() {
+			ap.mu.Lock()
+			ap.isPlaying = false
+			ap.mu.Unlock()
+
+			if ap.app != nil {
+				ap.app.Event.Emit("playbackStateChanged", "stopped")
+			}
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// stopPlayback 停止播放并清理资源
+func (ap *AudioPlayer) stopPlayback() {
+	if ap.stopChan != nil {
+		select {
+		case ap.stopChan <- struct{}{}:
+		default:
+		}
+	}
+
+	ap.closeOto()
+
+	if ap.streamer != nil {
+		ap.streamer.Close()
+		ap.streamer = nil
+	}
+
+	ap.isPlaying = false
+	ap.paused = false
 }
 
 // Pause 暂停播放
@@ -298,11 +478,10 @@ func (ap *AudioPlayer) Pause() error {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	if ap.ctrl == nil {
+	if ap.streamer == nil {
 		return fmt.Errorf("当前没有播放的音乐")
 	}
 
-	ap.ctrl.Paused = true
 	ap.paused = true
 	ap.isPlaying = false
 
@@ -318,17 +497,7 @@ func (ap *AudioPlayer) Stop() error {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	if ap.ctrl != nil {
-		speaker.Clear() // 完全清理 speaker 状态
-		if ap.streamer != nil {
-			ap.streamer.Close()
-		}
-		ap.ctrl = nil
-		ap.streamer = nil
-	}
-
-	ap.isPlaying = false
-	ap.paused = false
+	ap.stopPlayback()
 
 	if ap.app != nil {
 		ap.app.Event.Emit("playbackStateChanged", "stopped")
@@ -348,8 +517,8 @@ func (ap *AudioPlayer) SetVolume(volume float64) error {
 
 	ap.volume = volume
 
-	if ap.gain != nil {
-		ap.gain.Gain = volume - 1 // Gain is multiplied by 1+Gain
+	if ap.player != nil {
+		ap.player.SetVolume(volume)
 	}
 
 	return nil
@@ -367,11 +536,24 @@ func (ap *AudioPlayer) Seek(position float64) error {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	if ap.ctrl == nil {
+	if ap.streamer == nil {
 		return fmt.Errorf("当前没有播放的音乐")
 	}
 
-	// TODO: 实现 seek 功能，需要计算 sample position
+	// 调用 MP3Streamer 的 Seek 方法
+	err := ap.streamer.Seek(int(position))
+	if err != nil {
+		return err
+	}
+
+	// 重置 oto player 以从新位置开始播放
+	if ap.player != nil {
+		ap.player.Reset()
+		go func() {
+			ap.player.Play()
+		}()
+	}
+
 	return nil
 }
 
@@ -384,8 +566,8 @@ func (ap *AudioPlayer) GetDuration() (float64, error) {
 		return 0, fmt.Errorf("当前没有加载音乐")
 	}
 
-	// TODO: 实现时长获取
-	return 0, nil
+	// 调用 MP3Streamer 的 Len 方法
+	return float64(ap.streamer.Len()), nil
 }
 
 // GetPosition 获取当前播放位置 (秒)
@@ -393,12 +575,12 @@ func (ap *AudioPlayer) GetPosition() (float64, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	if ap.ctrl == nil {
+	if ap.streamer == nil {
 		return 0, fmt.Errorf("当前没有播放的音乐")
 	}
 
-	// TODO: 实现位置获取
-	return 0, nil
+	// 调用 MP3Streamer 的 Position 方法
+	return float64(ap.streamer.Position()), nil
 }
 
 // IsPlaying 检查是否正在播放
@@ -413,13 +595,12 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 	ap.mu.Lock()
 	defer ap.mu.Unlock()
 
-	if ap.ctrl == nil {
+	if ap.streamer == nil {
 		return false, fmt.Errorf("当前没有播放的音乐")
 	}
 
-	ap.ctrl.Paused = !ap.ctrl.Paused
-	ap.paused = ap.ctrl.Paused
-	ap.isPlaying = !ap.ctrl.Paused
+	ap.paused = !ap.paused
+	ap.isPlaying = !ap.paused
 
 	state := "playing"
 	if ap.paused {

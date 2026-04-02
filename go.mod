@@ -3,7 +3,9 @@ module github.com/yhao521/wailsMusicPlay
 go 1.25
 
 require (
-	github.com/gopxl/beep/v2 v2.1.1
+	github.com/ebitengine/oto/v3 v3.4.0
+	github.com/go-audio/wav v1.1.0
+	github.com/mewkiz/flac v1.0.13
 	github.com/tosone/minimp3 v1.0.2
 	github.com/vrischmann/userdir v0.0.0-20151206171402-20f291cebd68
 	github.com/wailsapp/wails/v2 v2.12.0
@@ -19,9 +21,10 @@ require (
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
-	github.com/ebitengine/oto/v3 v3.3.2 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/go-audio/audio v1.0.0 // indirect
+	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.7.0 // indirect
 	github.com/go-git/go-git/v5 v5.16.4 // indirect
@@ -40,11 +43,10 @@ require (
 	github.com/lmittmann/tint v1.1.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mewkiz/flac v1.0.12 // indirect
-	github.com/mewkiz/pkg v0.0.0-20230226050401-4010bf0fec14 // indirect
+	github.com/mewkiz/pkg v0.0.0-20250417130911-3f050ff8c56d // indirect
+	github.com/mewpkg/term v0.0.0-20241026122259-37a80af23985 // indirect
 	github.com/pjbgf/sha1cd v0.5.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.52.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
