@@ -30,6 +30,7 @@ func init() {
 	application.RegisterEvent[map[string]interface{}]("playbackProgress")
 	application.RegisterEvent[[]string]("playlistUpdated")
 	application.RegisterEvent[string]("currentTrackChanged")
+	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
 }
 
 func main() {
@@ -145,12 +146,12 @@ func main() {
 		} else {
 			log.Println("准备调用 Show()...")
 			mainWindow.Show()
-		}
-		log.Println("准备调用 Maximise()...")
-		mainWindow.Maximise()
-		log.Println("✓ Maximise() 完成")
+			log.Println("准备调用 Maximise()...")
+			// mainWindow.Maximise()
+			log.Println("✓ Maximise() 完成")
 
-		mainWindow.Focus()
+			mainWindow.Focus()
+		}
 
 		go func() {
 			if mainWindow != nil && mainWindow.IsVisible() {
@@ -550,10 +551,10 @@ func main() {
 	})
 
 	// 初始隐藏窗口
-	// mainWindow.Hide()
-	// log.Println("✓ Main window created (Hide)")
-	mainWindow.Minimise()
-	log.Println("✓ Main window created (Minimise)")
+	mainWindow.Hide()
+	log.Println("✓ Main window created (Hide)")
+	// mainWindow.Minimise()
+	// log.Println("✓ Main window created (Minimise)")
 
 	// 创建浏览歌曲窗口（用于展示音乐库和歌曲列表）
 	var browseWindow *application.WebviewWindow
@@ -571,7 +572,7 @@ func main() {
 	})
 
 	// 初始隐藏浏览窗口
-	browseWindow.Minimise()
+	browseWindow.Hide()
 	log.Println("✓ Browse window created (Minimise)")
 
 	// 定时向 browseWindow 发送测试消息（用于调试）
@@ -600,9 +601,17 @@ func main() {
 			return
 		}
 
-		// 显示并最大化浏览窗口
-		browseWindow.Maximise()
-		browseWindow.Focus()
+		isvisible := browseWindow.IsVisible()
+		log.Println("✓ IsVisible() = ", isvisible)
+		if isvisible {
+			log.Println("准备调用 Hide()...")
+			browseWindow.Hide()
+		} else {
+			log.Println("准备调用 Show()...")
+			// 显示并最大化浏览窗口
+			browseWindow.Show()
+			browseWindow.Focus()
+		}
 
 		go func() {
 			if browseWindow != nil && browseWindow.IsVisible() {
