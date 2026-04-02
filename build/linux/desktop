@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A haoyun-music-player application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/haoyun-music-player %u
+Terminal=false
+Type=Application
+Icon=haoyun-music-player
+Categories=Utility;
+StartupWMClass=haoyun-music-player
+
+ 
