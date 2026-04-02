@@ -8,10 +8,10 @@ import {
   Play,
   PlayIndex,
   Previous,
-  Seek,
+  // Seek,
   SetVolume,
   TogglePlayPause,
-} from "../bindings/changeme/backend/musiccontroller";
+} from "../bindings/changeme/backend/musicservice";
 
 // 播放状态
 const isPlaying = ref(false);
@@ -74,7 +74,7 @@ const setVolume = async (value: number) => {
 // 跳转进度
 const seek = async (value: number) => {
   try {
-    await Seek(value);
+    // await Seek(value);
   } catch (error) {
     console.error("Failed to seek:", error);
   }

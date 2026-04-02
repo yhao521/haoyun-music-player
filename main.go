@@ -29,15 +29,14 @@ func init() {
 }
 
 func main() {
-	musicManager := backend.NewMusicManager()
-	libraryManager := backend.NewLibraryManager()
+	// 创建统一的音乐服务（MVC Model 层）
+	musicService := backend.NewMusicService()
 
 	app := application.New(application.Options{
 		Name:        "Haoyun Music Player",
 		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
-			application.NewService(musicManager),
-			application.NewService(libraryManager),
+			application.NewService(musicService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -47,12 +46,11 @@ func main() {
 		},
 	})
 
-	musicManager.SetApp(app)
-	libraryManager.SetApp(app)
+	musicService.SetApp(app)
 
-	// 初始化音乐库管理器
-	if err := libraryManager.Init(); err != nil {
-		log.Printf("初始化音乐库管理器失败：%v", err)
+	// 初始化音乐服务
+	if err := musicService.Init(); err != nil {
+		log.Printf("初始化音乐服务失败：%v", err)
 	}
 
 	// 声明窗口变量（先初始化为 nil）
@@ -76,17 +74,44 @@ func main() {
 	// 创建基本播放控制菜单项
 	playPauseItem = application.NewMenuItem("播放")
 	playPauseItem.OnClick(func(ctx *application.Context) {
-		musicManager.TogglePlayPause()
+		// 检查当前是否有播放列表
+		playlist, _ := musicService.GetPlaylist()
+		
+		if len(playlist) == 0 {
+			// 如果播放列表为空，从当前音乐库加载
+			log.Println("播放列表为空，从当前音乐库加载")
+			
+			currentLib := musicService.GetCurrentLibrary()
+			if currentLib == nil {
+				log.Println("当前没有音乐库，请先添加音乐库")
+				return
+			}
+			
+			// 从 JSON 文件加载音乐库到播放列表并播放
+			if err := musicService.LoadCurrentLibrary(); err != nil {
+				log.Printf("加载音乐库失败：%v", err)
+				return
+			}
+			
+			log.Printf("✓ 已从音乐库 %s 加载并播放", currentLib.Name)
+		} else {
+			// 如果已有播放列表，直接切换播放/暂停
+			musicService.TogglePlayPause()
+		}
 	})
 
 	prevItem = application.NewMenuItem("上一曲")
 	prevItem.OnClick(func(ctx *application.Context) {
-		musicManager.Previous()
+		if err := musicService.Previous(); err != nil {
+			log.Printf("切换上一曲失败：%v", err)
+		}
 	})
 
 	nextItem = application.NewMenuItem("下一曲")
 	nextItem.OnClick(func(ctx *application.Context) {
-		musicManager.Next()
+		if err := musicService.Next(); err != nil {
+			log.Printf("切换下一曲失败：%v", err)
+		}
 	})
 
 	showItem = application.NewMenuItem("显示主窗口")
@@ -125,11 +150,43 @@ func main() {
 		log.Println("浏览歌曲")
 	})
 
-	// 创建播放模式子菜单
+	// 创建播放模式子菜单（使用复选框显示当前模式）
+	var playModeOrder, playModeLoop, playModeRandom *application.MenuItem
+	
+	playModeOrder = application.NewMenuItemCheckbox("顺序播放", true)
+	playModeOrder.OnClick(func(ctx *application.Context) {
+		musicService.SetPlayMode("order")
+		log.Println("✓ 切换到顺序播放")
+		// 更新复选框状态
+		playModeOrder.SetChecked(true)
+		playModeLoop.SetChecked(false)
+		playModeRandom.SetChecked(false)
+	})
+
+	playModeLoop = application.NewMenuItemCheckbox("循环播放", true)
+	playModeLoop.OnClick(func(ctx *application.Context) {
+		musicService.SetPlayMode("loop")
+		log.Println("✓ 切换到循环播放")
+		// 更新复选框状态
+		playModeOrder.SetChecked(false)
+		playModeLoop.SetChecked(true)
+		playModeRandom.SetChecked(false)
+	})
+
+	playModeRandom = application.NewMenuItemCheckbox("随机播放", true)
+	playModeRandom.OnClick(func(ctx *application.Context) {
+		musicService.SetPlayMode("random")
+		log.Println("✓ 切换到随机播放")
+		// 更新复选框状态
+		playModeOrder.SetChecked(false)
+		playModeLoop.SetChecked(false)
+		playModeRandom.SetChecked(true)
+	})
+
 	playModeMenu := application.NewMenuFromItems(
-		application.NewMenuItem("顺序播放"),
-		application.NewMenuItem("循环播放"),
-		application.NewMenuItem("随机播放"),
+		playModeOrder,
+		playModeLoop,
+		playModeRandom,
 	)
 	playModeItem = application.NewSubmenu("播放模式", playModeMenu)
 
@@ -141,13 +198,13 @@ func main() {
 		addLibItem.OnClick(func(ctx *application.Context) {
 			log.Println("添加新音乐库")
 
-			if libraryManager == nil || musicManager == nil {
-				log.Println("❌ libraryManager 或 musicManager 为 nil")
+			if musicService == nil {
+				log.Println("❌ musicService 为 nil")
 				return
 			}
 
 			// 添加音乐库
-			if err := libraryManager.AddLibrary(); err != nil {
+			if err := musicService.AddLibrary(); err != nil {
 				log.Printf("添加音乐库失败：%v", err)
 				return
 			}
@@ -159,7 +216,7 @@ func main() {
 			// 延迟一点时间，等待扫描完成后加载播放
 			go func() {
 				time.Sleep(2 * time.Second) // 等待扫描完成
-				tracks, err := libraryManager.GetCurrentLibraryTracks()
+				tracks, err := musicService.GetCurrentLibraryTracks()
 				if err != nil {
 					// return err
 					log.Printf("添加音轨失败  %v", err)
@@ -170,26 +227,23 @@ func main() {
 				}
 
 				// 清空当前播放列表
-				musicManager.ClearPlaylist()
+				musicService.ClearPlaylist()
 
 				// 将所有音轨添加到播放列表
 				for _, track := range tracks {
-					if err := musicManager.AddToPlaylist(track); err != nil {
+					if err := musicService.AddToPlaylist(track); err != nil {
 						log.Printf("添加音轨失败 %s: %v", track, err)
 					}
 				}
 
 				// 播放第一首
 				if len(tracks) > 0 {
-					if err := musicManager.PlayIndex(0); err != nil {
+					if err := musicService.PlayIndex(0); err != nil {
 						log.Printf("播放失败: %v", err)
 					}
 				}
 
-				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", libraryManager.GetCurrentLibrary().Name, len(tracks))
-				// if err := libraryManager.LoadLibraryToPlaylist(musicManager); err != nil {
-				// 	log.Printf("加载音乐库失败：%v", err)
-				// }
+				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", musicService.GetCurrentLibrary().Name, len(tracks))
 			}()
 		})
 
@@ -199,11 +253,11 @@ func main() {
 		refreshLibItem.OnClick(func(ctx *application.Context) {
 			log.Println("刷新当前音乐库")
 
-			if libraryManager == nil || musicManager == nil {
+			if musicService == nil {
 				return
 			}
 
-			currentLib := libraryManager.GetCurrentLibrary()
+			currentLib := musicService.GetCurrentLibrary()
 			if currentLib == nil {
 				log.Println("当前没有音乐库")
 				return
@@ -211,13 +265,13 @@ func main() {
 
 			go func() {
 				// 刷新音乐库（重新扫描）
-				if err := libraryManager.RefreshLibrary(currentLib.Name); err != nil {
+				if err := musicService.RefreshLibrary(currentLib.Name); err != nil {
 					log.Printf("刷新音乐库失败：%v", err)
 					return
 				}
 
 				// 刷新成功后，重新加载到播放列表
-				tracks, err := libraryManager.GetCurrentLibraryTracks()
+				tracks, err := musicService.GetCurrentLibraryTracks()
 				if err != nil {
 					// return err
 					log.Printf("添加音轨失败  %v", err)
@@ -228,26 +282,23 @@ func main() {
 				}
 
 				// 清空当前播放列表
-				musicManager.ClearPlaylist()
+				musicService.ClearPlaylist()
 
 				// 将所有音轨添加到播放列表
 				for _, track := range tracks {
-					if err := musicManager.AddToPlaylist(track); err != nil {
+					if err := musicService.AddToPlaylist(track); err != nil {
 						log.Printf("添加音轨失败 %s: %v", track, err)
 					}
 				}
 
 				// 播放第一首
 				if len(tracks) > 0 {
-					if err := musicManager.PlayIndex(0); err != nil {
+					if err := musicService.PlayIndex(0); err != nil {
 						log.Printf("播放失败: %v", err)
 					}
 				}
 
-				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", libraryManager.GetCurrentLibrary().Name, len(tracks))
-				// if err := libraryManager.LoadLibraryToPlaylist(musicManager); err != nil {
-				// 	log.Printf("加载音乐库失败：%v", err)
-				// }
+				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", musicService.GetCurrentLibrary().Name, len(tracks))
 			}()
 		})
 
@@ -260,26 +311,26 @@ func main() {
 
 		// 动态生成音乐库列表菜单
 		var libItems []*application.MenuItem
-		libraries := libraryManager.GetLibraries()
+		libraries := musicService.GetLibraries()
 		for _, libName := range libraries {
 			libItem := application.NewMenuItemCheckbox(libName, true)
 			libItem.OnClick(func(ctx *application.Context) {
 				log.Printf("切换到音乐库：%s", libName)
 
-				if libraryManager == nil || musicManager == nil {
-					log.Println("❌ libraryManager 或 musicManager 为 nil")
+				if musicService == nil {
+					log.Println("❌ musicService 为 nil")
 					return
 				}
 
 				// 切换当前音乐库
-				if err := libraryManager.SetCurrentLibrary(libName); err != nil {
+				if err := musicService.SetCurrentLibrary(libName); err != nil {
 					log.Printf("切换音乐库失败：%v", err)
 					return
 				}
 
 				// 加载音乐库到播放列表并开始播放
 				go func() {
-					tracks, err := libraryManager.GetCurrentLibraryTracks()
+					tracks, err := musicService.GetCurrentLibraryTracks()
 					if err != nil {
 						// return err
 						log.Printf("添加音轨失败  %v", err)
@@ -290,27 +341,23 @@ func main() {
 					}
 
 					// 清空当前播放列表
-					musicManager.ClearPlaylist()
+					musicService.ClearPlaylist()
 
 					// 将所有音轨添加到播放列表
 					for _, track := range tracks {
-						if err := musicManager.AddToPlaylist(track); err != nil {
+						if err := musicService.AddToPlaylist(track); err != nil {
 							log.Printf("添加音轨失败 %s: %v", track, err)
 						}
 					}
 
 					// 播放第一首
 					if len(tracks) > 0 {
-						if err := musicManager.PlayIndex(0); err != nil {
+						if err := musicService.PlayIndex(0); err != nil {
 							log.Printf("播放失败: %v", err)
 						}
 					}
 
-					log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", libraryManager.GetCurrentLibrary().Name, len(tracks))
-					// if err := libraryManager.LoadLibraryToPlaylist(musicManager); err != nil {
-					// 	log.Printf("加载音乐库失败：%v", err)
-					// 	return
-					// }
+					log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", musicService.GetCurrentLibrary().Name, len(tracks))
 					log.Printf("✓ 音乐库 %s 加载完成，开始播放", libName)
 				}()
 			})
@@ -469,5 +516,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	musicManager.Shutdown()
+	musicService.Shutdown()
 }
