@@ -46,9 +46,31 @@ func (m *MusicService) OpenFilePicker() ([]string, error) {
 		return nil, fmt.Errorf("app not initialized")
 	}
 	
-	// 注意：这个函数需要在有上下文的情况下调用，这里提供一个简化的实现
-	// 实际使用中应该通过菜单或前端调用来打开文件选择器
-	return nil, fmt.Errorf("use menu to open files")
+	// 创建文件对话框选项
+	options := &application.OpenFileDialogOptions{
+		CanChooseFiles:          true,
+		CanChooseDirectories:    false,
+		AllowsMultipleSelection: true,
+		Title:                   "Select Music Files",
+		Filters: []application.FileFilter{
+			{DisplayName: "Audio Files", Pattern: "*.mp3,*.wav,*.flac,*.aac,*.ogg,*.wma"},
+			{DisplayName: "All Files", Pattern: "*.*"},
+		},
+	}
+	
+	// 打开文件选择对话框
+	dialog := m.app.Dialog.OpenFileWithOptions(options)
+	selectedFiles, err := dialog.PromptForMultipleSelection()
+	if err != nil {
+		return nil, fmt.Errorf("file dialog error: %w", err)
+	}
+	
+	// 如果没有选择文件，返回空数组
+	if selectedFiles == nil {
+		return []string{}, nil
+	}
+	
+	return selectedFiles, nil
 }
 
 // LoadFile 加载音乐文件（模拟实现）

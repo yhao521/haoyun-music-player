@@ -57,18 +57,18 @@ func main() {
 	tray.SetIcon(trayIcon)
 	tray.SetTooltip("Haoyun Music Player")
 
-	// 创建菜单项
-	playPauseItem := application.NewMenuItem("播放/暂停")
+	// 创建基本播放控制菜单项
+	playPauseItem := application.NewMenuItem("播放")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		musicService.TogglePlayPause()
 	})
 
-	prevItem := application.NewMenuItem("上一首")
+	prevItem := application.NewMenuItem("上一曲")
 	prevItem.OnClick(func(ctx *application.Context) {
 		musicService.Previous()
 	})
 
-	nextItem := application.NewMenuItem("下一首")
+	nextItem := application.NewMenuItem("下一曲")
 	nextItem.OnClick(func(ctx *application.Context) {
 		musicService.Next()
 	})
@@ -101,6 +101,67 @@ func main() {
 		log.Println("=== 操作完成 ===")
 	})
 
+	// 创建浏览歌曲菜单项（带快捷键 Cmd+F）
+	browseItem := application.NewMenuItem("浏览歌曲")
+	browseItem.SetAccelerator("CmdOrCtrl+F")
+	browseItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现浏览歌曲功能
+		log.Println("浏览歌曲")
+	})
+
+	// 创建播放模式子菜单
+	playModeMenu := application.NewMenuFromItems(
+		application.NewMenuItem("顺序播放"),
+		application.NewMenuItem("循环播放"),
+		application.NewMenuItem("随机播放"),
+	)
+	playModeItem := application.NewSubmenu("播放模式", playModeMenu)
+
+	// 创建音乐库子菜单
+	musicLibMenu := application.NewMenuFromItems(
+		application.NewMenuItem("✓ music"),
+		application.NewMenuItemSeparator(),
+		application.NewMenuItem("刷新当前音乐库"),
+		application.NewMenuItem("添加新音乐库"),
+		application.NewMenuItem("重命名当前音乐库"),
+	)
+	musicLibItem := application.NewSubmenu("音乐库", musicLibMenu)
+
+	// 创建下载音乐菜单项（带快捷键 Cmd+D）
+	downloadItem := application.NewMenuItem("下载音乐")
+	downloadItem.SetAccelerator("CmdOrCtrl+D")
+	downloadItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现下载音乐功能
+		log.Println("下载音乐")
+	})
+
+	// 创建保持系统唤醒菜单项（带复选框）
+	wakeItem := application.NewMenuItemCheckbox("保持系统唤醒", true)
+	wakeItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现保持唤醒功能
+		log.Println("保持系统唤醒")
+	})
+
+	// 创建开机启动菜单项（带复选框）
+	launchItem := application.NewMenuItemCheckbox("开机启动", true)
+	launchItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现开机启动功能
+		log.Println("开机启动")
+	})
+
+	// 创建设置菜单项（带快捷键 Cmd+S）
+	settingItem := application.NewMenuItem("设置")
+	settingItem.SetAccelerator("CmdOrCtrl+S")
+	settingItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现设置功能
+		log.Println("设置")
+	})
+
+	// 创建版本信息（禁用状态）
+	versionItem := application.NewMenuItem("Version 0.5.0")
+	versionItem.SetEnabled(false)
+
+	// 创建退出菜单项
 	quitItem := application.NewMenuItem("退出")
 	quitItem.OnClick(func(ctx *application.Context) {
 		app.Quit()
@@ -109,12 +170,19 @@ func main() {
 	// 创建菜单
 	menu := application.NewMenuFromItems(
 		playPauseItem,
-		application.NewMenuItemSeparator(),
 		prevItem,
 		nextItem,
 		application.NewMenuItemSeparator(),
+		browseItem,
+		playModeItem,
+		musicLibItem,
+		downloadItem,
+		wakeItem,
+		launchItem,
+		settingItem,
 		showItem,
 		application.NewMenuItemSeparator(),
+		versionItem,
 		quitItem,
 	)
 
