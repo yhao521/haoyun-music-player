@@ -559,6 +559,48 @@ func main() {
 	mainWindow.Minimise()
 	log.Println("✓ Main window created (Minimise)")
 
+	// 创建浏览歌曲窗口（用于展示音乐库和歌曲列表）
+	var browseWindow *application.WebviewWindow
+	browseWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "浏览歌曲 - Haoyun Music Player",
+		Mac: application.MacWindow{
+			InvisibleTitleBarHeight: 50,
+			Backdrop:                application.MacBackdropTranslucent,
+			TitleBar:                application.MacTitleBarHiddenInset,
+		},
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "#/browse",
+		Width:            900,
+		Height:           700,
+	})
+	
+	// 初始隐藏浏览窗口
+	browseWindow.Minimise()
+	log.Println("✓ Browse window created (Minimise)")
+
+	// 修改浏览歌曲菜单项的点击事件
+	browseItem.OnClick(func(ctx *application.Context) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ 打开浏览窗口时发生 panic: %v", r)
+				debug.PrintStack()
+			}
+		}()
+
+		log.Println("=== 打开浏览歌曲窗口 ===")
+
+		if browseWindow == nil {
+			log.Println("❌ browseWindow 为 nil")
+			return
+		}
+
+		// 显示并最大化浏览窗口
+		browseWindow.Maximise()
+		browseWindow.Focus()
+		
+		log.Println("✓ 浏览窗口已打开")
+	})
+
 	go func() {
 		for {
 			now := time.Now().Format(time.RFC1123)
