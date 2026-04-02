@@ -71,7 +71,7 @@ func main() {
 	tray.SetTooltip("Haoyun Music Player")
 
 	// 先声明所有菜单项变量（以便在闭包中使用）
-	var playPauseItem, prevItem, nextItem, showItem, browseItem *application.MenuItem
+	var playPauseItem, prevItem, nextItem, mainWindowItem, browseItem *application.MenuItem
 	var downloadItem, wakeItem, launchItem, settingItem, versionItem, quitItem *application.MenuItem
 	var playModeItem, musicLibItem *application.MenuItem
 	var nowPlayingItem *application.MenuItem // 新增：正在播放的音乐名称
@@ -121,8 +121,8 @@ func main() {
 		}
 	})
 
-	showItem = application.NewMenuItem("显示主窗口")
-	showItem.OnClick(func(ctx *application.Context) {
+	mainWindowItem = application.NewMenuItem("显示主窗口")
+	mainWindowItem.OnClick(func(ctx *application.Context) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("❌ 显示窗口时发生 panic: %v", r)
@@ -151,6 +151,18 @@ func main() {
 		log.Println("✓ Maximise() 完成")
 
 		mainWindow.Focus()
+
+		go func() {
+			if mainWindow != nil && mainWindow.IsVisible() {
+				app.Event.Emit("windowUrl", map[string]interface{}{
+					"type":       "test_message",
+					"message":    "后端定时测试消息",
+					"serverTime": time.Now().Format(time.RFC1123),
+					"url":        "#/main",
+				})
+				log.Println("📤 [测试消息] 已发送到 mainWindow")
+			}
+		}()
 		log.Println("✓ Focus() 完成")
 
 		log.Println("=== 操作完成 ===")
@@ -160,10 +172,6 @@ func main() {
 	// 注意：OnClick 回调会在后面窗口创建后重新定义
 	browseItem = application.NewMenuItem("浏览歌曲")
 	browseItem.SetAccelerator("CmdOrCtrl+F")
-	browseItem.OnClick(func(ctx *application.Context) {
-		// TODO: 实现浏览歌曲功能
-		log.Println("浏览歌曲")
-	})
 
 	// 创建播放模式子菜单（使用复选框显示当前模式）
 	var playModeOrder, playModeLoop, playModeRandom *application.MenuItem
@@ -422,7 +430,7 @@ func main() {
 			wakeItem,
 			launchItem,
 			settingItem,
-			showItem,
+			mainWindowItem,
 			application.NewMenuItemSeparator(),
 			versionItem,
 			quitItem,
@@ -523,31 +531,6 @@ func main() {
 	// 交互事件
 	// 注意：macOS 上单击托盘图标会自动显示菜单
 	// 如果需要双击显示窗口，保留 OnDoubleClick
-	// tray.OnDoubleClick(func() {
-	// 	defer func() {
-	// 		if r := recover(); r != nil {
-	// 			log.Printf("❌ 双击显示窗口时发生 panic: %v", r)
-	// 			debug.PrintStack()
-	// 		}
-	// 	}()
-
-	// 	log.Println("=== 托盘双击事件 ===")
-
-	// 	if mainWindow == nil {
-	// 		log.Println("❌ mainWindow 为 nil")
-	// 		return
-	// 	}
-	// 	isvisible := mainWindow.IsVisible()
-	// 	log.Println("✓ IsVisible() = ", isvisible)
-
-	// 	mainWindow.Maximise()
-	// 	log.Println("✓ Maximise() 完成")
-
-	// 	mainWindow.Focus()
-	// 	log.Println("✓ Focus() 完成")
-
-	// 	log.Println("=== 操作完成 ===")
-	// })
 
 	log.Println("✓ System tray menu created")
 
@@ -591,8 +574,18 @@ func main() {
 	browseWindow.Minimise()
 	log.Println("✓ Browse window created (Minimise)")
 
+	// 定时向 browseWindow 发送测试消息（用于调试）
+	go func() {
+		time.Sleep(2 * time.Second) // 等待 2 秒后发送第一条测试消息
+		// for {
+		// 	time.Sleep(5 * time.Second) // 每 5 秒发送一次
+		// }
+	}()
+
 	// 重新设置浏览歌曲菜单项的点击事件（在 browseWindow 初始化之后）
 	browseItem.OnClick(func(ctx *application.Context) {
+		// TODO: 实现浏览歌曲功能
+		log.Println("浏览歌曲")
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("❌ 打开浏览窗口时发生 panic: %v", r)
@@ -610,6 +603,18 @@ func main() {
 		// 显示并最大化浏览窗口
 		browseWindow.Maximise()
 		browseWindow.Focus()
+
+		go func() {
+			if browseWindow != nil && browseWindow.IsVisible() {
+				app.Event.Emit("windowUrl", map[string]interface{}{
+					"type":       "test_message",
+					"message":    "后端定时测试消息",
+					"serverTime": time.Now().Format(time.RFC1123),
+					"url":        "#/browse",
+				})
+				log.Println("📤 [测试消息] 已发送到 browseWindow")
+			}
+		}()
 
 		log.Println("✓ 浏览窗口已打开")
 	})

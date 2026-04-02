@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { Events } from "@wailsio/runtime";
 // import {
 //   AddToPlaylist,
 //   // LoadFile,
@@ -112,29 +113,26 @@ const playIndex = async (index: number) => {
   }
 };
 
-// 监听事件 - Wails v3 使用 window.runtime.EventsOn
+// 监听事件 - Wails v3 使用 Events.On
 const listenToEvents = () => {
   // 监听播放状态变化
-  window.runtime.EventsOn("playbackStateChanged", (state: string) => {
+  Events.On("playbackStateChanged", (state: any) => {
     isPlaying.value = state === "playing";
   });
 
   // 监听播放进度
-  window.runtime.EventsOn(
-    "playbackProgress",
-    (data: { position: number; duration: number }) => {
-      currentPosition.value = data.position;
-      duration.value = data.duration;
-    },
-  );
+  Events.On("playbackProgress", (data: any) => {
+    currentPosition.value = data.position;
+    duration.value = data.duration;
+  });
 
   // 监听播放列表更新
-  window.runtime.EventsOn("playlistUpdated", (tracks: string[]) => {
+  Events.On("playlistUpdated", (tracks: any) => {
     playlist.value = tracks;
   });
 
   // 监听当前歌曲变化
-  window.runtime.EventsOn("currentTrackChanged", (track: string) => {
+  Events.On("currentTrackChanged", (track: any) => {
     currentTrack.value = track;
   });
 

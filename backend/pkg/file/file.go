@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/vrischmann/userdir"
 )
 
 func ExistDir(path string) {
@@ -25,14 +23,16 @@ func ExistDir(path string) {
 // getAppPath 获取应用主目录
 func GetAppPath() string {
 	//获取系统我的文档目录
-	dataDir := userdir.GetDataHome()
+	// homeDir := userdir.GetDataHome()
 
-	// homeDir, dirErr := os.UserHomeDir()
-	// if dirErr != nil {
-	// 	panic(any("获取系统用户主目录失败"))
-	// }
+	// 获取用户数据目录
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Println("获取用户目录失败：%w", err)
+		return ""
+	}
 	//获取我的文档目录
-	return PathExist(fmt.Sprintf("%s/.haoyun-music", dataDir))
+	return PathExist(fmt.Sprintf("%s/.haoyun-music", homeDir))
 }
 
 func GetLibPath() string {
