@@ -272,6 +272,7 @@ func (lm *LibraryManager) GetCurrentLibrary() *MusicLibrary {
 func (lm *LibraryManager) GetAllLibraries() []*MusicLibrary {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
+	log.Println(lm.libraries)
 
 	libraries := make([]*MusicLibrary, 0, len(lm.libraries))
 	for _, lib := range lm.libraries {

@@ -19,6 +19,10 @@ const tracks = ref<TrackInfo[]>([]);
 const isLoading = ref(false);
 const searchQuery = ref("");
 
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(50); // 每页显示 50 首歌曲
+
 // 格式化时间
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "--:--";
@@ -64,6 +68,8 @@ const loadLibraryTracks = async (libName: string) => {
     } else {
       tracks.value = [];
     }
+    // 重置页码到第一页
+    currentPage.value = 1;
   } catch (error) {
     console.error("加载音乐库音轨失败:", error);
     tracks.value = [];
@@ -115,6 +121,52 @@ const filteredTracks = computed(() => {
     track.filename.toLowerCase().includes(query)
   );
 });
+
+// 分页计算
+const totalPages = computed(() => {
+  return Math.ceil(filteredTracks.value.length / pageSize.value);
+});
+
+const paginatedTracks = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredTracks.value.slice(start, end);
+});
+
+// 页码显示范围
+const pageRange = computed(() => {
+  const range = 5; // 显示当前页前后 5 个页码
+  const start = Math.max(1, currentPage.value - range);
+  const end = Math.min(totalPages.value, currentPage.value + range);
+  const pages: number[] = [];
+  
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  
+  return pages;
+});
+
+// 切换页码
+const changePage = (page: number) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+  // 滚动到列表顶部
+  setTimeout(() => {
+    const container = document.querySelector('.tracks-container');
+    if (container) {
+      container.scrollTop = 0;
+    }
+  }, 100);
+};
+
+// 上一页/下一页
+const prevPage = () => changePage(currentPage.value - 1);
+const nextPage = () => changePage(currentPage.value + 1);
+
+// 跳转到第一页/最后一页
+const firstPage = () => changePage(1);
+const lastPage = () => changePage(totalPages.value);
 
 // 统计信息
 const totalDuration = computed(() => {
@@ -210,14 +262,14 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-for="(track, index) in filteredTracks"
+        v-for="(track, index) in paginatedTracks"
         :key="track.path"
         class="track-item"
         :class="{ 'even': index % 2 === 1 }"
-        @dblclick="() => handleDoubleClick(index)"
+        @dblclick="() => handleDoubleClick((currentPage - 1) * pageSize + index)"
         title="双击播放"
       >
-        <div class="track-number">{{ index + 1 }}</div>
+        <div class="track-number">{{ (currentPage - 1) * pageSize + index + 1 }}</div>
         <div class="track-title" :title="track.title">
           {{ track.title || track.filename }}
         </div>
@@ -238,6 +290,71 @@ onUnmounted(() => {
           没有找到匹配的歌曲<br/>
           <small>尝试其他搜索关键词</small>
         </p>
+      </div>
+    </div>
+
+    <!-- 分页控件 -->
+    <div class="pagination-container" v-if="totalPages > 1">
+      <div class="pagination-info">
+        显示第 {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, filteredTracks.length) }} 首，共 {{ filteredTracks.length }} 首
+      </div>
+      
+      <div class="pagination-controls">
+        <button 
+          class="page-btn" 
+          @click="firstPage" 
+          :disabled="currentPage === 1"
+          title="首页"
+        >
+          ⏮
+        </button>
+        <button 
+          class="page-btn" 
+          @click="prevPage" 
+          :disabled="currentPage === 1"
+          title="上一页"
+        >
+          ◀
+        </button>
+        
+        <div class="page-numbers">
+          <span 
+            v-for="page in pageRange" 
+            :key="page"
+            class="page-number"
+            :class="{ active: currentPage === page }"
+            @click="changePage(page)"
+          >
+            {{ page }}
+          </span>
+        </div>
+        
+        <button 
+          class="page-btn" 
+          @click="nextPage" 
+          :disabled="currentPage === totalPages"
+          title="下一页"
+        >
+          ▶
+        </button>
+        <button 
+          class="page-btn" 
+          @click="lastPage" 
+          :disabled="currentPage === totalPages"
+          title="末页"
+        >
+          ⏭
+        </button>
+      </div>
+      
+      <div class="page-size-selector">
+        <label>每页显示：</label>
+        <select v-model="pageSize" @change="currentPage = 1">
+          <option :value="20">20 首</option>
+          <option :value="50">50 首</option>
+          <option :value="100">100 首</option>
+          <option :value="200">200 首</option>
+        </select>
       </div>
     </div>
 
@@ -384,7 +501,7 @@ onUnmounted(() => {
 
 .tracks-container {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.1);
@@ -492,6 +609,112 @@ onUnmounted(() => {
 
 .footer-hint p {
   margin: 0;
+}
+
+/* 分页控件样式 */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-top: 15px;
+  backdrop-filter: blur(10px);
+}
+
+.pagination-info {
+  font-size: 13px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.page-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.page-number {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.page-number:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.page-number.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.page-size-selector label {
+  opacity: 0.9;
+}
+
+.page-size-selector select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-size-selector select option {
+  background: #1e3c72;
+  color: white;
 }
 
 /* 滚动条样式 */
