@@ -2,7 +2,11 @@ module changeme
 
 go 1.25
 
-require github.com/wailsapp/wails/v3 v3.0.0-alpha.74
+require (
+	github.com/vrischmann/userdir v0.0.0-20151206171402-20f291cebd68
+	github.com/wailsapp/wails/v2 v2.12.0
+	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
+)
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -27,6 +31,7 @@ require (
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
+	github.com/leaanthony/slicer v1.6.0 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
 	github.com/lmittmann/tint v1.1.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect

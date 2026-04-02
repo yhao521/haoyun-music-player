@@ -29,12 +29,14 @@ func init() {
 
 func main() {
 	musicService := NewMusicService()
+	libraryManager := NewLibraryManager()
 
 	app := application.New(application.Options{
 		Name:        "Haoyun Music Player",
 		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
 			application.NewService(musicService),
+			application.NewService(libraryManager),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -45,6 +47,12 @@ func main() {
 	})
 
 	musicService.SetApp(app)
+	libraryManager.SetApp(app)
+
+	// 初始化音乐库管理器
+	if err := libraryManager.Init(); err != nil {
+		log.Printf("初始化音乐库管理器失败：%v", err)
+	}
 
 	// 声明窗口变量（先初始化为 nil）
 	var mainWindow *application.WebviewWindow
@@ -118,13 +126,84 @@ func main() {
 	playModeItem := application.NewSubmenu("播放模式", playModeMenu)
 
 	// 创建音乐库子菜单
-	musicLibMenu := application.NewMenuFromItems(
-		application.NewMenuItem("✓ music"),
-		application.NewMenuItemSeparator(),
-		application.NewMenuItem("刷新当前音乐库"),
-		application.NewMenuItem("添加新音乐库"),
-		application.NewMenuItem("重命名当前音乐库"),
-	)
+	// 先创建"添加新音乐库"菜单项
+	addLibItem := application.NewMenuItem("添加新音乐库")
+	addLibItem.OnClick(func(ctx *application.Context) {
+		log.Println("添加新音乐库")
+
+		if libraryManager == nil {
+			log.Println("❌ libraryManager 为 nil")
+			return
+		}
+
+		// 添加音乐库
+		if err := libraryManager.AddLibrary(); err != nil {
+			log.Printf("添加音乐库失败：%v", err)
+			return
+		}
+
+	})
+
+	// 创建"刷新当前音乐库"菜单项
+	refreshLibItem := application.NewMenuItem("刷新当前音乐库")
+	refreshLibItem.SetAccelerator("CmdOrCtrl+R")
+	refreshLibItem.OnClick(func(ctx *application.Context) {
+		log.Println("刷新当前音乐库")
+
+		if libraryManager == nil {
+			return
+		}
+
+		currentLib := libraryManager.GetCurrentLibrary()
+		if currentLib == nil {
+			log.Println("当前没有音乐库")
+			return
+		}
+
+		go func() {
+			if err := libraryManager.RefreshLibrary(currentLib.Name); err != nil {
+				log.Printf("刷新音乐库失败：%v", err)
+			}
+		}()
+	})
+
+	// 创建"重命名当前音乐库"菜单项
+	renameLibItem := application.NewMenuItem("重命名当前音乐库")
+	renameLibItem.OnClick(func(ctx *application.Context) {
+		log.Println("重命名当前音乐库")
+		// TODO: 实现重命名功能
+	})
+
+	// 动态生成音乐库列表菜单
+	var libItems []*application.MenuItem
+	libraries := libraryManager.GetLibraries()
+	for _, libName := range libraries {
+		libItem := application.NewMenuItemCheckbox(libName, true)
+		libItem.OnClick(func(ctx *application.Context) {
+			log.Printf("切换到音乐库：%s", libName)
+			// TODO: 实现切换音乐库功能
+		})
+		libItems = append(libItems, libItem)
+	}
+
+	// 如果没有音乐库，显示提示
+	if len(libItems) == 0 {
+		noLibItem := application.NewMenuItem("暂无音乐库")
+		noLibItem.SetEnabled(false)
+		libItems = append(libItems, noLibItem)
+	}
+
+	// 组装音乐库菜单
+	musicLibMenuItems := append([]*application.MenuItem{}, libItems...)
+	musicLibMenuItems = append(musicLibMenuItems, application.NewMenuItemSeparator())
+	musicLibMenuItems = append(musicLibMenuItems, refreshLibItem, addLibItem, renameLibItem)
+
+	var musicLibMenu *application.Menu
+	if len(musicLibMenuItems) > 0 {
+		musicLibMenu = application.NewMenuFromItems(musicLibMenuItems[0], musicLibMenuItems[1:]...)
+	} else {
+		musicLibMenu = application.NewMenu()
+	}
 	musicLibItem := application.NewSubmenu("音乐库", musicLibMenu)
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
@@ -236,6 +315,8 @@ func main() {
 	})
 
 	// 初始隐藏窗口
+	// mainWindow.Hide()
+	// log.Println("✓ Main window created (Hide)")
 	mainWindow.Minimise()
 	log.Println("✓ Main window created (Minimise)")
 

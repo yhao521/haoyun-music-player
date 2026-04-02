@@ -1,6 +1,7 @@
 package main
 
 import (
+	"changeme/backend"
 	"context"
 	"fmt"
 	"os"
@@ -12,13 +13,14 @@ import (
 
 // MusicService 音乐播放服务（简化版本）
 type MusicService struct {
-	ctx      context.Context
-	app      *application.App
-	mu       sync.RWMutex
-	playlist []string
-	current  int
+	backend.Com
+	ctx       context.Context
+	app       *application.App
+	mu        sync.RWMutex
+	playlist  []string
+	current   int
 	isPlaying bool
-	volume   float64
+	volume    float64
 }
 
 // NewMusicService 创建音乐服务实例
@@ -33,6 +35,7 @@ func NewMusicService() *MusicService {
 // SetApp 设置应用实例
 func (m *MusicService) SetApp(app *application.App) {
 	m.app = app
+	m.Com.SetApp(app)
 }
 
 // SetContext 设置上下文
@@ -45,7 +48,7 @@ func (m *MusicService) OpenFilePicker() ([]string, error) {
 	if m.app == nil {
 		return nil, fmt.Errorf("app not initialized")
 	}
-	
+
 	// 创建文件对话框选项
 	options := &application.OpenFileDialogOptions{
 		CanChooseFiles:          true,
@@ -57,19 +60,19 @@ func (m *MusicService) OpenFilePicker() ([]string, error) {
 			{DisplayName: "All Files", Pattern: "*.*"},
 		},
 	}
-	
+
 	// 打开文件选择对话框
 	dialog := m.app.Dialog.OpenFileWithOptions(options)
 	selectedFiles, err := dialog.PromptForMultipleSelection()
 	if err != nil {
 		return nil, fmt.Errorf("file dialog error: %w", err)
 	}
-	
+
 	// 如果没有选择文件，返回空数组
 	if selectedFiles == nil {
 		return []string{}, nil
 	}
-	
+
 	return selectedFiles, nil
 }
 
@@ -136,12 +139,12 @@ func (m *MusicService) TogglePlayPause() (bool, error) {
 	defer m.mu.Unlock()
 
 	m.isPlaying = !m.isPlaying
-	
+
 	state := "playing"
 	if !m.isPlaying {
 		state = "paused"
 	}
-	
+
 	if m.app != nil {
 		m.app.Event.Emit("playbackStateChanged", state)
 	}
