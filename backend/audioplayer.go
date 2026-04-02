@@ -215,19 +215,19 @@ type AudioPlayer struct {
 	isPlaying    bool
 	paused       bool
 	volume       float64
-	otoCtx       *oto.Context       // oto 上下文 (全局唯一)
+	otoCtx       *oto.Context       // oto 上下文 (全局唯一，只创建一次)
 	player       *oto.Player        // oto 播放器
 	streamer     AudioReader        // 音频流式读取器
 	stopChan     chan struct{}      // 停止信号通道
 	app          *application.App   // Wails 应用引用
-	currentRate  int                // 当前 Context 的采样率
-	currentChans int                // 当前 Context 的声道数
+	ctxInitialized bool             // Context 是否已初始化
 }
 
 // NewAudioPlayer 创建音频播放器实例
 func NewAudioPlayer() *AudioPlayer {
 	return &AudioPlayer{
 		volume: 0.7,
+		ctxInitialized: false,
 	}
 }
 
@@ -342,34 +342,28 @@ func (ap *AudioPlayer) closeOto() {
 		ap.player.Close()
 		ap.player = nil
 	}
-	// 注意：oto v3 的 Context 不需要关闭，也不能重复创建
-	// 我们保持 ap.otoCtx、currentRate、currentChans 不变，以便后续复用
+	// 注意：oto v3 的 Context 只能创建一次，所以我们保持 ap.otoCtx 和 ap.ctxInitialized 不变
+	// 这样后续调用 initOto 时会直接复用已创建的 Context
 }
 
 // initOto 初始化或复用 oto 音频上下文
 func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
-	// 如果已经创建过 Context，检查参数是否匹配
-	if ap.otoCtx != nil {
-		// 如果采样率或声道数不同，需要重新创建 Context
-		if ap.currentRate == sampleRate && ap.currentChans == channelCount {
-			// 参数相同，直接复用
-			return nil
-		}
-		
-		// 参数不同，需要关闭并重新创建 Context
-		// 注意：这可能会有短暂的延迟
-		if ap.otoCtx != nil {
-			// oto.Context 没有 Close 方法，我们只能让它被 GC 回收
-			// 实际上，在 macOS 上，多次创建 Context 会报错
-			// 所以这里我们假设所有歌曲使用相同的格式
-			// 如果确实需要切换，可能需要接受这个限制
-		}
+	// 如果已经创建过 Context，直接复用（oto v3 的 Context 只能创建一次）
+	if ap.ctxInitialized {
+		return nil
 	}
+
+	// 使用固定的音频参数创建 Context（oto v3 限制：只能创建一次）
+	// 大多数音乐都是 44100Hz 立体声，所以我们使用这个标准参数
+	const (
+		targetSampleRate = 44100
+		targetChannels = 2
+	)
 
 	// 创建新的 oto 上下文
 	ctx, readyChan, err := oto.NewContext(&oto.NewContextOptions{
-		SampleRate:   sampleRate,
-		ChannelCount: channelCount,
+		SampleRate:   targetSampleRate,
+		ChannelCount: targetChannels,
 		Format:       oto.FormatSignedInt16LE,
 		BufferSize:   time.Second / 10,
 	})
@@ -386,8 +380,7 @@ func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
 	}
 
 	ap.otoCtx = ctx
-	ap.currentRate = sampleRate
-	ap.currentChans = channelCount
+	ap.ctxInitialized = true
 	return nil
 }
 
