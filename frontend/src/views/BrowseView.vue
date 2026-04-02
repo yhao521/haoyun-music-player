@@ -502,11 +502,13 @@ onUnmounted(() => {
 .tracks-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   backdrop-filter: blur(10px);
+  min-height: 0; /* 关键：允许 flex 子项缩小 */
 }
 
 .tracks-header {
