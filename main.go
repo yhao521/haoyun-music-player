@@ -556,6 +556,7 @@ func main() {
 	// mainWindow.Hide()
 	// log.Println("✓ Main window created (Hide)")
 	mainWindow.Minimise()
+	mainWindow.Hide()
 	log.Println("✓ Main window created (Minimise)")
 
 	// 创建浏览歌曲窗口（用于展示音乐库和歌曲列表）
