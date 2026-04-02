@@ -31,6 +31,10 @@ type AudioPlayer struct {
 	// 音效处理
 	gain *effects.Gain // 增益
 
+	// 扬声器状态
+	speakerInitialized bool
+	speakerFormat      beep.Format
+
 	app *application.App
 }
 
@@ -46,15 +50,28 @@ func (ap *AudioPlayer) SetApp(app *application.App) {
 	ap.app = app
 }
 
-// initSpeaker 初始化扬声器
+// initSpeaker 初始化扬声器（只在需要时初始化）
 func (ap *AudioPlayer) initSpeaker(format beep.Format) error {
-	// 如果已经初始化，先关闭
-	speaker.Close()
+	// 检查是否需要重新初始化
+	if ap.speakerInitialized && ap.speakerFormat.SampleRate == format.SampleRate && ap.speakerFormat.NumChannels == format.NumChannels {
+		// 扬声器已初始化且格式相同，无需重新初始化
+		return nil
+	}
 
+	// 如果格式不同或首次初始化，关闭当前的 speaker
+	if ap.speakerInitialized {
+		speaker.Close()
+		ap.speakerInitialized = false
+	}
+
+	// 初始化扬声器
 	err := speaker.Init(format.SampleRate, format.NumChannels*format.SampleRate.N(time.Second/10))
 	if err != nil {
 		return fmt.Errorf("初始化扬声器失败：%w", err)
 	}
+
+	ap.speakerInitialized = true
+	ap.speakerFormat = format
 
 	return nil
 }
@@ -106,7 +123,7 @@ func (ap *AudioPlayer) Play(path string) error {
 		return err
 	}
 
-	// 初始化扬声器
+	// 初始化扬声器（只在需要时）
 	if err := ap.initSpeaker(format); err != nil {
 		streamer.Close()
 		return err
@@ -172,8 +189,7 @@ func (ap *AudioPlayer) Stop() error {
 		ap.ctrl = nil
 	}
 
-	// streamer 不需要手动 Close，beep 库会自动管理
-	ap.streamer = nil
+	// 不关闭 streamer，让 beep 库自动管理
 
 	ap.isPlaying = false
 	ap.paused = false
