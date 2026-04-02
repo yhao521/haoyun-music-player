@@ -1,4 +1,4 @@
-module changeme
+module github.com/yhao521/wailsMusicPlay
 
 go 1.25
 

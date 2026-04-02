@@ -1,12 +1,13 @@
 package main
 
 import (
-	"changeme/backend"
 	"embed"
 	_ "embed"
 	"log"
 	"runtime/debug"
 	"time"
+
+	"github.com/yhao521/wailsMusicPlay/backend"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -76,23 +77,23 @@ func main() {
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		// 检查当前是否有播放列表
 		playlist, _ := musicService.GetPlaylist()
-		
+
 		if len(playlist) == 0 {
 			// 如果播放列表为空，从当前音乐库加载
 			log.Println("播放列表为空，从当前音乐库加载")
-			
+
 			currentLib := musicService.GetCurrentLibrary()
 			if currentLib == nil {
 				log.Println("当前没有音乐库，请先添加音乐库")
 				return
 			}
-			
+
 			// 从 JSON 文件加载音乐库到播放列表并播放
 			if err := musicService.LoadCurrentLibrary(); err != nil {
 				log.Printf("加载音乐库失败：%v", err)
 				return
 			}
-			
+
 			log.Printf("✓ 已从音乐库 %s 加载并播放", currentLib.Name)
 		} else {
 			// 如果已有播放列表，直接切换播放/暂停
@@ -152,7 +153,7 @@ func main() {
 
 	// 创建播放模式子菜单（使用复选框显示当前模式）
 	var playModeOrder, playModeLoop, playModeRandom *application.MenuItem
-	
+
 	playModeOrder = application.NewMenuItemCheckbox("顺序播放", true)
 	playModeOrder.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("order")

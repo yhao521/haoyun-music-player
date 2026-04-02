@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import {
-  AddToPlaylist,
-  // LoadFile,
-  Next,
-  // OpenFilePicker,
-  Play,
-  PlayIndex,
-  Previous,
-  // Seek,
-  SetVolume,
-  TogglePlayPause,
-} from "../bindings/changeme/backend/musicservice";
+// import {
+//   AddToPlaylist,
+//   // LoadFile,
+//   Next,
+//   // OpenFilePicker,
+//   Play,
+//   PlayIndex,
+//   Previous,
+//   // Seek,
+//   SetVolume,
+//   TogglePlayPause,
+// } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
 
 // 播放状态
 const isPlaying = ref(false);
@@ -37,8 +37,8 @@ const progressPercent = computed(() => {
 // 播放/暂停
 const togglePlayPause = async () => {
   try {
-    const result = await TogglePlayPause();
-    isPlaying.value = result;
+    // const result = await TogglePlayPause();
+    // isPlaying.value = result;
   } catch (error) {
     console.error("Failed to toggle play/pause:", error);
   }
@@ -47,7 +47,7 @@ const togglePlayPause = async () => {
 // 下一首
 const next = async () => {
   try {
-    await Next();
+    // await Next();
   } catch (error) {
     console.error("Failed to play next:", error);
   }
@@ -56,7 +56,7 @@ const next = async () => {
 // 上一首
 const previous = async () => {
   try {
-    await Previous();
+    // await Previous();
   } catch (error) {
     console.error("Failed to play previous:", error);
   }
@@ -65,7 +65,7 @@ const previous = async () => {
 // 调节音量
 const setVolume = async (value: number) => {
   try {
-    await SetVolume(value);
+    // await SetVolume(value);
   } catch (error) {
     console.error("Failed to set volume:", error);
   }
@@ -97,7 +97,7 @@ const openFile = async () => {
 // 添加到播放列表
 const addToPlaylist = async (path: string) => {
   try {
-    await AddToPlaylist(path);
+    // await AddToPlaylist(path);
   } catch (error) {
     console.error("Failed to add to playlist:", error);
   }
@@ -106,7 +106,7 @@ const addToPlaylist = async (path: string) => {
 // 播放指定歌曲
 const playIndex = async (index: number) => {
   try {
-    await PlayIndex(index);
+    // await PlayIndex(index);
   } catch (error) {
     console.error("Failed to play index:", error);
   }

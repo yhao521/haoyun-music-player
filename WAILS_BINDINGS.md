@@ -8,7 +8,7 @@ Wails v3 会自动扫描 Go 后端中绑定的 Service，并为每个公开方�
 
 ```
 frontend/bindings/
-├── changeme/           # 模块名称（来自 go.mod）
+├── github.com/yhao521/wailsMusicPlay/           # 模块名称（来自 go.mod）
 │   ├── greetservice.ts # GreeterService 的绑定
 │   └── index.ts        # 导出索引
 └── github.com/         # 第三方库绑定（如果有）
@@ -30,20 +30,20 @@ Wails 会自动生成以下前端绑定：
 
 ### 生成的 TypeScript 代码
 
-运行 `wails3 dev` 后，会在 `frontend/bindings/changeme/` 目录下生成：
+运行 `wails3 dev` 后，会在 `frontend/bindings/github.com/yhao521/wailsMusicPlay/` 目录下生成：
 
 ```typescript
-// frontend/bindings/changeme/musicservice.ts (自动生成)
+// frontend/bindings/github.com/yhao521/wailsMusicPlay/musicservice.ts (自动生成)
 export function TogglePlayPause(): Promise<boolean> {
-    return $Call.ByID(1234567890);
+  return $Call.ByID(1234567890);
 }
 
 export function Play(): Promise<void> {
-    return $Call.ByID(1234567891);
+  return $Call.ByID(1234567891);
 }
 
 export function Pause(): Promise<void> {
-    return $Call.ByID(1234567892);
+  return $Call.ByID(1234567892);
 }
 
 // ... 其他方法
@@ -54,13 +54,13 @@ export function Pause(): Promise<void> {
 ### 方式一：直接调用（推荐）
 
 ```typescript
-import { MusicService } from '../bindings/changeme'
+import { MusicService } from "../bindings/github.com/yhao521/wailsMusicPlay";
 
 // 播放音乐
-await MusicService.Play()
+await MusicService.Play();
 
 // 切换播放状态
-const isPlaying = await MusicService.TogglePlayPause()
+const isPlaying = await MusicService.TogglePlayPause();
 ```
 
 ### 方式二：通过 window.go.main（当前使用）
@@ -68,9 +68,9 @@ const isPlaying = await MusicService.TogglePlayPause()
 ```typescript
 // 在 Vue 组件中
 const togglePlayPause = async () => {
-  const result = await window.go.main.MusicService.TogglePlayPause()
-  isPlaying.value = result
-}
+  const result = await window.go.main.MusicService.TogglePlayPause();
+  isPlaying.value = result;
+};
 ```
 
 ## 🎯 系统托盘功能
@@ -80,16 +80,16 @@ const togglePlayPause = async () => {
 ```go
 func createSystemTray(app *application.App, musicService *MusicService) {
     tray := app.SystemTray.New()
-    
+
     // 添加菜单项
     tray.AddText("播放/暂停", func(ctx *application.Context) {
         musicService.TogglePlayPause()
     })
-    
+
     tray.AddText("下一首", func(ctx *application.Context) {
         musicService.Next()
     })
-    
+
     // 双击托盘图标
     tray.OnLeftDoubleClick(func(ctx *application.Context) {
         mainWindow.Show()
@@ -118,17 +118,17 @@ if m.app != nil {
 ### 前端接收事件
 
 ```typescript
-import { EventsOn, EventsOff } from '@wailsio/runtime'
+import { EventsOn, EventsOff } from "@wailsio/runtime";
 
 onMounted(() => {
-  EventsOn('playbackStateChanged', (state: string) => {
-    console.log('状态变化:', state)
-  })
-})
+  EventsOn("playbackStateChanged", (state: string) => {
+    console.log("状态变化:", state);
+  });
+});
 
 onUnmounted(() => {
-  EventsOff('playbackStateChanged')
-})
+  EventsOff("playbackStateChanged");
+});
 ```
 
 ## 📋 完整的调用流程
@@ -165,6 +165,7 @@ Wails 运行时转发到 Go 后端 MusicService.Play()
 ### 绑定生成配置
 
 Wails 3 默认会：
+
 - 扫描所有注册的 Service
 - 为所有公开方法（大写开头）生成绑定
 - 支持复杂类型和结构体
@@ -178,7 +179,7 @@ Wails 3 默认会：
 wails3 dev
 
 # 查看生成的文件
-cat frontend/bindings/changeme/*.ts
+cat frontend/bindings/github.com/yhao521/wailsMusicPlay/*.ts
 ```
 
 ### 2. 自定义模块名称
@@ -192,6 +193,7 @@ go 1.25
 ```
 
 生成的绑定会变成：
+
 ```
 frontend/bindings/mymusicplayer/
 ```
@@ -204,7 +206,7 @@ frontend/bindings/mymusicplayer/
 type MusicService struct {
     // 私有方法，不会生成绑定
     internalMethod() {}
-    
+
     // 公开方法，会生成绑定
     PublicMethod() {}
 }
@@ -280,10 +282,10 @@ app.Event.Emit("playlistUpdated", playlist)
 
 ```bash
 # 检查绑定文件
-ls -la frontend/bindings/changeme/
+ls -la frontend/bindings/github.com/yhao521/wailsMusicPlay/
 
 # 查看内容
-cat frontend/bindings/changeme/musicservice.ts
+cat frontend/bindings/github.com/yhao521/wailsMusicPlay/musicservice.ts
 ```
 
 ### 测试调用
@@ -291,8 +293,8 @@ cat frontend/bindings/changeme/musicservice.ts
 ```javascript
 // 在浏览器控制台测试
 window.go.main.MusicService.IsPlaying()
-  .then(result => console.log('Is playing:', result))
-  .catch(err => console.error(err))
+  .then((result) => console.log("Is playing:", result))
+  .catch((err) => console.error(err));
 ```
 
 ## 📚 相关资源
