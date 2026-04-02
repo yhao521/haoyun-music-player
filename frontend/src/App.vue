@@ -1,141 +1,162 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { EventsOn, EventsOff } from '@wailsio/runtime'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import {
+  AddToPlaylist,
+  LoadFile,
+  Next,
+  OpenFilePicker,
+  Play,
+  PlayIndex,
+  Previous,
+  Seek,
+  SetVolume,
+  TogglePlayPause,
+} from "../bindings/changeme/musicservice";
 
 // 播放状态
-const isPlaying = ref(false)
-const currentPosition = ref(0)
-const duration = ref(0)
-const volume = ref(0.7)
-const currentTrack = ref('')
-const playlist = ref<string[]>([])
+const isPlaying = ref(false);
+const currentPosition = ref(0);
+const duration = ref(0);
+const volume = ref(0.7);
+const currentTrack = ref("");
+const playlist = ref<string[]>([]);
 
 // 格式化时间
 const formatTime = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
 
 // 计算进度百分比
 const progressPercent = computed(() => {
-  if (duration.value === 0) return 0
-  return (currentPosition.value / duration.value) * 100
-})
+  if (duration.value === 0) return 0;
+  return (currentPosition.value / duration.value) * 100;
+});
 
 // 播放/暂停
 const togglePlayPause = async () => {
   try {
-    const result = await window.go.main.MusicService.TogglePlayPause()
-    isPlaying.value = result
+    const result = await TogglePlayPause();
+    isPlaying.value = result;
   } catch (error) {
-    console.error('Failed to toggle play/pause:', error)
+    console.error("Failed to toggle play/pause:", error);
   }
-}
+};
 
 // 下一首
 const next = async () => {
   try {
-    await window.go.main.MusicService.Next()
+    await Next();
   } catch (error) {
-    console.error('Failed to play next:', error)
+    console.error("Failed to play next:", error);
   }
-}
+};
 
 // 上一首
 const previous = async () => {
   try {
-    await window.go.main.MusicService.Previous()
+    await Previous();
   } catch (error) {
-    console.error('Failed to play previous:', error)
+    console.error("Failed to play previous:", error);
   }
-}
+};
 
 // 调节音量
 const setVolume = async (value: number) => {
   try {
-    await window.go.main.MusicService.SetVolume(value)
+    await SetVolume(value);
   } catch (error) {
-    console.error('Failed to set volume:', error)
+    console.error("Failed to set volume:", error);
   }
-}
+};
 
 // 跳转进度
 const seek = async (value: number) => {
   try {
-    await window.go.main.MusicService.Seek(value)
+    await Seek(value);
   } catch (error) {
-    console.error('Failed to seek:', error)
+    console.error("Failed to seek:", error);
   }
-}
+};
 
 // 打开文件
 const openFile = async () => {
   try {
     // 注意：当前版本需要通过系统托盘或菜单栏打开文件
-    // 前端可以直接调用后端方法
-    const path = await window.go.main.MusicService.OpenFilePicker()
+    const path = await OpenFilePicker();
     if (path && path.length > 0) {
-      await window.go.main.MusicService.LoadFile(path[0])
-      await window.go.main.MusicService.Play()
+      await LoadFile(path[0]);
+      await Play();
     }
   } catch (error) {
-    console.error('Failed to open file:', error)
+    console.error("Failed to open file:", error);
   }
-}
+};
 
 // 添加到播放列表
 const addToPlaylist = async (path: string) => {
   try {
-    await window.go.main.MusicService.AddToPlaylist(path)
+    await AddToPlaylist(path);
   } catch (error) {
-    console.error('Failed to add to playlist:', error)
+    console.error("Failed to add to playlist:", error);
   }
-}
+};
 
 // 播放指定歌曲
 const playIndex = async (index: number) => {
   try {
-    await window.go.main.MusicService.PlayIndex(index)
+    await PlayIndex(index);
   } catch (error) {
-    console.error('Failed to play index:', error)
+    console.error("Failed to play index:", error);
   }
-}
+};
 
-// 监听事件
-onMounted(() => {
+// 监听事件 - Wails v3 使用 window.runtime.EventsOn
+const listenToEvents = () => {
   // 监听播放状态变化
-  EventsOn('playbackStateChanged', (state: string) => {
-    isPlaying.value = state === 'playing'
-  })
+  window.runtime.EventsOn("playbackStateChanged", (state: string) => {
+    isPlaying.value = state === "playing";
+  });
 
   // 监听播放进度
-  EventsOn('playbackProgress', (data: { position: number; duration: number }) => {
-    currentPosition.value = data.position
-    duration.value = data.duration
-  })
+  window.runtime.EventsOn(
+    "playbackProgress",
+    (data: { position: number; duration: number }) => {
+      currentPosition.value = data.position;
+      duration.value = data.duration;
+    },
+  );
 
   // 监听播放列表更新
-  EventsOn('playlistUpdated', (tracks: string[]) => {
-    playlist.value = tracks
-  })
+  window.runtime.EventsOn("playlistUpdated", (tracks: string[]) => {
+    playlist.value = tracks;
+  });
 
   // 监听当前歌曲变化
-  EventsOn('currentTrackChanged', (track: string) => {
-    currentTrack.value = track
-  })
-  
-  // 初始化加载 MusicService 的绑定
-  console.log('Music Player initialized')
-})
+  window.runtime.EventsOn("currentTrackChanged", (track: string) => {
+    currentTrack.value = track;
+  });
+
+  console.log("Music Player initialized");
+};
 
 // 清理事件监听
+const cleanupEvents = () => {
+  window.runtime.EventsOff("playbackStateChanged");
+  window.runtime.EventsOff("playbackProgress");
+  window.runtime.EventsOff("playlistUpdated");
+  window.runtime.EventsOff("currentTrackChanged");
+};
+
+// 生命周期
+onMounted(() => {
+  listenToEvents();
+});
+
 onUnmounted(() => {
-  EventsOff('playbackStateChanged')
-  EventsOff('playbackProgress')
-  EventsOff('playlistUpdated')
-  EventsOff('currentTrackChanged')
-})
+  cleanupEvents();
+});
 </script>
 
 <template>
@@ -151,7 +172,7 @@ onUnmounted(() => {
         <div class="music-icon">🎵</div>
       </div>
       <div class="track-info">
-        <h2 class="track-title">{{ currentTrack || '未播放音乐' }}</h2>
+        <h2 class="track-title">{{ currentTrack || "未播放音乐" }}</h2>
         <p class="track-artist">未知艺术家</p>
       </div>
     </div>
@@ -173,15 +194,15 @@ onUnmounted(() => {
 
     <!-- 播放控制 -->
     <div class="controls">
-      <button class="control-btn" @click="previous" title="上一首">
-        ⏮
+      <button class="control-btn" @click="previous" title="上一首">⏮</button>
+      <button
+        class="control-btn play-btn"
+        @click="togglePlayPause"
+        :class="{ playing: isPlaying }"
+      >
+        {{ isPlaying ? "⏸" : "▶️" }}
       </button>
-      <button class="control-btn play-btn" @click="togglePlayPause" :class="{ playing: isPlaying }">
-        {{ isPlaying ? '⏸' : '▶️' }}
-      </button>
-      <button class="control-btn" @click="next" title="下一首">
-        ⏭
-      </button>
+      <button class="control-btn" @click="next" title="下一首">⏭</button>
     </div>
 
     <!-- 音量控制 -->
@@ -200,9 +221,7 @@ onUnmounted(() => {
 
     <!-- 操作按钮 -->
     <div class="actions">
-      <button class="action-btn" @click="openFile">
-        📂 打开文件
-      </button>
+      <button class="action-btn" @click="openFile">📂 打开文件</button>
     </div>
 
     <!-- 播放列表 -->
@@ -217,7 +236,7 @@ onUnmounted(() => {
           @click="playIndex(index)"
         >
           <span class="track-number">{{ index + 1 }}</span>
-          <span class="track-name">{{ track.split('/').pop() }}</span>
+          <span class="track-name">{{ track.split("/").pop() }}</span>
         </div>
       </div>
     </div>
@@ -232,7 +251,9 @@ onUnmounted(() => {
   padding: 20px;
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, sans-serif;
 }
 
 .header {

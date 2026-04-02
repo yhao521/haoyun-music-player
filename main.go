@@ -12,6 +12,12 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+// //go:embed frontend/public/tray-icon.png
+// var trayIcon []byte
+
+// //go:embed frontend/public/tray-icon-dark.png
+// var trayIconDark []byte
+
 func init() {
 	application.RegisterEvent[string]("time")
 	application.RegisterEvent[string]("playbackStateChanged")
@@ -68,66 +74,64 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	musicService.Shutdown()
 }
 
 // createSystemTray 创建系统托盘菜单
 func createSystemTray(app *application.App, musicService *MusicService, mainWindow *application.WebviewWindow) {
 	tray := app.SystemTray.New()
-	
-	// 创建托盘菜单
-	menu := application.NewMenu()
-	
-	// 添加菜单项
+
+	// 创建菜单项
 	playPauseItem := application.NewMenuItem("播放/暂停")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		musicService.TogglePlayPause()
 	})
-	menu.Add(playPauseItem)
-	
-	menu.AddSeparator()
-	
+
 	prevItem := application.NewMenuItem("上一首")
 	prevItem.OnClick(func(ctx *application.Context) {
 		musicService.Previous()
 	})
-	menu.Add(prevItem)
-	
+
 	nextItem := application.NewMenuItem("下一首")
 	nextItem.OnClick(func(ctx *application.Context) {
 		musicService.Next()
 	})
-	menu.Add(nextItem)
-	
-	menu.AddSeparator()
-	
+
 	showItem := application.NewMenuItem("显示主窗口")
 	showItem.OnClick(func(ctx *application.Context) {
 		mainWindow.Show()
 		mainWindow.Focus()
 	})
-	menu.Add(showItem)
-	
-	menu.AddSeparator()
-	
+
 	quitItem := application.NewMenuItem("退出")
 	quitItem.OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
-	menu.Add(quitItem)
-	
+
+	// 使用 NewMenuFromItems 创建菜单
+	menu := application.NewMenuFromItems(
+		playPauseItem,
+		application.NewMenuItemSeparator(),
+		prevItem,
+		nextItem,
+		application.NewMenuItemSeparator(),
+		showItem,
+		application.NewMenuItemSeparator(),
+		quitItem,
+	)
+
 	// 设置菜单
 	tray.SetMenu(menu)
-	
+
 	// 设置工具提示
 	tray.SetTooltip("Haoyun Music Player")
-	
+
 	// 单击托盘图标时切换播放/暂停
 	tray.OnClick(func() {
 		musicService.TogglePlayPause()
 	})
-	
+
 	// 双击托盘图标时显示窗口
 	tray.OnDoubleClick(func() {
 		mainWindow.Show()
