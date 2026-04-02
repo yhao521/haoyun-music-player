@@ -2,7 +2,6 @@ package backend
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -111,8 +110,7 @@ func (ap *AudioPlayer) loadAudioFile(path string) (beep.StreamSeekCloser, beep.F
 // Play 播放音频文件
 func (ap *AudioPlayer) Play(path string) error {
 	ap.mu.Lock()
-	defer ap.mu.Unlock()
-
+	
 	// 停止当前播放
 	if ap.ctrl != nil {
 		speaker.Clear()
@@ -121,11 +119,13 @@ func (ap *AudioPlayer) Play(path string) error {
 	// 加载音频文件
 	streamer, format, err := ap.loadAudioFile(path)
 	if err != nil {
+		ap.mu.Unlock()
 		return err
 	}
 
 	// 初始化扬声器（只在需要时）
 	if err := ap.initSpeaker(format); err != nil {
+		ap.mu.Unlock()
 		streamer.Close()
 		return err
 	}
@@ -151,14 +151,16 @@ func (ap *AudioPlayer) Play(path string) error {
 
 	ap.isPlaying = true
 	ap.paused = false
+	
+	// 先解锁，再触发事件，避免死锁
+	ap.mu.Unlock()
 
-	// 发送当前歌曲变化事件
+	// 发送当前歌曲变化事件（在锁外）
 	if ap.app != nil {
-		log.Printf("🎵 AudioPlayer.Play: 触发 currentTrackChanged 事件：%s", filepath.Base(path))
 		ap.app.Event.Emit("currentTrackChanged", filepath.Base(path))
 	}
 
-	// 发送播放状态事件
+	// 发送播放状态事件（在锁外）
 	if ap.app != nil {
 		ap.app.Event.Emit("playbackStateChanged", "playing")
 	}
