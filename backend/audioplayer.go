@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -150,6 +151,12 @@ func (ap *AudioPlayer) Play(path string) error {
 
 	ap.isPlaying = true
 	ap.paused = false
+
+	// 发送当前歌曲变化事件
+	if ap.app != nil {
+		log.Printf("🎵 AudioPlayer.Play: 触发 currentTrackChanged 事件：%s", filepath.Base(path))
+		ap.app.Event.Emit("currentTrackChanged", filepath.Base(path))
+	}
 
 	// 发送播放状态事件
 	if ap.app != nil {

@@ -95,6 +95,7 @@ func (pm *PlaylistManager) PlayIndex(index int) error {
 	path := pm.playlist[index]
 
 	if pm.app != nil {
+		log.Printf("🎵 PlaylistManager.PlayIndex: 触发 currentTrackChanged 事件：%s", filepath.Base(path))
 		pm.app.Event.Emit("currentTrackChanged", filepath.Base(path))
 	}
 

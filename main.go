@@ -69,6 +69,7 @@ func main() {
 	var playPauseItem, prevItem, nextItem, showItem, browseItem *application.MenuItem
 	var downloadItem, wakeItem, launchItem, settingItem, versionItem, quitItem *application.MenuItem
 	var playModeItem, musicLibItem *application.MenuItem
+	var nowPlayingItem *application.MenuItem // 新增：正在播放的音乐名称
 	var musicLibMenu *application.Menu
 	var menu *application.Menu
 
@@ -389,8 +390,14 @@ func main() {
 		// 更新音乐库子菜单
 		musicLibItem = application.NewSubmenu("音乐库", musicLibMenu)
 
+		// 创建"正在播放"菜单项（初始显示"无"）
+		nowPlayingItem = application.NewMenuItem("正在播放：无")
+		nowPlayingItem.SetEnabled(false) // 禁用点击
+
 		// 重新创建并设置托盘菜单
 		menu = application.NewMenuFromItems(
+			nowPlayingItem, // 添加正在播放菜单项
+			application.NewMenuItemSeparator(),
 			playPauseItem,
 			prevItem,
 			nextItem,
@@ -454,6 +461,51 @@ func main() {
 
 	// 初始构建音乐库菜单（已包含菜单创建和设置）
 	buildMusicLibMenu()
+
+	// 初始化正在播放的音乐名称菜单项
+	updateNowPlayingItem := func() {
+		if musicService == nil {
+			log.Println("❌ musicService 为 nil")
+			return
+		}
+		
+		trackName, err := musicService.GetCurrentTrackName()
+		if err != nil {
+			log.Printf("⚠️ 获取歌曲名称失败：%v", err)
+			nowPlayingItem.SetLabel("未播放")
+			nowPlayingItem.SetEnabled(false)
+			return
+		}
+		
+		log.Printf("✓ 更新正在播放：%s", trackName)
+		
+		// 截断过长的文件名（最多显示 30 个字符）
+		displayName := trackName
+		if len(displayName) > 30 {
+			displayName = displayName[:27] + "..."
+		}
+		
+		newLabel := "🎵 " + displayName
+		nowPlayingItem.SetLabel(newLabel)
+		nowPlayingItem.SetEnabled(true)
+		log.Printf("✓ 菜单项已更新为：%s", newLabel)
+	}
+
+	// 创建正在播放的音乐名称菜单项（禁用状态，仅展示）
+	nowPlayingItem = application.NewMenuItem("未播放")
+	nowPlayingItem.SetEnabled(false)
+
+	// 监听当前歌曲变化事件
+	app.Event.On("currentTrackChanged", func(event *application.CustomEvent) {
+		log.Printf("收到歌曲变化事件：%v", event.Data)
+		updateNowPlayingItem()
+	})
+
+	// 延迟初始化（等待服务完全启动）
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		updateNowPlayingItem()
+	}()
 
 	// 交互事件
 	// 注意：macOS 上单击托盘图标会自动显示菜单

@@ -157,6 +157,25 @@ func (m *MusicService) IsPlaying() (bool, error) {
 	return m.audioPlayer.IsPlaying()
 }
 
+// GetCurrentTrack 获取当前播放的歌曲路径
+func (m *MusicService) GetCurrentTrack() (string, error) {
+	playlist, err := m.GetPlaylist()
+	if err != nil {
+		return "", err
+	}
+
+	index, err := m.playlistManager.GetCurrentIndex()
+	if err != nil {
+		return "", err
+	}
+
+	if index < 0 || index >= len(playlist) {
+		return "", fmt.Errorf("当前播放索引无效：%d", index)
+	}
+
+	return playlist[index], nil
+}
+
 // ===== 播放列表方法 =====
 
 // AddToPlaylist 添加到播放列表
@@ -291,6 +310,18 @@ func (m *MusicService) LoadCurrentLibrary() error {
 }
 
 // ===== 辅助方法 =====
+
+// GetCurrentTrackName 获取当前播放的歌曲名称（仅文件名）
+func (m *MusicService) GetCurrentTrackName() (string, error) {
+	path, err := m.GetCurrentTrack()
+	if err != nil {
+		return "", err
+	}
+
+	// 从路径中提取文件名
+	filename := filepath.Base(path)
+	return filename, nil
+}
 
 // GetSongMetadata 获取歌曲元数据
 func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, error) {
