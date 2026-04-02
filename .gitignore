@@ -1,6 +1,54 @@
-.task
-bin
-frontend/dist
-frontend/node_modules
-build/linux/appimage/build
-build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Node modules
+frontend/node_modules/
+frontend/dist/
+
+# Build output
+bin/
+build/bin/
+build/darwin/
+build/windows/
+build/linux/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+tmp/
+temp/
+.task/
+frontend/bindings/
+build/darwin/Assets.car

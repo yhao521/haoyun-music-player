@@ -9,36 +9,25 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// Wails uses Go's `embed` package to embed the frontend files into the binary.
-// Any files in the frontend/dist folder will be embedded into the binary and
-// made available to the frontend.
-// See https://pkg.go.dev/embed for more information.
-
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func init() {
-	// Register a custom event whose associated data type is string.
-	// This is not required, but the binding generator will pick up registered events
-	// and provide a strongly typed JS/TS API for them.
 	application.RegisterEvent[string]("time")
+	application.RegisterEvent[string]("playbackStateChanged")
+	application.RegisterEvent[map[string]interface{}]("playbackProgress")
+	application.RegisterEvent[[]string]("playlistUpdated")
+	application.RegisterEvent[string]("currentTrackChanged")
 }
 
-// main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
 func main() {
+	musicService := NewMusicService()
 
-	// Create a new Wails application by providing the necessary options.
-	// Variables 'Name' and 'Description' are for application metadata.
-	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
-	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
-	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
-		Name:        "haoyun-music-player",
-		Description: "A demo of using raw HTML & CSS",
+		Name:        "Haoyun Music Player",
+		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
-			application.NewService(&GreetService{}),
+			application.NewService(musicService),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -48,13 +37,11 @@ func main() {
 		},
 	})
 
-	// Create a new window with the necessary options.
-	// 'Title' is the title of the window.
-	// 'Mac' options tailor the window when running on macOS.
-	// 'BackgroundColour' is the background colour of the window.
-	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Window 1",
+	musicService.SetApp(app)
+
+	// 创建主窗口
+	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "Haoyun Music Player",
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
@@ -62,10 +49,13 @@ func main() {
 		},
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
+		Width:            400,
+		Height:           600,
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
+	// 创建系统托盘
+	createSystemTray(app, musicService, mainWindow)
+
 	go func() {
 		for {
 			now := time.Now().Format(time.RFC1123)
@@ -74,11 +64,73 @@ func main() {
 		}
 	}()
 
-	// Run the application. This blocks until the application has been exited.
 	err := app.Run()
-
-	// If an error occurred while running the application, log it and exit.
 	if err != nil {
 		log.Fatal(err)
 	}
+	
+	musicService.Shutdown()
+}
+
+// createSystemTray 创建系统托盘菜单
+func createSystemTray(app *application.App, musicService *MusicService, mainWindow *application.WebviewWindow) {
+	tray := app.SystemTray.New()
+	
+	// 创建托盘菜单
+	menu := application.NewMenu()
+	
+	// 添加菜单项
+	playPauseItem := application.NewMenuItem("播放/暂停")
+	playPauseItem.OnClick(func(ctx *application.Context) {
+		musicService.TogglePlayPause()
+	})
+	menu.Add(playPauseItem)
+	
+	menu.AddSeparator()
+	
+	prevItem := application.NewMenuItem("上一首")
+	prevItem.OnClick(func(ctx *application.Context) {
+		musicService.Previous()
+	})
+	menu.Add(prevItem)
+	
+	nextItem := application.NewMenuItem("下一首")
+	nextItem.OnClick(func(ctx *application.Context) {
+		musicService.Next()
+	})
+	menu.Add(nextItem)
+	
+	menu.AddSeparator()
+	
+	showItem := application.NewMenuItem("显示主窗口")
+	showItem.OnClick(func(ctx *application.Context) {
+		mainWindow.Show()
+		mainWindow.Focus()
+	})
+	menu.Add(showItem)
+	
+	menu.AddSeparator()
+	
+	quitItem := application.NewMenuItem("退出")
+	quitItem.OnClick(func(ctx *application.Context) {
+		app.Quit()
+	})
+	menu.Add(quitItem)
+	
+	// 设置菜单
+	tray.SetMenu(menu)
+	
+	// 设置工具提示
+	tray.SetTooltip("Haoyun Music Player")
+	
+	// 单击托盘图标时切换播放/暂停
+	tray.OnClick(func() {
+		musicService.TogglePlayPause()
+	})
+	
+	// 双击托盘图标时显示窗口
+	tray.OnDoubleClick(func() {
+		mainWindow.Show()
+		mainWindow.Focus()
+	})
 }
