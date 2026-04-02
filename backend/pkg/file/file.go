@@ -3,6 +3,7 @@ package file
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -31,9 +32,20 @@ func GetAppPath() string {
 	// 	panic(any("获取系统用户主目录失败"))
 	// }
 	//获取我的文档目录
-	return PathExist(fmt.Sprintf("%s/Documents/github/yhao521/wails3-yun-baoFiles", dataDir))
-	//获取我的文档目录，并初始化 sqlite 数据库
-	// return b.pathExist("/opt/GoDeskFiles")
+	return PathExist(fmt.Sprintf("%s/.haoyun-music", dataDir))
+}
+
+func GetLibPath() string {
+
+	// 获取用户数据目录
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Println("获取用户目录失败：%w", err)
+		return ""
+	}
+
+	// 创建音乐库目录
+	return PathExist(filepath.Join(homeDir, ".haoyun-music", "libraries"))
 }
 
 func GetResourcePath() string {

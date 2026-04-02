@@ -4,10 +4,13 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"runtime"
 	"runtime/debug"
 	"time"
 
 	"github.com/yhao521/wailsMusicPlay/backend"
+	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/wailsMusicPlay/backend/pkg/utils"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -57,6 +60,8 @@ func main() {
 	// 声明窗口变量（先初始化为 nil）
 	var mainWindow *application.WebviewWindow
 
+	menus := createMenu(app)
+	app.Menu.Set(menus)
 	// 创建系统托盘（在窗口创建之前）
 	tray := app.SystemTray.New()
 	log.Println("✓ System tray initialized")
@@ -134,6 +139,13 @@ func main() {
 
 		isvisible := mainWindow.IsVisible()
 		log.Println("✓ IsVisible() = ", isvisible)
+		if isvisible {
+			log.Println("准备调用 Hide()...")
+			mainWindow.Hide()
+		} else {
+			log.Println("准备调用 Show()...")
+			mainWindow.Show()
+		}
 		log.Println("准备调用 Maximise()...")
 		mainWindow.Maximise()
 		log.Println("✓ Maximise() 完成")
@@ -511,31 +523,31 @@ func main() {
 	// 交互事件
 	// 注意：macOS 上单击托盘图标会自动显示菜单
 	// 如果需要双击显示窗口，保留 OnDoubleClick
-	tray.OnDoubleClick(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("❌ 双击显示窗口时发生 panic: %v", r)
-				debug.PrintStack()
-			}
-		}()
+	// tray.OnDoubleClick(func() {
+	// 	defer func() {
+	// 		if r := recover(); r != nil {
+	// 			log.Printf("❌ 双击显示窗口时发生 panic: %v", r)
+	// 			debug.PrintStack()
+	// 		}
+	// 	}()
 
-		log.Println("=== 托盘双击事件 ===")
+	// 	log.Println("=== 托盘双击事件 ===")
 
-		if mainWindow == nil {
-			log.Println("❌ mainWindow 为 nil")
-			return
-		}
-		isvisible := mainWindow.IsVisible()
-		log.Println("✓ IsVisible() = ", isvisible)
+	// 	if mainWindow == nil {
+	// 		log.Println("❌ mainWindow 为 nil")
+	// 		return
+	// 	}
+	// 	isvisible := mainWindow.IsVisible()
+	// 	log.Println("✓ IsVisible() = ", isvisible)
 
-		mainWindow.Maximise()
-		log.Println("✓ Maximise() 完成")
+	// 	mainWindow.Maximise()
+	// 	log.Println("✓ Maximise() 完成")
 
-		mainWindow.Focus()
-		log.Println("✓ Focus() 完成")
+	// 	mainWindow.Focus()
+	// 	log.Println("✓ Focus() 完成")
 
-		log.Println("=== 操作完成 ===")
-	})
+	// 	log.Println("=== 操作完成 ===")
+	// })
 
 	log.Println("✓ System tray menu created")
 
@@ -574,7 +586,7 @@ func main() {
 		Width:            900,
 		Height:           700,
 	})
-	
+
 	// 初始隐藏浏览窗口
 	browseWindow.Minimise()
 	log.Println("✓ Browse window created (Minimise)")
@@ -598,7 +610,7 @@ func main() {
 		// 显示并最大化浏览窗口
 		browseWindow.Maximise()
 		browseWindow.Focus()
-		
+
 		log.Println("✓ 浏览窗口已打开")
 	})
 
@@ -616,4 +628,101 @@ func main() {
 	}
 
 	musicService.Shutdown()
+}
+
+func createMenu(app *application.App) *application.Menu {
+	menu := app.NewMenu()
+
+	if runtime.GOOS == "darwin" {
+		menu.AddRole(application.AppMenu) // macOS only
+	}
+	// File menu
+	fileMenu := menu.AddSubmenu("File")
+	fileMenu.Add("打开目录").
+		SetAccelerator("Ctrl+O").OnClick(func(ctx *application.Context) {
+		OpenDir()
+	})
+	fileMenu.Add("New").
+		SetAccelerator("Ctrl+N").
+		OnClick(func(ctx *application.Context) {
+			// Create new document
+		})
+	fileMenu.Add("Open").
+		SetAccelerator("Ctrl+O").
+		OnClick(func(ctx *application.Context) {
+			// Open file dialog
+		})
+	fileMenu.Add("Save").
+		SetAccelerator("Ctrl+S").
+		OnClick(func(ctx *application.Context) {
+			// Save document
+		})
+	fileMenu.AddSeparator()
+	fileMenu.Add("Exit").OnClick(func(ctx *application.Context) {
+		app.Quit()
+	})
+
+	// Add development menu
+	devMenu := menu.AddSubmenu("Development")
+	//重载app
+	devMenu.Add("Reload Application").OnClick(func(ctx *application.Context) {
+		// Reload the application
+		window := app.Window.Current()
+		if window != nil {
+			window.Reload()
+		}
+	})
+	//打开控制台
+	devMenu.Add("Open DevTools").OnClick(func(ctx *application.Context) {
+		window := app.Window.Current()
+		if window != nil {
+			window.OpenDevTools()
+		}
+	})
+
+	devMenu.Add("Show Environment").OnClick(func(ctx *application.Context) {
+		// showEnvironmentDialog(app)
+	})
+
+	// Edit menu
+	editMenu := menu.AddSubmenu("Edit")
+	editMenu.Add("Undo").SetAccelerator("Ctrl+Z")
+	editMenu.Add("Redo").SetAccelerator("Ctrl+Y")
+	editMenu.AddSeparator()
+	editMenu.Add("Cut").SetAccelerator("Ctrl+X")
+	editMenu.Add("Copy").SetAccelerator("Ctrl+C")
+	editMenu.Add("Paste").SetAccelerator("Ctrl+V")
+
+	// View menu
+	viewMenu := menu.AddSubmenu("View")
+	darkMode := viewMenu.AddCheckbox("Dark Mode", false)
+	darkMode.OnClick(func(ctx *application.Context) {
+		// Toggle dark mode
+		isChecked := darkMode.Checked()
+		app.Logger.Info("Dark mode", "enabled", isChecked)
+	})
+	viewMenu.AddSeparator()
+	viewMenu.AddRadio("List View", true)
+	viewMenu.AddRadio("Grid View", false)
+	viewMenu.AddRadio("Detail View", false)
+
+	// Help menu
+	helpMenu := menu.AddSubmenu("Help")
+	helpMenu.Add("Documentation").OnClick(func(ctx *application.Context) {
+		// Open docs
+	})
+	helpMenu.Add("About").OnClick(func(ctx *application.Context) {
+		// Show about dialog
+	})
+
+	return menu
+}
+
+func OpenDir() {
+	appPath := file.GetAppPath()
+	if runtime.GOOS == "darwin" {
+		utils.OpenMac(appPath)
+	} else {
+		utils.OpenWin(appPath)
+	}
 }

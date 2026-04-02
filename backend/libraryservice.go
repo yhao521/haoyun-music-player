@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
 )
 
 // MusicLibrary 音乐库结构
@@ -63,14 +64,8 @@ func (lm *LibraryManager) SetContext(ctx context.Context) {
 
 // Init 初始化音乐库管理器
 func (lm *LibraryManager) Init() error {
-	// 获取用户数据目录
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("获取用户目录失败：%w", err)
-	}
-
 	// 创建音乐库目录
-	lm.libDir = filepath.Join(homeDir, ".haoyun-music", "libraries")
+	lm.libDir = file.GetLibPath()
 	if err := os.MkdirAll(lm.libDir, 0755); err != nil {
 		return fmt.Errorf("创建音乐库目录失败：%w", err)
 	}

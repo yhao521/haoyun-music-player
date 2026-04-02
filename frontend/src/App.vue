@@ -4,7 +4,7 @@ import AppMain from "./components/AppMain.vue";
 import BrowseView from "./views/BrowseView.vue";
 
 // 当前视图
-const currentView = ref<string>("browse");
+const currentView = ref<string>("main");
 
 // 检查 URL 路径 - 支持 hash 模式和 path 模式
 const checkRoute = () => {
