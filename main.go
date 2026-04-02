@@ -145,6 +145,7 @@ func main() {
 	})
 
 	// 创建浏览歌曲菜单项（带快捷键 Cmd+F）
+	// 注意：OnClick 回调会在后面窗口创建后重新定义
 	browseItem = application.NewMenuItem("浏览歌曲")
 	browseItem.SetAccelerator("CmdOrCtrl+F")
 	browseItem.OnClick(func(ctx *application.Context) {
@@ -578,7 +579,7 @@ func main() {
 	browseWindow.Minimise()
 	log.Println("✓ Browse window created (Minimise)")
 
-	// 修改浏览歌曲菜单项的点击事件
+	// 重新设置浏览歌曲菜单项的点击事件（在 browseWindow 初始化之后）
 	browseItem.OnClick(func(ctx *application.Context) {
 		defer func() {
 			if r := recover(); r != nil {
