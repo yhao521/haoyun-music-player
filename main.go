@@ -31,6 +31,7 @@ func init() {
 	application.RegisterEvent[[]string]("playlistUpdated")
 	application.RegisterEvent[string]("currentTrackChanged")
 	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
+	application.RegisterEvent[[]string]("launchArgs")              // 添加第二实例启动参数事件
 }
 
 func main() {
@@ -151,20 +152,21 @@ func main() {
 			log.Println("✓ Maximise() 完成")
 
 			mainWindow.Focus()
+			log.Println("✓ Focus() 完成")
+			go func() {
+				if mainWindow != nil && mainWindow.IsVisible() {
+					// 等待窗口完全初始化后再发送事件
+					time.Sleep(100 * time.Millisecond)
+					app.Event.Emit("windowUrl", map[string]interface{}{
+						"type":       "test_message",
+						"message":    "后端定时测试消息",
+						"serverTime": time.Now().Format(time.RFC1123),
+						"url":        "#/main",
+					})
+					log.Println("📤 [测试消息] 已发送到 mainWindow")
+				}
+			}()
 		}
-
-		go func() {
-			if mainWindow != nil && mainWindow.IsVisible() {
-				app.Event.Emit("windowUrl", map[string]interface{}{
-					"type":       "test_message",
-					"message":    "后端定时测试消息",
-					"serverTime": time.Now().Format(time.RFC1123),
-					"url":        "#/main",
-				})
-				log.Println("📤 [测试消息] 已发送到 mainWindow")
-			}
-		}()
-		log.Println("✓ Focus() 完成")
 
 		log.Println("=== 操作完成 ===")
 	})
@@ -551,10 +553,10 @@ func main() {
 	})
 
 	// 初始隐藏窗口
-	mainWindow.Hide()
-	log.Println("✓ Main window created (Hide)")
-	// mainWindow.Minimise()
-	// log.Println("✓ Main window created (Minimise)")
+	// mainWindow.Hide()
+	// log.Println("✓ Main window created (Hide)")
+	mainWindow.Minimise()
+	log.Println("✓ Main window created (Minimise)")
 
 	// 创建浏览歌曲窗口（用于展示音乐库和歌曲列表）
 	var browseWindow *application.WebviewWindow
@@ -615,6 +617,8 @@ func main() {
 
 		go func() {
 			if browseWindow != nil && browseWindow.IsVisible() {
+				// 等待窗口完全初始化后再发送事件
+				time.Sleep(100 * time.Millisecond)
 				app.Event.Emit("windowUrl", map[string]interface{}{
 					"type":       "test_message",
 					"message":    "后端定时测试消息",
