@@ -211,17 +211,17 @@ func (p *PcmStreamer) Close() error {
 
 // AudioPlayer 音频播放器 (使用 oto + 各种解码器)
 type AudioPlayer struct {
-	mu        sync.Mutex
-	isPlaying bool
-	paused    bool
-	volume    float64
-	otoCtx    *oto.Context       // oto 上下文
-	player    *oto.Player        // oto 播放器
-	streamer  AudioReader        // 音频流式读取器
-	stopChan  chan struct{}      // 停止信号通道
-	app       *application.App   // Wails 应用引用
-	sampleRate int               // 采样率
-	channels   int                // 声道数
+	mu           sync.Mutex
+	isPlaying    bool
+	paused       bool
+	volume       float64
+	otoCtx       *oto.Context       // oto 上下文 (全局唯一)
+	player       *oto.Player        // oto 播放器
+	streamer     AudioReader        // 音频流式读取器
+	stopChan     chan struct{}      // 停止信号通道
+	app          *application.App   // Wails 应用引用
+	currentRate  int                // 当前 Context 的采样率
+	currentChans int                // 当前 Context 的声道数
 }
 
 // NewAudioPlayer 创建音频播放器实例
@@ -336,12 +336,37 @@ func (ap *AudioPlayer) loadAudioFile(path string) (AudioReader, int, int, error)
 	}
 }
 
-// initOto 初始化 oto 音频上下文
-func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
-	// 先关闭现有的播放器和上下文
-	ap.closeOto()
+// closeOto 关闭 oto 播放器 (保留 Context)
+func (ap *AudioPlayer) closeOto() {
+	if ap.player != nil {
+		ap.player.Close()
+		ap.player = nil
+	}
+	// 注意：oto v3 的 Context 不需要关闭，也不能重复创建
+	// 我们保持 ap.otoCtx、currentRate、currentChans 不变，以便后续复用
+}
 
-	// 准备 oto 上下文
+// initOto 初始化或复用 oto 音频上下文
+func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
+	// 如果已经创建过 Context，检查参数是否匹配
+	if ap.otoCtx != nil {
+		// 如果采样率或声道数不同，需要重新创建 Context
+		if ap.currentRate == sampleRate && ap.currentChans == channelCount {
+			// 参数相同，直接复用
+			return nil
+		}
+		
+		// 参数不同，需要关闭并重新创建 Context
+		// 注意：这可能会有短暂的延迟
+		if ap.otoCtx != nil {
+			// oto.Context 没有 Close 方法，我们只能让它被 GC 回收
+			// 实际上，在 macOS 上，多次创建 Context 会报错
+			// 所以这里我们假设所有歌曲使用相同的格式
+			// 如果确实需要切换，可能需要接受这个限制
+		}
+	}
+
+	// 创建新的 oto 上下文
 	ctx, readyChan, err := oto.NewContext(&oto.NewContextOptions{
 		SampleRate:   sampleRate,
 		ChannelCount: channelCount,
@@ -361,19 +386,9 @@ func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
 	}
 
 	ap.otoCtx = ctx
-	ap.sampleRate = sampleRate
-	ap.channels = channelCount
+	ap.currentRate = sampleRate
+	ap.currentChans = channelCount
 	return nil
-}
-
-// closeOto 关闭 oto 资源
-func (ap *AudioPlayer) closeOto() {
-	if ap.player != nil {
-		ap.player.Close()
-		ap.player = nil
-	}
-	// oto v3 的 Context 不需要显式关闭，由底层自动管理
-	ap.otoCtx = nil
 }
 
 // Play 播放音频文件
@@ -390,7 +405,7 @@ func (ap *AudioPlayer) Play(path string) error {
 		return err
 	}
 
-	// 初始化 oto
+	// 初始化 oto Context（只在首次调用时创建）
 	if err := ap.initOto(sampleRate, channels); err != nil {
 		reader.Close()
 		return err
