@@ -80,8 +80,9 @@ func main() {
 	var musicLibMenu *application.Menu
 	var menu *application.Menu
 
-	// 创建基本播放控制菜单项
+	// 创建基本播放控制菜单项（带快捷键）
 	playPauseItem = application.NewMenuItem("播放/暂停")
+	playPauseItem.SetAccelerator("Space") // 空格键控制播放暂停
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		// 检查当前是否有播放列表
 		playlist, _ := musicService.GetPlaylist()
@@ -111,6 +112,7 @@ func main() {
 	})
 
 	prevItem = application.NewMenuItem("上一曲")
+	prevItem.SetAccelerator("CmdOrCtrl+Left") // Ctrl+ 左箭头
 	prevItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Previous(); err != nil {
 			log.Printf("切换上一曲失败：%v", err)
@@ -118,6 +120,7 @@ func main() {
 	})
 
 	nextItem = application.NewMenuItem("下一曲")
+	nextItem.SetAccelerator("CmdOrCtrl+Right") // Ctrl+ 右箭头
 	nextItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Next(); err != nil {
 			log.Printf("切换下一曲失败：%v", err)

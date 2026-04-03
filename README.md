@@ -248,3 +248,18 @@ MIT License
 🎵 Enjoy Your Music!
 
 </div>
+
+## ⌨️ 键盘快捷键
+
+### 播放控制
+- **播放/暂停**: `Space` (空格键)
+- **上一曲**: `Cmd+←` (macOS) / `Ctrl+←` (Windows/Linux)
+- **下一曲**: `Cmd+→` (macOS) / `Ctrl+→` (Windows/Linux)
+
+### 其他快捷键
+- **浏览歌曲**: `Cmd/Ctrl+F`
+- **刷新音乐库**: `Cmd/Ctrl+R`
+- **下载**: `Cmd/Ctrl+D`
+- **设置**: `Cmd/Ctrl+S`
+
+> 📝 详细说明请查看 [KEYBOARD_SHORTCUTS.md](./KEYBOARD_SHORTCUTS.md)
