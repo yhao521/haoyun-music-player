@@ -81,10 +81,11 @@ func main() {
 	var menu *application.Menu
 
 	// 创建基本播放控制菜单项
-	playPauseItem = application.NewMenuItem("播放")
+	playPauseItem = application.NewMenuItem("播放/暂停")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		// 检查当前是否有播放列表
 		playlist, _ := musicService.GetPlaylist()
+		log.Println("GetPlaylist", len(playlist))
 
 		if len(playlist) == 0 {
 			// 如果播放列表为空，从当前音乐库加载

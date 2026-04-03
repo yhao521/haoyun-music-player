@@ -86,10 +86,13 @@ func (m *MusicService) Stop() error {
 
 // TogglePlayPause 切换播放/暂停
 func (m *MusicService) TogglePlayPause() (bool, error) {
+	log.Println("[MusicService.TogglePlayPause] 开始")
+	
 	// 检查是否正在播放
-	_, err := m.audioPlayer.IsPlaying()
+	isPlaying, err := m.audioPlayer.IsPlaying()
 	if err != nil {
-		// 如果没有正在播放的音乐，尝试播放
+		log.Printf("[MusicService.TogglePlayPause] IsPlaying 出错：%v", err)
+		// 如果出错，尝试获取播放列表并播放
 		playlist, _ := m.playlistManager.GetPlaylist()
 		if len(playlist) > 0 {
 			currentIndex, _ := m.playlistManager.GetCurrentIndex()
@@ -97,12 +100,45 @@ func (m *MusicService) TogglePlayPause() (bool, error) {
 				m.playlistManager.PlayIndex(0)
 			}
 			err := m.Play()
+			log.Printf("[MusicService.TogglePlayPause] 播放结果：%v", err)
 			return true, err
 		}
 		return false, err
 	}
+	
+	log.Printf("[MusicService.TogglePlayPause] isPlaying: %v", isPlaying)
 
-	return m.audioPlayer.TogglePlayPause()
+	// 如果正在播放，则暂停；否则播放
+	if isPlaying {
+		log.Println("[MusicService.TogglePlayPause] 执行暂停")
+		err := m.audioPlayer.Pause()
+		if err != nil {
+			log.Printf("[MusicService.TogglePlayPause] 暂停失败：%v", err)
+			return false, err
+		}
+		log.Println("[MusicService.TogglePlayPause] 暂停成功")
+		return false, nil
+	} else {
+		log.Println("[MusicService.TogglePlayPause] 尝试恢复播放")
+		// 已暂停，尝试恢复播放
+		success, err := m.audioPlayer.TogglePlayPause()
+		if err != nil {
+			log.Printf("[MusicService.TogglePlayPause] TogglePlayPause 失败：%v", err)
+			// 如果播放器已停止，重新播放当前歌曲
+			playlist, _ := m.playlistManager.GetPlaylist()
+			if len(playlist) > 0 {
+				currentIndex, _ := m.playlistManager.GetCurrentIndex()
+				if currentIndex >= 0 && currentIndex < len(playlist) {
+					err := m.Play()
+					log.Printf("[MusicService.TogglePlayPause] 重新播放结果：%v", err)
+					return true, err
+				}
+			}
+			return false, err
+		}
+		log.Printf("[MusicService.TogglePlayPause] 恢复播放成功：%v", success)
+		return true, nil
+	}
 }
 
 // Next 播放下一首
