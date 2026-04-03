@@ -446,6 +446,7 @@ func main() {
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
 	downloadItem = application.NewMenuItem("下载音乐")
 	downloadItem.SetAccelerator("CmdOrCtrl+D")
+	downloadItem.SetEnabled(false)
 	downloadItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现下载音乐功能
 		log.Println("下载音乐")
