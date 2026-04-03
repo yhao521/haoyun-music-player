@@ -15,6 +15,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// TrackInfo 音乐文件信息（用于事件注册）
+type TrackInfo = backend.TrackInfo
+
 //go:embed all:frontend/dist
 var assets embed.FS
 
@@ -29,7 +32,7 @@ func init() {
 	application.RegisterEvent[string]("playbackStateChanged")
 	application.RegisterEvent[map[string]interface{}]("playbackProgress")
 	application.RegisterEvent[[]string]("playlistUpdated")
-	application.RegisterEvent[string]("currentTrackChanged")
+	application.RegisterEvent[TrackInfo]("currentTrackChanged")
 	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
 	application.RegisterEvent[[]string]("launchArgs")              // 添加第二实例启动参数事件
 }

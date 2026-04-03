@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,22 @@ import (
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+// createTrackInfo 从文件路径创建 TrackInfo
+func createTrackInfo(path string) TrackInfo {
+	filename := filepath.Base(path)
+	title := strings.TrimSuffix(filename, filepath.Ext(filename))
+	
+	return TrackInfo{
+		Path:     path,
+		Filename: filename,
+		Title:    title,
+		Artist:   "", // 暂时为空，后续可从 ID3 标签读取
+		Album:    "",
+		Duration: 0, // TODO: 从音频文件中读取
+		Size:     0,
+	}
 }
 
 // PlaylistManager 播放列表管理
@@ -95,8 +112,9 @@ func (pm *PlaylistManager) PlayIndex(index int) error {
 	path := pm.playlist[index]
 
 	if pm.app != nil {
-		log.Printf("🎵 PlaylistManager.PlayIndex: 触发 currentTrackChanged 事件：%s", filepath.Base(path))
-		pm.app.Event.Emit("currentTrackChanged", filepath.Base(path))
+		trackInfo := createTrackInfo(path)
+		log.Printf("🎵 PlaylistManager.PlayIndex: 触发 currentTrackChanged 事件：%+v", trackInfo)
+		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 
 	return nil
@@ -128,7 +146,8 @@ func (pm *PlaylistManager) Next() error {
 	path := pm.playlist[pm.current]
 
 	if pm.app != nil {
-		pm.app.Event.Emit("currentTrackChanged", filepath.Base(path))
+		trackInfo := createTrackInfo(path)
+		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 
 	return nil
@@ -160,7 +179,8 @@ func (pm *PlaylistManager) Previous() error {
 	path := pm.playlist[pm.current]
 
 	if pm.app != nil {
-		pm.app.Event.Emit("currentTrackChanged", filepath.Base(path))
+		trackInfo := createTrackInfo(path)
+		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 
 	return nil

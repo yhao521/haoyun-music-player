@@ -15,12 +15,23 @@ import {
   GetPlaylist,
 } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
 
+// TrackInfo 音乐文件信息
+interface TrackInfo {
+  path: string;
+  filename: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
+  size: number;
+}
+
 // 播放状态
 const isPlaying = ref(false);
 const currentPosition = ref(0);
 const duration = ref(0);
 const volume = ref(0.7);
-const currentTrack = ref("");
+const currentTrack = ref<TrackInfo | null>(null);
 const playlist = ref<string[]>([]);
 
 // 格式化时间
@@ -132,12 +143,55 @@ const getFileName = (path: string): string => {
 };
 
 // 安全显示歌曲标题
-const displayTrackTitle = (track: string): string => {
-  // 严格检查：确保 track 是有效的字符串
-  if (track == null || typeof track !== "string" || track.trim() === "") {
-    return "未播放音乐";
+const displayTrackTitle = (track: TrackInfo | string | null): string => {
+  // 如果是字符串，按旧逻辑处理
+  if (typeof track === "string") {
+    return getFileName(track);
   }
-  return getFileName(track);
+
+  // 如果是 TrackInfo 对象
+  if (track && typeof track === "object") {
+    // 优先使用元数据中的 title，如果没有则使用 filename
+    if (track.title && track.title.trim() !== "") {
+      return track.title;
+    }
+    if (track.filename && track.filename.trim() !== "") {
+      return getFileName(track.filename);
+    }
+    if (track.path && track.path.trim() !== "") {
+      return getFileName(track.path);
+    }
+  }
+
+  return "未播放音乐";
+};
+
+// 获取艺术家信息
+const displayArtist = (track: TrackInfo | string | null): string => {
+  if (track && typeof track === "object") {
+    if (
+      track.artist &&
+      track.artist.trim() !== "" &&
+      track.artist !== "未知艺术家"
+    ) {
+      return track.artist;
+    }
+  }
+  return "未知艺术家";
+};
+
+// 获取专辑信息
+const displayAlbum = (track: TrackInfo | string | null): string => {
+  if (track && typeof track === "object") {
+    if (
+      track.album &&
+      track.album.trim() !== "" &&
+      track.album !== "未知专辑"
+    ) {
+      return track.album;
+    }
+  }
+  return "未知专辑";
 };
 
 // 判断是否为当前播放的歌曲
@@ -146,7 +200,11 @@ const isCurrentTrack = (track: string): boolean => {
   if (track == null || typeof track !== "string") {
     return false;
   }
-  return currentTrack.value === track;
+  if (!currentTrack.value) {
+    return false;
+  }
+  // 比较路径
+  return currentTrack.value.path === track;
 };
 
 // 监听事件 - Wails v3 使用 Events.On
@@ -160,6 +218,7 @@ const listenToEvents = () => {
 
   // 监听播放进度
   Events.On("playbackProgress", (data: any) => {
+    console.debug("playbackProgress", data);
     currentPosition.value = data.position;
     duration.value = data.duration;
   });
@@ -171,12 +230,31 @@ const listenToEvents = () => {
     .catch(() => {});
   // 监听播放列表更新
   Events.On("playlistUpdated", (tracks: any) => {
+    console.log("playlistUpdated", tracks);
     playlist.value = tracks;
   });
 
   // 监听当前歌曲变化
   Events.On("currentTrackChanged", (track: any) => {
-    currentTrack.value = track;
+    console.log("currentTrackChanged", track);
+
+    // 兼容旧版本：如果 track 是字符串，转换为 TrackInfo 对象
+    if (typeof track.data === "string") {
+      currentTrack.value = {
+        path: track,
+        filename: getFileName(track),
+        title: "",
+        artist: "",
+        album: "",
+        duration: 0,
+        size: 0,
+      };
+    } else if (track && typeof track === "object") {
+      // 如果是 TrackInfo 对象，直接使用
+      currentTrack.value = track.data as TrackInfo;
+    } else {
+      currentTrack.value = null;
+    }
   });
 
   console.log("Music Player initialized");
@@ -214,7 +292,8 @@ onUnmounted(() => {
       </div>
       <div class="track-info">
         <h2 class="track-title">{{ displayTrackTitle(currentTrack) }}</h2>
-        <p class="track-artist">未知艺术家</p>
+        <p class="track-artist">{{ displayArtist(currentTrack) }}</p>
+        <p class="track-album">{{ displayAlbum(currentTrack) }}</p>
       </div>
     </div>
 
@@ -335,10 +414,14 @@ onUnmounted(() => {
 .track-info {
   flex: 1;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
 }
 
 .track-title {
-  margin: 0 0 6px 0;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -350,6 +433,18 @@ onUnmounted(() => {
   margin: 0;
   font-size: 12px;
   opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-album {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .progress-section {
