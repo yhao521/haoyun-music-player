@@ -217,6 +217,7 @@ type AudioPlayer struct {
 	paused         bool
 	volume         float64
 	currentPath    string           // 当前播放的文件路径
+	pausePosition  int              // 暂停时的播放位置（秒）
 	otoCtx         *oto.Context     // oto 上下文 (全局唯一，只创建一次)
 	player         *oto.Player      // oto 播放器
 	streamer       AudioReader      // 音频流式读取器
@@ -503,17 +504,21 @@ func (ap *AudioPlayer) Pause() error {
 		log.Println("[Pause] 已调用 player.Pause()")
 	}
 
-	// 2. 关闭打开的 file 句柄（streamer）
+	// 2. 保存当前播放位置（用于断点续播）
+	ap.pausePosition = ap.streamer.Position()
+	log.Printf("[Pause] 已保存播放位置：%d 秒", ap.pausePosition)
+
+	// 3. 关闭打开的 file 句柄（streamer）
 	if ap.streamer != nil {
 		ap.streamer.Close()
 		ap.streamer = nil
 		log.Println("[Pause] 已关闭 streamer")
 	}
 
-	// 3. 将 player 设为 nil，等待 GC 回收
+	// 4. 将 player 设为 nil，等待 GC 回收
 	ap.player = nil
 
-	// 4. 发送停止信号给监控协程
+	// 5. 发送停止信号给监控协程
 	if ap.stopChan != nil {
 		select {
 		case ap.stopChan <- struct{}{}:
@@ -523,11 +528,11 @@ func (ap *AudioPlayer) Pause() error {
 		}
 	}
 
-	// 5. 更新状态
+	// 6. 更新状态
 	ap.paused = true
 	ap.isPlaying = false
 
-	log.Printf("[Pause] 暂停完成 - isPlaying: %v, paused: %v", ap.isPlaying, ap.paused)
+	log.Printf("[Pause] 暂停完成 - isPlaying: %v, paused: %v, position: %d", ap.isPlaying, ap.paused, ap.pausePosition)
 
 	if ap.app != nil {
 		ap.app.Event.Emit("playbackStateChanged", "paused")
@@ -637,12 +642,12 @@ func (ap *AudioPlayer) IsPlaying() (bool, error) {
 // TogglePlayPause 切换播放/暂停
 func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 	ap.mu.Lock()
-	defer ap.mu.Unlock()
-
-	log.Printf("[TogglePlayPause] 开始 - isPlaying: %v, paused: %v, player: %v, streamer: %v", 
-		ap.isPlaying, ap.paused, ap.player != nil, ap.streamer != nil)
+	
+	log.Printf("[TogglePlayPause] 开始 - isPlaying: %v, paused: %v, player: %v, streamer: %v, position: %d", 
+		ap.isPlaying, ap.paused, ap.player != nil, ap.streamer != nil, ap.pausePosition)
 
 	if ap.streamer == nil && ap.currentPath == "" {
+		ap.mu.Unlock()
 		return false, fmt.Errorf("当前没有播放的音乐")
 	}
 
@@ -652,25 +657,61 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 		
 		// 由于 streamer 已关闭，需要重新加载文件并播放
 		if ap.currentPath != "" {
-			// 释放锁以避免死锁
+			// 保存要跳转的位置
+			resumePosition := ap.pausePosition
+			log.Printf("[TogglePlayPause] 准备从 %d 秒位置恢复播放", resumePosition)
+			
+			// ⭐ 关键：先释放锁，避免在 Play 中死锁
 			ap.mu.Unlock()
 			
 			// 重新播放当前文件（会从头开始）
+			log.Println("[TogglePlayPause] 调用 Play 方法...")
 			err := ap.Play(ap.currentPath)
+			
+			if err != nil {
+				log.Printf("[TogglePlayPause] 重新播放失败：%v", err)
+				return false, err
+			}
+			
+			log.Println("[TogglePlayPause] Play 方法调用完成")
+			
+			// 等待一小段时间确保播放已经开始
+			time.Sleep(50 * time.Millisecond)
 			
 			// 重新加锁
 			ap.mu.Lock()
 			
-			if err != nil {
-				log.Printf("[TogglePlayPause] 重新播放失败：%v", err)
+			// 跳转到之前保存的播放位置（断点续播）
+			if resumePosition > 0 {
+				log.Printf("[TogglePlayPause] 跳转到播放位置：%d 秒", resumePosition)
+				
+				// ⭐ Seek 也需要释放锁以避免死锁
 				ap.mu.Unlock()
-				return false, err
+				err = ap.Seek(float64(resumePosition))
+				ap.mu.Lock()
+				
+				if err != nil {
+					log.Printf("[TogglePlayPause] Seek 失败：%v", err)
+					// Seek 失败不影响播放，继续返回成功
+				} else {
+					log.Printf("[TogglePlayPause] Seek 成功，当前位置：%d 秒", int(float64(resumePosition)))
+				}
 			}
 			
-			log.Println("[TogglePlayPause] 重新播放成功")
-			// Play 已经设置了状态，直接返回
+			// 更新状态
+			ap.paused = false
+			ap.isPlaying = true
+			
+			log.Println("[TogglePlayPause] 重新播放完成")
+			ap.mu.Unlock()
+			
+			if ap.app != nil {
+				ap.app.Event.Emit("playbackStateChanged", "playing")
+			}
+			
 			return true, nil
 		} else {
+			ap.mu.Unlock()
 			log.Println("[TogglePlayPause] 没有保存的文件路径")
 			return false, fmt.Errorf("无法恢复播放：文件路径丢失")
 		}
@@ -684,17 +725,21 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 			log.Println("[TogglePlayPause] 已调用 player.Pause()")
 		}
 
-		// 2. 关闭打开的 file 句柄（streamer）
+		// 2. 保存当前播放位置（用于断点续播）
+		ap.pausePosition = ap.streamer.Position()
+		log.Printf("[TogglePlayPause] 已保存播放位置：%d 秒", ap.pausePosition)
+
+		// 3. 关闭打开的 file 句柄（streamer）
 		if ap.streamer != nil {
 			ap.streamer.Close()
 			ap.streamer = nil
 			log.Println("[TogglePlayPause] 已关闭 streamer")
 		}
 
-		// 3. 将 player 设为 nil，等待 GC 回收
+		// 4. 将 player 设为 nil，等待 GC 回收
 		ap.player = nil
 
-		// 4. 发送停止信号给监控协程
+		// 5. 发送停止信号给监控协程
 		if ap.stopChan != nil {
 			select {
 			case ap.stopChan <- struct{}{}:
@@ -704,12 +749,14 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 			}
 		}
 
-		// 5. 更新状态
+		// 6. 更新状态
 		ap.paused = true
 		ap.isPlaying = false
 
-		log.Printf("[TogglePlayPause] 暂停完成 - isPlaying: %v, paused: %v", ap.isPlaying, ap.paused)
+		log.Printf("[TogglePlayPause] 暂停完成 - isPlaying: %v, paused: %v, position: %d", ap.isPlaying, ap.paused, ap.pausePosition)
 
+		ap.mu.Unlock()
+		
 		if ap.app != nil {
 			ap.app.Event.Emit("playbackStateChanged", "paused")
 		}
