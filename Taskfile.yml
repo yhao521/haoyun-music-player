@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 includes:
   common: ./build/Taskfile.yml
@@ -11,7 +11,10 @@ includes:
 vars:
   APP_NAME: "haoyun-music-player"
   BIN_DIR: "bin"
-  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  VITE_PORT: "{{.WAILS_VITE_PORT | default 9245}}"
+  _APP_NAME: "haoyun-music-player"
+  VERSION_1: "0"
+  VERSION_2: "0"
 
 tasks:
   build:
@@ -58,3 +61,45 @@ tasks:
     summary: Builds and runs the Docker image
     cmds:
       - task: common:run:docker
+
+  packages:
+    summary: Package the application with version and timestamp
+    cmds:
+      - echo "开始打包应用..."
+      - |
+        task package
+
+        # 获取版本号
+        VERSION_3=$(git rev-list HEAD --no-merges  --count)
+        # 获取当前时间戳 %Y%m%d_%H%M%S
+        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        # 创建打包目录
+        mkdir -p ./bin/releases
+        # 根据操作系统设置不同的打包命令
+        case "$(uname)" in
+          Darwin*)
+            # macOS 打包
+            cd ./bin
+            PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS.zip"
+            zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app"
+            echo "打包完成: releases/${PACKAGE_NAME}"
+            ;;
+          Linux*)
+            # Linux 打包
+            cd ./bin
+            PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Linux.zip"
+            zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
+            echo "打包完成: releases/${PACKAGE_NAME}"
+            ;;
+          MINGW*|MSYS*|CYGWIN*)
+            # Windows 打包
+            cd ./bin
+            PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Windows.zip"
+            powershell Compress-Archive -Path "{{._APP_NAME}}.exe" -DestinationPath "./releases/${PACKAGE_NAME}"
+            echo "打包完成: releases/${PACKAGE_NAME}"
+            ;;
+          *)
+            echo "未知操作系统"
+            exit 1
+            ;;
+        esac
