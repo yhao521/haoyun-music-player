@@ -12,6 +12,7 @@ import {
   // Seek,
   SetVolume,
   TogglePlayPause,
+  GetPlaylist,
 } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
 
 // 播放状态
@@ -39,6 +40,7 @@ const progressPercent = computed(() => {
 const togglePlayPause = async () => {
   try {
     const result = await TogglePlayPause();
+    console.log("result:", result);
     isPlaying.value = result;
   } catch (error) {
     console.error("Failed to toggle play/pause:", error);
@@ -125,7 +127,12 @@ const listenToEvents = () => {
     currentPosition.value = data.position;
     duration.value = data.duration;
   });
-
+  GetPlaylist()
+    .then((tracks) => {
+      console.log("GetPlaylist", tracks);
+      playlist.value = tracks;
+    })
+    .catch(() => {});
   // 监听播放列表更新
   Events.On("playlistUpdated", (tracks: any) => {
     playlist.value = tracks;
@@ -218,9 +225,10 @@ onUnmounted(() => {
     </div>
 
     <!-- 操作按钮 -->
-    <div class="actions">
+    <!--    <div class="actions">
       <button class="action-btn" @click="openFile">📂 打开文件</button>
     </div>
+    -->
 
     <!-- 播放列表 -->
     <div class="playlist-section" v-if="playlist.length > 0">
@@ -246,7 +254,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 20px;
+  padding: 15px;
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   color: white;
   font-family:
@@ -256,35 +264,35 @@ onUnmounted(() => {
 
 .header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
 }
 
 .album-art {
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 30px;
-  padding: 20px;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 15px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 10px;
   backdrop-filter: blur(10px);
 }
 
 .album-cover {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 32px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -294,8 +302,8 @@ onUnmounted(() => {
 }
 
 .track-title {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+  margin: 0 0 6px 0;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -304,25 +312,25 @@ onUnmounted(() => {
 
 .track-artist {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0.8;
 }
 
 .progress-section {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .time-display {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.8;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .progress-bar {
   width: 100%;
-  height: 6px;
+  height: 5px;
   -webkit-appearance: none;
   appearance: none;
   background: rgba(255, 255, 255, 0.2);
@@ -334,8 +342,8 @@ onUnmounted(() => {
 .progress-bar::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
@@ -343,8 +351,8 @@ onUnmounted(() => {
 }
 
 .progress-bar::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
@@ -356,18 +364,18 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 25px;
+  gap: 15px;
+  margin-bottom: 15px;
 }
 
 .control-btn {
   background: rgba(255, 255, 255, 0.15);
   border: none;
   color: white;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
@@ -379,9 +387,9 @@ onUnmounted(() => {
 }
 
 .control-btn.play-btn {
-  width: 65px;
-  height: 65px;
-  font-size: 28px;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
@@ -394,13 +402,13 @@ onUnmounted(() => {
 .volume-section {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 15px;
   padding: 0 10px;
 }
 
 .volume-icon {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .volume-slider {
@@ -417,63 +425,45 @@ onUnmounted(() => {
 .volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
 }
 
 .volume-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
   border: none;
 }
 
-.actions {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.action-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-}
-
 .playlist-section {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 15px;
+  border-radius: 10px;
+  padding: 12px;
   backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
 }
 
 .playlist-section h3 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
   font-weight: 600;
+  text-align: center;
 }
 
 .playlist {
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .playlist-item {
