@@ -40,7 +40,7 @@ const progressPercent = computed(() => {
 const togglePlayPause = async () => {
   try {
     const result = await TogglePlayPause();
-    console.log("result:", result);
+    console.log("togglePlayPause.result:", result);
     isPlaying.value = result;
   } catch (error) {
     console.error("Failed to toggle play/pause:", error);
@@ -49,6 +49,7 @@ const togglePlayPause = async () => {
 
 // 下一首
 const next = async () => {
+  isPlaying.value = false;
   try {
     await Next();
   } catch (error) {
@@ -58,6 +59,7 @@ const next = async () => {
 
 // 上一首
 const previous = async () => {
+  isPlaying.value = false;
   try {
     await Previous();
   } catch (error) {
@@ -115,11 +117,45 @@ const playIndex = async (index: number) => {
   }
 };
 
+// 从完整路径提取文件名
+const getFileName = (path: string): string => {
+  // 严格检查：确保 path 是有效的字符串
+  if (path == null || typeof path !== "string") {
+    return "";
+  }
+  // 如果路径为空字符串，直接返回
+  if (path.trim() === "") {
+    return "";
+  }
+  const parts = path.split("/");
+  return parts[parts.length - 1] || path;
+};
+
+// 安全显示歌曲标题
+const displayTrackTitle = (track: string): string => {
+  // 严格检查：确保 track 是有效的字符串
+  if (track == null || typeof track !== "string" || track.trim() === "") {
+    return "未播放音乐";
+  }
+  return getFileName(track);
+};
+
+// 判断是否为当前播放的歌曲
+const isCurrentTrack = (track: string): boolean => {
+  // 严格检查：确保 track 是有效的字符串
+  if (track == null || typeof track !== "string") {
+    return false;
+  }
+  return currentTrack.value === track;
+};
+
 // 监听事件 - Wails v3 使用 Events.On
 const listenToEvents = () => {
   // 监听播放状态变化
   Events.On("playbackStateChanged", (state: any) => {
-    isPlaying.value = state === "playing";
+    console.debug("playbackStateChanged", state, state.data === "playing");
+    isPlaying.value = state.data === "playing";
+    console.debug("playbackStateChanged", isPlaying.value);
   });
 
   // 监听播放进度
@@ -177,7 +213,7 @@ onUnmounted(() => {
         <div class="music-icon">🎵</div>
       </div>
       <div class="track-info">
-        <h2 class="track-title">{{ currentTrack || "未播放音乐" }}</h2>
+        <h2 class="track-title">{{ displayTrackTitle(currentTrack) }}</h2>
         <p class="track-artist">未知艺术家</p>
       </div>
     </div>
@@ -238,11 +274,11 @@ onUnmounted(() => {
           v-for="(track, index) in playlist"
           :key="index"
           class="playlist-item"
-          :class="{ active: currentTrack === track }"
+          :class="{ active: isCurrentTrack(track) }"
           @click="playIndex(index)"
         >
           <span class="track-number">{{ index + 1 }}</span>
-          <span class="track-name">{{ track.split("/").pop() }}</span>
+          <span class="track-name">{{ getFileName(track) }}</span>
         </div>
       </div>
     </div>
