@@ -7,6 +7,7 @@ import (
 	"log"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/yhao521/wailsMusicPlay/backend"
@@ -35,12 +36,12 @@ func init() {
 	application.RegisterEvent[map[string]interface{}]("playbackProgress")
 	application.RegisterEvent[[]string]("playlistUpdated")
 	application.RegisterEvent[TrackInfo]("currentTrackChanged")
-	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
-	application.RegisterEvent[[]string]("launchArgs")              // 添加第二实例启动参数事件
-	application.RegisterEvent[interface{}]("playbackEnded")        // 添加播放结束事件
-	application.RegisterEvent[[]backend.HistoryRecord]("historyUpdated")   // 添加播放历史更新事件
-	application.RegisterEvent[*backend.LyricInfo]("lyricLoaded")           // 添加歌词加载完成事件
-	application.RegisterEvent[int]("currentLyricLineChanged")      // 添加当前歌词行变化事件
+	application.RegisterEvent[map[string]interface{}]("windowUrl")       // 添加窗口 URL 变化事件
+	application.RegisterEvent[[]string]("launchArgs")                    // 添加第二实例启动参数事件
+	application.RegisterEvent[interface{}]("playbackEnded")              // 添加播放结束事件
+	application.RegisterEvent[[]backend.HistoryRecord]("historyUpdated") // 添加播放历史更新事件
+	application.RegisterEvent[*backend.LyricInfo]("lyricLoaded")         // 添加歌词加载完成事件
+	application.RegisterEvent[int]("currentLyricLineChanged")            // 添加当前歌词行变化事件
 }
 
 func main() {
@@ -216,42 +217,39 @@ func main() {
 	browseItem = application.NewMenuItem("浏览歌曲")
 	browseItem.SetAccelerator("CmdOrCtrl+F")
 
-	// 创建播放模式子菜单（使用复选框显示当前模式）
+	// 创建播放模式子菜单（使用普通菜单项，通过标签显示当前模式）
 	var playModeOrder, playModeLoop, playModeRandom *application.MenuItem
 
-	playModeOrder = application.NewMenuItemCheckbox("顺序播放", true)
+	playModeOrder = application.NewMenuItem("  顺序播放")
 	playModeOrder.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("order")
 		log.Println("✓ 切换到顺序播放")
-		// 更新复选框状态
-		playModeOrder.SetChecked(true)
-		playModeLoop.SetChecked(false)
-		playModeRandom.SetChecked(false)
+		// 更新菜单标签
+		playModeOrder.SetLabel("✓ 顺序播放")
+		playModeLoop.SetLabel("  循环播放")
+		playModeRandom.SetLabel("  随机播放")
 	})
 
-	playModeLoop = application.NewMenuItemCheckbox("循环播放", true)
+	playModeLoop = application.NewMenuItem("✓ 循环播放")
 	playModeLoop.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("loop")
 		log.Println("✓ 切换到循环播放")
-		// 更新复选框状态
-		playModeOrder.SetChecked(false)
-		playModeLoop.SetChecked(true)
-		playModeRandom.SetChecked(false)
+		// 更新菜单标签
+		playModeOrder.SetLabel("  顺序播放")
+		playModeLoop.SetLabel("✓ 循环播放")
+		playModeRandom.SetLabel("  随机播放")
 	})
 
-	playModeRandom = application.NewMenuItemCheckbox("随机播放", true)
+	playModeRandom = application.NewMenuItem("  随机播放")
 	playModeRandom.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("random")
 		log.Println("✓ 切换到随机播放")
-		// 更新复选框状态
-		playModeOrder.SetChecked(false)
-		playModeLoop.SetChecked(false)
-		playModeRandom.SetChecked(true)
+		// 更新菜单标签
+		playModeOrder.SetLabel("  顺序播放")
+		playModeLoop.SetLabel("  循环播放")
+		playModeRandom.SetLabel("✓ 随机播放")
 	})
 
-	playModeOrder.SetChecked(true)
-	playModeLoop.SetChecked(false)
-	playModeRandom.SetChecked(false)
 	playModeMenu := application.NewMenuFromItems(
 		playModeOrder,
 		playModeLoop,
@@ -413,8 +411,22 @@ func main() {
 		// 动态生成音乐库列表菜单
 		var libItems []*application.MenuItem
 		libraries := musicService.GetLibraries()
+		currentLib := musicService.GetCurrentLibrary()
+		currentLibName := ""
+		if currentLib != nil {
+			currentLibName = currentLib.Name
+		}
+
 		for _, libName := range libraries {
-			libItem := application.NewMenuItemCheckbox(libName, true)
+			// 使用 ✓ 符号标记当前选中的库
+			label := libName
+			if libName == currentLibName {
+				label = "✓ " + libName
+			} else {
+				label = "  " + libName
+			}
+
+			libItem := application.NewMenuItem(label)
 			libItem.OnClick(func(ctx *application.Context) {
 				log.Printf("切换到音乐库：%s", libName)
 
@@ -427,6 +439,19 @@ func main() {
 				if err := musicService.SetCurrentLibrary(libName); err != nil {
 					log.Printf("切换音乐库失败：%v", err)
 					return
+				}
+
+				// 更新所有库菜单项的标签
+				for _, item := range libItems {
+					itemLabel := item.Label()
+					if strings.HasPrefix(itemLabel, "✓ ") || strings.HasPrefix(itemLabel, "  ") {
+						oldName := strings.TrimPrefix(strings.TrimPrefix(itemLabel, "✓ "), "  ")
+						if oldName == libName {
+							item.SetLabel("✓ " + oldName)
+						} else {
+							item.SetLabel("  " + oldName)
+						}
+					}
 				}
 
 				// 加载音乐库到播放列表并开始播放

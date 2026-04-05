@@ -356,6 +356,7 @@ haoyun-music-player/
 - [托盘修复说明](./TRAY_FIX.md)
 - [扬声器修复](./SPEAKER_FIX.md)
 - [新功能实现](./NEW_FEATURES.md) - 播放历史、歌词、专辑封面
+- [Bug 修复记录](./BUGFIX_MENU_CRASH.md) - 菜单空指针错误修复
 
 ## 🤝 贡献
 
