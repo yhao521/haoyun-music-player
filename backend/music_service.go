@@ -13,9 +13,12 @@ import (
 type MusicService struct {
 	ctx             context.Context
 	app             *application.App
-	audioPlayer     *AudioPlayer     // beep 音频播放器
-	playlistManager *PlaylistManager // 播放列表管理
-	libraryManager  *LibraryManager  // 音乐库管理
+	audioPlayer     *AudioPlayer      // beep 音频播放器
+	playlistManager *PlaylistManager  // 播放列表管理
+	libraryManager  *LibraryManager   // 音乐库管理
+	historyManager  *HistoryManager   // 播放历史管理
+	lyricManager    *LyricManager     // 歌词管理
+	coverManager    *CoverManager     // 专辑封面管理
 }
 
 // NewMusicService 创建音乐服务实例
@@ -24,6 +27,9 @@ func NewMusicService() *MusicService {
 		audioPlayer:     NewAudioPlayer(),
 		playlistManager: NewPlaylistManager(),
 		libraryManager:  NewLibraryManager(),
+		historyManager:  NewHistoryManager(),
+		lyricManager:    NewLyricManager(),
+		coverManager:    NewCoverManager(),
 	}
 }
 
@@ -33,6 +39,7 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.audioPlayer.SetApp(app)
 	m.playlistManager.SetApp(app)
 	m.libraryManager.SetApp(app)
+	m.historyManager.SetApp(app)
 	
 	// 监听播放结束事件，根据播放模式决定是否自动播放下一首
 	app.Event.On("playbackEnded", func(event *application.CustomEvent) {
@@ -88,7 +95,28 @@ func (m *MusicService) SetContext(ctx context.Context) {
 
 // Init 初始化服务
 func (m *MusicService) Init() error {
-	return m.libraryManager.Init()
+	// 初始化音乐库管理器
+	if err := m.libraryManager.Init(); err != nil {
+		return fmt.Errorf("初始化音乐库失败：%w", err)
+	}
+
+	// 初始化播放历史管理器
+	if err := m.historyManager.Init(); err != nil {
+		log.Printf("⚠️ 初始化播放历史失败：%v", err)
+	}
+
+	// 初始化歌词管理器
+	if err := m.lyricManager.Init(); err != nil {
+		log.Printf("⚠️ 初始化歌词管理器失败：%v", err)
+	}
+
+	// 初始化专辑封面管理器
+	if err := m.coverManager.Init(); err != nil {
+		log.Printf("⚠️ 初始化专辑封面管理器失败：%v", err)
+	}
+
+	log.Println("✓ 所有服务初始化完成")
+	return nil
 }
 
 // ===== 播放控制方法 =====
@@ -117,6 +145,13 @@ func (m *MusicService) Play() error {
 	}
 
 	currentPath := playlist[currentIndex]
+	
+	// 异步记录播放历史
+	go func() {
+		trackInfo := createTrackInfo(currentPath)
+		m.historyManager.AddToHistory(trackInfo)
+	}()
+	
 	return m.audioPlayer.Play(currentPath)
 }
 
@@ -414,6 +449,70 @@ func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, err
 		"album":  "未知专辑",
 		"path":   path,
 	}, nil
+}
+
+// ===== 播放历史管理方法 =====
+
+// GetPlayHistory 获取播放历史记录
+func (m *MusicService) GetPlayHistory(limit int) []HistoryRecord {
+	if limit <= 0 {
+		limit = 20 // 默认返回 20 条
+	}
+	return m.historyManager.GetHistory(limit)
+}
+
+// ClearPlayHistory 清空播放历史
+func (m *MusicService) ClearPlayHistory() error {
+	return m.historyManager.ClearHistory()
+}
+
+// RemoveFromPlayHistory 删除指定索引的历史记录
+func (m *MusicService) RemoveFromPlayHistory(index int) error {
+	return m.historyManager.RemoveFromHistory(index)
+}
+
+// GetPlayHistoryCount 获取历史记录数量
+func (m *MusicService) GetPlayHistoryCount() int {
+	return m.historyManager.GetHistoryCount()
+}
+
+// ===== 歌词管理方法 =====
+
+// LoadLyric 加载歌词
+func (m *MusicService) LoadLyric(trackPath string) (*LyricInfo, error) {
+	return m.lyricManager.LoadLyric(trackPath)
+}
+
+// GetCurrentLyricLine 获取当前歌词行
+func (m *MusicService) GetCurrentLyricLine(trackPath string, position float64) (int, error) {
+	return m.lyricManager.GetCurrentLyricLine(trackPath, position)
+}
+
+// GetAllLyrics 获取所有歌词
+func (m *MusicService) GetAllLyrics(trackPath string) ([]LyricLine, error) {
+	return m.lyricManager.GetAllLyrics(trackPath)
+}
+
+// HasLyric 检查是否有歌词
+func (m *MusicService) HasLyric(trackPath string) bool {
+	return m.lyricManager.HasLyric(trackPath)
+}
+
+// ===== 专辑封面管理方法 =====
+
+// GetAlbumArtDataURL 获取专辑封面的 Data URL
+func (m *MusicService) GetAlbumArtDataURL(trackPath string) (string, error) {
+	return m.coverManager.GetCoverDataURL(trackPath)
+}
+
+// GetCachedCover 获取缓存的封面
+func (m *MusicService) GetCachedCover(trackPath string) *AlbumArt {
+	return m.coverManager.GetCachedCover(trackPath)
+}
+
+// ClearCoverCache 清除封面缓存
+func (m *MusicService) ClearCoverCache() {
+	m.coverManager.ClearCache()
 }
 
 // Shutdown 关闭服务

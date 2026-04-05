@@ -261,15 +261,20 @@ haoyun-music-player/
 - [x] 统计信息（总数、总时长、总大小）
 - [x] 响应式布局
 
+#### 增强功能
+- [x] 播放历史记录保存
+- [x] 歌词显示支持（LRC 文件）
+- [x] 专辑封面提取框架（待完善 MP3/FLAC 解析）
+
 ### ⏳ 计划中
 
-- [ ] 歌词显示（LRC 文件支持）
-- [ ] 专辑封面提取和显示
 - [ ] 均衡器调节
 - [ ] 媒体键支持（播放/暂停、上一曲、下一曲）
 - [ ] 全局快捷键自定义
 - [ ] 睡眠定时器
-- [ ] 播放历史记录
+- [ ] 播放历史记录（✅ 已实现 - 见 NEW_FEATURES.md）
+- [ ] 歌词显示（LRC 文件支持）（✅ 已实现 - 见 NEW_FEATURES.md）
+- [ ] 专辑封面提取和显示（✅ 基础框架已实现 - 见 NEW_FEATURES.md）
 - [ ] 收藏夹功能
 - [ ] 在线音乐搜索
 - [ ] 主题切换（深色/浅色模式）
@@ -348,6 +353,7 @@ haoyun-music-player/
 - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
 - [托盘修复说明](./TRAY_FIX.md)
 - [扬声器修复](./SPEAKER_FIX.md)
+- [新功能实现](./NEW_FEATURES.md) - 播放历史、歌词、专辑封面
 
 ## 🤝 贡献
 
@@ -373,7 +379,7 @@ haoyun-music-player/
 ### 代码规范
 
 #### Go 后端
-```go
+```
 // 使用有意义的变量名
 audioPlayer := NewAudioPlayer()
 
@@ -389,7 +395,7 @@ defer ap.mu.Unlock()
 ```
 
 #### Vue 前端
-```typescript
+```
 // 使用 Composition API
 import { ref, computed } from "vue"
 

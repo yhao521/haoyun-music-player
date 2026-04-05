@@ -37,6 +37,9 @@ func init() {
 	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
 	application.RegisterEvent[[]string]("launchArgs")              // 添加第二实例启动参数事件
 	application.RegisterEvent[interface{}]("playbackEnded")        // 添加播放结束事件
+	application.RegisterEvent[[]backend.HistoryRecord]("historyUpdated")   // 添加播放历史更新事件
+	application.RegisterEvent[*backend.LyricInfo]("lyricLoaded")           // 添加歌词加载完成事件
+	application.RegisterEvent[int]("currentLyricLineChanged")      // 添加当前歌词行变化事件
 }
 
 func main() {
