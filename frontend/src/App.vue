@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import AppMain from "./components/AppMain.vue";
 import BrowseView from "./views/BrowseView.vue";
+import FavoritesView from "./views/FavoritesView.vue";
 import { Events } from "@wailsio/runtime";
 // 当前视图
 const currentView = ref<string>("main");
@@ -33,10 +34,24 @@ const checkRoute = () => {
     return;
   }
 
+  // 检查 hash 路由（#/favorites）
+  if (hash === "#/favorites" || hash.startsWith("#/favorites/")) {
+    console.log("[路由匹配] 匹配到 favorites 视图");
+    currentView.value = "favorites";
+    return;
+  }
+
   // 检查 path 路由（/browse）
   if (pathname === "/browse" || pathname.startsWith("/browse/")) {
     console.log("[路由匹配] 匹配到 browse 视图 (pathname)");
     currentView.value = "browse";
+    return;
+  }
+
+  // 检查 path 路由（/favorites）
+  if (pathname === "/favorites" || pathname.startsWith("/favorites/")) {
+    console.log("[路由匹配] 匹配到 favorites 视图 (pathname)");
+    currentView.value = "favorites";
     return;
   }
 
@@ -70,7 +85,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <component :is="currentView === 'browse' ? BrowseView : AppMain" />
+  <component :is="currentView === 'browse' ? BrowseView : currentView === 'favorites' ? FavoritesView : AppMain" />
 </template>
 
 <style scoped>

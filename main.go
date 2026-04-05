@@ -540,9 +540,28 @@ func main() {
 		// 重新设置托盘菜单
 		tray.SetMenu(menu)
 	}
-	favoriteItem = application.NewMenuItem("喜爱音乐")
+	favoriteItem = application.NewMenuItem("❤️ 喜爱音乐")
+	favoriteItem.SetAccelerator("CmdOrCtrl+H") // Cmd/Ctrl + H (Heart)
 	favoriteItem.OnClick(func(ctx *application.Context) {
-		musicService.GetFavoriteTracks(100)
+		log.Println("打开喜爱音乐界面")
+		
+		// 显示主窗口（如果未显示）
+		if mainWindow != nil && !mainWindow.IsVisible() {
+			mainWindow.Show()
+			mainWindow.Focus()
+		}
+		
+		// 导航到喜爱音乐页面
+		go func() {
+			time.Sleep(100 * time.Millisecond) // 等待窗口初始化
+			if mainWindow != nil && mainWindow.IsVisible() {
+				app.Event.Emit("windowUrl", map[string]interface{}{
+					"type": "navigate",
+					"url":  "#/favorites",
+				})
+				log.Println("📤 已发送导航事件到 #/favorites")
+			}
+		}()
 	})
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
