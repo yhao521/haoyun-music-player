@@ -65,8 +65,35 @@ func main() {
 	// 声明窗口变量（先初始化为 nil）
 	var mainWindow *application.WebviewWindow
 
-	menus := createMenu(app)
+	menus, playPauseMenuItem, prevMenuItem, nextMenuItem := createMenu(app)
 	app.Menu.Set(menus)
+
+	// 在 main 函数中设置播放控制菜单项的回调，以访问 musicService
+	playPauseMenuItem.OnClick(func(ctx *application.Context) {
+		playlist, _ := musicService.GetPlaylist()
+		if len(playlist) == 0 {
+			currentLib := musicService.GetCurrentLibrary()
+			if currentLib != nil {
+				if err := musicService.LoadCurrentLibrary(); err != nil {
+					log.Printf("加载音乐库失败：%v", err)
+				}
+			}
+		} else {
+			musicService.TogglePlayPause()
+		}
+	})
+
+	prevMenuItem.OnClick(func(ctx *application.Context) {
+		if err := musicService.Previous(); err != nil {
+			log.Printf("切换上一曲失败：%v", err)
+		}
+	})
+
+	nextMenuItem.OnClick(func(ctx *application.Context) {
+		if err := musicService.Next(); err != nil {
+			log.Printf("切换下一曲失败：%v", err)
+		}
+	})
 	// 创建系统托盘（在窗口创建之前）
 	tray := app.SystemTray.New()
 	log.Println("✓ System tray initialized")
@@ -657,7 +684,7 @@ func main() {
 	musicService.Shutdown()
 }
 
-func createMenu(app *application.App) *application.Menu {
+func createMenu(app *application.App) (*application.Menu, *application.MenuItem, *application.MenuItem, *application.MenuItem) {
 	menu := app.NewMenu()
 
 	if runtime.GOOS == "darwin" {
@@ -720,6 +747,21 @@ func createMenu(app *application.App) *application.Menu {
 	editMenu.Add("Copy").SetAccelerator("Ctrl+C")
 	editMenu.Add("Paste").SetAccelerator("Ctrl+V")
 
+	// Playback menu (播放控制菜单 - 快捷键必须在这里才能生效)
+	playbackMenu := menu.AddSubmenu("Playback")
+
+	playPauseMenuItem := playbackMenu.Add("Play/Pause")
+	playPauseMenuItem.SetAccelerator("Space")
+	// OnClick 会在 main 函数中设置
+
+	prevMenuItem := playbackMenu.Add("Previous Track")
+	prevMenuItem.SetAccelerator("CmdOrCtrl+[")
+	// OnClick 会在 main 函数中设置
+
+	nextMenuItem := playbackMenu.Add("Next Track")
+	nextMenuItem.SetAccelerator("CmdOrCtrl+]")
+	// OnClick 会在 main 函数中设置
+
 	// View menu
 	viewMenu := menu.AddSubmenu("View")
 	darkMode := viewMenu.AddCheckbox("Dark Mode", false)
@@ -742,7 +784,7 @@ func createMenu(app *application.App) *application.Menu {
 		// Show about dialog
 	})
 
-	return menu
+	return menu, playPauseMenuItem, prevMenuItem, nextMenuItem
 }
 
 func OpenDir() {
