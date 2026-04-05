@@ -22,6 +22,7 @@ type HistoryRecord struct {
 	PlayedAt   time.Time `json:"played_at"`   // 播放时间
 	Duration   int64     `json:"duration"`    // 播放时长（秒）
 	FileSize   int64     `json:"file_size"`   // 文件大小（字节）
+	PlayCount  int       `json:"play_count"`  // 播放次数
 }
 
 // HistoryManager 播放历史管理器
@@ -109,26 +110,29 @@ func (hm *HistoryManager) AddToHistory(track TrackInfo) {
 		}
 
 		newRecord := HistoryRecord{
-			Path:     track.Path,
-			Title:    track.Title,
-			Artist:   track.Artist,
-			Album:    track.Album,
-			PlayedAt: now,
-			Duration: track.Duration,
-			FileSize: track.Size,
+			Path:      track.Path,
+			Title:     track.Title,
+			Artist:    track.Artist,
+			Album:     track.Album,
+			PlayedAt:  now,
+			Duration:  track.Duration,
+			FileSize:  track.Size,
+			PlayCount: 1, // 初始播放次数为 1
 		}
 
 		if existingIndex >= 0 {
-			// 更新现有记录的时间戳
-			hm.records[existingIndex] = newRecord
+			// 更新现有记录：增加播放次数，更新时间戳
+			existingRecord := hm.records[existingIndex]
+			newRecord.PlayCount = existingRecord.PlayCount + 1
+			
 			// 移到最前面
 			copy(hm.records[1:existingIndex+1], hm.records[:existingIndex])
 			hm.records[0] = newRecord
-			log.Printf("📝 更新播放历史：%s", track.Title)
+			log.Printf("📝 更新播放历史：%s (播放 %d 次)", track.Title, newRecord.PlayCount)
 		} else {
 			// 添加新记录到开头
 			hm.records = append([]HistoryRecord{newRecord}, hm.records...)
-			log.Printf("📝 添加播放历史：%s", track.Title)
+			log.Printf("📝 添加播放历史：%s (第 1 次播放)", track.Title)
 		}
 
 		// 限制记录数量
@@ -213,4 +217,32 @@ func (hm *HistoryManager) GetHistoryCount() int {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 	return len(hm.records)
+}
+
+// GetFavoriteTracks 获取喜爱音乐（按播放次数递减排序）
+func (hm *HistoryManager) GetFavoriteTracks(limit int) []HistoryRecord {
+	hm.mu.RLock()
+	defer hm.mu.RUnlock()
+
+	// 创建副本用于排序
+	sorted := make([]HistoryRecord, len(hm.records))
+	copy(sorted, hm.records)
+
+	// 按播放次数递减排序
+	for i := 0; i < len(sorted)-1; i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].PlayCount > sorted[i].PlayCount {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	// 返回前 N 条
+	if limit <= 0 || limit > len(sorted) {
+		limit = len(sorted)
+	}
+
+	result := make([]HistoryRecord, limit)
+	copy(result, sorted[:limit])
+	return result
 }

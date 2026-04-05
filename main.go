@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	_ "embed"
+	"fmt"
 	"log"
 	"runtime"
 	"runtime/debug"
@@ -110,7 +111,7 @@ func main() {
 	// 先声明所有菜单项变量（以便在闭包中使用）
 	var playPauseItem, prevItem, nextItem, mainWindowItem, browseItem *application.MenuItem
 	var downloadItem, wakeItem, launchItem, settingItem, versionItem, quitItem *application.MenuItem
-	var playModeItem, musicLibItem *application.MenuItem
+	var playModeItem, musicLibItem, favoriteItem *application.MenuItem
 	var nowPlayingItem *application.MenuItem // 新增：正在播放的音乐名称
 	var musicLibMenu *application.Menu
 	var menu *application.Menu
@@ -377,6 +378,38 @@ func main() {
 			// TODO: 实现重命名功能
 		})
 
+		// 创建"删除当前音乐库"菜单项
+		deleteLibItem := application.NewMenuItem("删除当前音乐库")
+		deleteLibItem.OnClick(func(ctx *application.Context) {
+			log.Println("删除当前音乐库")
+
+			if musicService == nil {
+				log.Println("❌ musicService 为 nil")
+				return
+			}
+
+			currentLib := musicService.GetCurrentLibrary()
+			if currentLib == nil {
+				log.Println("当前没有音乐库")
+				return
+			}
+
+			// 确认删除
+			libName := currentLib.Name
+			log.Printf("⚠️ 准备删除音乐库：%s", libName)
+
+			// 执行删除（仅删除配置，不删除文件）
+			if err := musicService.DeleteLibrary(libName); err != nil {
+				log.Printf("删除音乐库失败：%v", err)
+				return
+			}
+
+			log.Printf("✓ 已删除音乐库：%s", libName)
+
+			// 重建菜单
+			buildMusicLibMenu()
+		})
+
 		// 动态生成音乐库列表菜单
 		var libItems []*application.MenuItem
 		libraries := musicService.GetLibraries()
@@ -442,7 +475,7 @@ func main() {
 		// 组装音乐库菜单
 		musicLibMenuItems := append([]*application.MenuItem{}, libItems...)
 		musicLibMenuItems = append(musicLibMenuItems, application.NewMenuItemSeparator())
-		musicLibMenuItems = append(musicLibMenuItems, refreshLibItem, addLibItem, renameLibItem)
+		musicLibMenuItems = append(musicLibMenuItems, refreshLibItem, addLibItem, renameLibItem, deleteLibItem)
 
 		if len(musicLibMenuItems) > 0 {
 			musicLibMenu = application.NewMenuFromItems(musicLibMenuItems[0], musicLibMenuItems[1:]...)
@@ -466,6 +499,7 @@ func main() {
 			nextItem,
 			application.NewMenuItemSeparator(),
 			browseItem,
+			favoriteItem, // 添加喜爱音乐菜单
 			playModeItem,
 			musicLibItem,
 			downloadItem,
@@ -549,7 +583,7 @@ func main() {
 			displayName = displayName[:27] + "..."
 		}
 
-		newLabel := "🎵 " + displayName
+		newLabel := fmt.Sprintf("🎵 %s", displayName)
 		nowPlayingItem.SetLabel(newLabel)
 		nowPlayingItem.SetEnabled(true)
 		log.Printf("✓ 菜单项已更新为：%s", newLabel)

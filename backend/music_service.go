@@ -355,6 +355,24 @@ func (m *MusicService) RefreshLibrary() error {
 	return m.libraryManager.RefreshLibrary()
 }
 
+// DeleteLibrary 删除音乐库
+func (m *MusicService) DeleteLibrary(name string) error {
+	return m.libraryManager.DeleteLibrary(name)
+}
+
+// GetCurrentLibraryTracks 获取当前音乐库的所有音轨
+func (m *MusicService) GetCurrentLibraryTracks() ([]string, error) {
+	tracks, err := m.libraryManager.GetCurrentLibraryTracks()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, len(tracks))
+	for i, track := range tracks {
+		result[i] = track // track 已经是 string 类型（Path）
+	}
+	return result, nil
+}
+
 // RenameLibrary 重命名音乐库
 func (m *MusicService) RenameLibrary(newName string) error {
 	return m.libraryManager.RenameLibrary(newName)
@@ -373,11 +391,6 @@ func (m *MusicService) GetLibraries() []string {
 // SetCurrentLibrary 设置当前音乐库
 func (m *MusicService) SetCurrentLibrary(name string) error {
 	return m.libraryManager.SwitchLibrary(name)
-}
-
-// GetCurrentLibraryTracks 获取当前音乐库的所有音轨路径
-func (m *MusicService) GetCurrentLibraryTracks() ([]string, error) {
-	return m.libraryManager.GetCurrentLibraryTracks()
 }
 
 // AddToLibrary 添加目录到音乐库（指定路径）
@@ -474,6 +487,14 @@ func (m *MusicService) RemoveFromPlayHistory(index int) error {
 // GetPlayHistoryCount 获取历史记录数量
 func (m *MusicService) GetPlayHistoryCount() int {
 	return m.historyManager.GetHistoryCount()
+}
+
+// GetFavoriteTracks 获取喜爱音乐（按播放次数排序）
+func (m *MusicService) GetFavoriteTracks(limit int) []HistoryRecord {
+	if limit <= 0 {
+		limit = 20 // 默认返回 20 首
+	}
+	return m.historyManager.GetFavoriteTracks(limit)
 }
 
 // ===== 歌词管理方法 =====

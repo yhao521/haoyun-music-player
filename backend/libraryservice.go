@@ -26,13 +26,14 @@ type MusicLibrary struct {
 
 // TrackInfo 音乐文件信息
 type TrackInfo struct {
-	Path     string `json:"path"`
-	Filename string `json:"filename"`
-	Title    string `json:"title"`
-	Artist   string `json:"artist"`
-	Album    string `json:"album"`
-	Duration int64  `json:"duration"` // 秒
-	Size     int64  `json:"size"`     // 字节
+	Path      string `json:"path"`       // 歌曲路径
+	Filename  string `json:"filename"`   // 文件名
+	Title     string `json:"title"`      // 标题
+	Artist    string `json:"artist"`     // 艺术家
+	Album     string `json:"album"`      // 专辑
+	Duration  int64  `json:"duration"`   // 秒
+	Size      int64  `json:"size"`       // 字节
+	LyricPath string `json:"lyric_path"` // 歌词文件路径（如果有）
 }
 
 // LibraryManager 音乐库管理器
@@ -201,6 +202,11 @@ func (lm *LibraryManager) AddLibrary(name, path string) error {
 
 // RemoveLibrary 删除音乐库
 func (lm *LibraryManager) RemoveLibrary(name string) error {
+	return lm.DeleteLibrary(name)
+}
+
+// DeleteLibrary 删除音乐库（仅删除配置，不删除文件）
+func (lm *LibraryManager) DeleteLibrary(name string) error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
@@ -217,7 +223,7 @@ func (lm *LibraryManager) RemoveLibrary(name string) error {
 	// 从 map 中移除
 	delete(lm.libraries, name)
 
-	// 如果删除的是当前库，切换到另一个库
+	// 如果删除的是当前库，切换到另一个库或清空
 	if lm.currentLib == name {
 		lm.currentLib = ""
 		for libName := range lm.libraries {
@@ -226,7 +232,7 @@ func (lm *LibraryManager) RemoveLibrary(name string) error {
 		}
 	}
 
-	log.Printf("✓ 删除音乐库：%s", name)
+	log.Printf("✓ 已删除音乐库：%s", name)
 	return nil
 }
 
@@ -358,7 +364,7 @@ func (lm *LibraryManager) RenameLibrary(newName string) error {
 	return nil
 }
 
-// scanDirectory 扫描目录中的音乐文件
+// scanDirectory 扫描目录中的音乐文件和歌词文件
 func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 	var tracks []TrackInfo
 
@@ -376,7 +382,29 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 		".wma":  true,
 	}
 
+	// 首先扫描所有歌词文件，建立映射表
+	lyricMap := make(map[string]string) // 歌曲名(不含扩展名) -> 歌词路径
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".lrc" {
+			baseName := strings.TrimSuffix(info.Name(), ext)
+			lyricMap[baseName] = path
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("⚠️ 扫描歌词文件失败：%v", err)
+	}
+
+	// 扫描音乐文件
+	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // 跳过无法访问的文件
 		}
@@ -387,14 +415,23 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 
 		ext := strings.ToLower(filepath.Ext(path))
 		if supportedFormats[ext] {
+			baseName := strings.TrimSuffix(info.Name(), ext)
+			
+			// 查找对应的歌词文件
+			lyricPath := ""
+			if lrcPath, ok := lyricMap[baseName]; ok {
+				lyricPath = lrcPath
+			}
+
 			track := TrackInfo{
-				Path:     path,
-				Filename: info.Name(),
-				Title:    strings.TrimSuffix(info.Name(), ext),
-				Artist:   "未知艺术家",
-				Album:    "未知专辑",
-				Duration: 0, // TODO: 从音频文件中读取
-				Size:     info.Size(),
+				Path:      path,
+				Filename:  info.Name(),
+				Title:     baseName,
+				Artist:    "未知艺术家",
+				Album:     "未知专辑",
+				Duration:  0, // TODO: 从音频文件中读取
+				Size:      info.Size(),
+				LyricPath: lyricPath, // 保存歌词路径
 			}
 			tracks = append(tracks, track)
 		}
@@ -406,6 +443,7 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 		return nil, err
 	}
 
+	log.Printf("✓ 扫描完成：找到 %d 首歌曲，%d 个歌词文件", len(tracks), len(lyricMap))
 	return tracks, nil
 }
 

@@ -9,6 +9,7 @@
 - [3. 专辑封面提取和显示](#3-专辑封面提取和显示)
 - [4. API 使用示例](#4-api-使用示例)
 - [5. 前端集成指南](#5-前端集成指南)
+- [6. 增强功能（2026-04-05）](#6-增强功能2026-04-05)
 
 ---
 
@@ -23,7 +24,7 @@
 - **存储位置**: `~/.haoyun-music/history.json`
 - **最大记录数**: 默认 100 条（可配置）
 - **存储格式**: JSON
-- **更新策略**: 同一歌曲重复播放时更新时间戳，不新增记录
+- **更新策略**: 同一歌曲重复播放时更新时间戳和播放次数，不新增记录
 
 ### 数据结构
 
@@ -36,6 +37,7 @@ type HistoryRecord struct {
     PlayedAt   time.Time `json:"played_at"`   // 播放时间
     Duration   int64     `json:"duration"`    // 播放时长（秒）
     FileSize   int64     `json:"file_size"`   // 文件大小（字节）
+    PlayCount  int       `json:"play_count"`  // 播放次数（新增）
 }
 ```
 
@@ -44,6 +46,9 @@ type HistoryRecord struct {
 ```go
 // 获取播放历史（最近 N 条）
 GetPlayHistory(limit int) []HistoryRecord
+
+// 获取喜爱音乐（按播放次数排序）
+GetFavoriteTracks(limit int) []HistoryRecord
 
 // 清空播放历史
 ClearPlayHistory() error
@@ -69,6 +74,7 @@ application.RegisterEvent[[]backend.HistoryRecord]("historyUpdated")
 2. **历史列表**: 在 UI 中展示最近播放的歌曲
 3. **快速重播**: 点击历史记录可直接播放该歌曲
 4. **统计分析**: 分析用户的听歌习惯和偏好
+5. **喜爱音乐**: 按播放次数排序，展示最爱听的歌曲
 
 ---
 
@@ -285,6 +291,7 @@ try {
           <span class="artist">{{ record.artist }}</span>
         </div>
         <span class="time">{{ formatTime(record.played_at) }}</span>
+        <span class="count">播放 {{ record.play_count }} 次</span>
       </li>
     </ul>
   </div>
@@ -501,6 +508,146 @@ loadCover()
 }
 </style>
 ```
+
+---
+
+## 6. 增强功能（2026-04-05）
+
+### 6.1 托盘菜单"喜爱音乐"
+
+#### 功能说明
+
+在系统托盘中新增"❤️ 喜爱音乐"子菜单，按照歌曲播放次数从高到低排序，最多显示前 20 首。
+
+#### 实现细节
+
+- **数据来源**: 从播放历史中提取，按 `PlayCount` 字段降序排列
+- **显示格式**: `序号. 歌曲名 - 艺术家 (播放次数)`
+- **交互**: 点击直接添加到播放列表并播放
+- **管理**: 提供"清空播放历史"选项
+
+#### 代码示例
+
+```go
+// 获取前 20 首喜爱音乐
+favorites := musicService.GetFavoriteTracks(20)
+
+for i, record := range favorites {
+    label := fmt.Sprintf("%d. %s - %s (%d次)", i+1, displayName, record.Artist, record.PlayCount)
+    favItem := application.NewMenuItem(label)
+    favItem.OnClick(func(ctx *application.Context) {
+        musicService.AddToPlaylist(record.Path)
+        playlist, _ := musicService.GetPlaylist()
+        if len(playlist) > 0 {
+            musicService.PlayIndex(len(playlist) - 1)
+        }
+    })
+}
+```
+
+### 6.2 音乐库管理增强
+
+#### 删除音乐库功能
+
+在"音乐库"子菜单中新增"删除当前音乐库"选项：
+
+- **作用范围**: 仅删除音乐库配置（JSON 文件），不删除实际的音乐文件
+- **安全提示**: 删除前会在日志中记录警告信息
+- **自动重建**: 删除后自动刷新托盘菜单
+- **当前库处理**: 如果删除的是当前选中的音乐库，会自动切换到另一个库或清空选择
+
+#### 代码示例
+
+```go
+deleteLibItem := application.NewMenuItem("删除当前音乐库")
+deleteLibItem.OnClick(func(ctx *application.Context) {
+    currentLib := musicService.GetCurrentLibrary()
+    if currentLib == nil {
+        log.Println("当前没有音乐库")
+        return
+    }
+    
+    libName := currentLib.Name
+    if err := musicService.DeleteLibrary(libName); err != nil {
+        log.Printf("删除音乐库失败：%v", err)
+        return
+    }
+    
+    log.Printf("✓ 已删除音乐库：%s", libName)
+    buildMusicLibMenu() // 重建菜单
+})
+```
+
+### 6.3 歌词文件扫描优化
+
+#### 功能说明
+
+在新增和刷新音乐库时，不仅扫描音乐文件，同时扫描对应的歌词文件（`.lrc`），并建立关联关系。
+
+#### 扫描策略
+
+1. **两阶段扫描**:
+   - 第一阶段：扫描所有 `.lrc` 文件，建立 `歌曲名 -> 歌词路径` 映射表
+   - 第二阶段：扫描音乐文件，查找对应的歌词文件
+
+2. **匹配规则**: 通过文件名（不含扩展名）进行精确匹配
+   - `song.mp3` ↔ `song.lrc`
+   - `周杰伦 - 晴天.flac` ↔ `周杰伦 - 晴天.lrc`
+
+3. **数据存储**: 在 `TrackInfo` 结构体中新增 `LyricPath` 字段
+
+#### 数据结构更新
+
+```go
+type TrackInfo struct {
+    Path      string `json:"path"`
+    Filename  string `json:"filename"`
+    Title     string `json:"title"`
+    Artist    string `json:"artist"`
+    Album     string `json:"album"`
+    Duration  int64  `json:"duration"`
+    Size      int64  `json:"size"`
+    LyricPath string `json:"lyric_path"` // 新增：歌词文件路径
+}
+```
+
+#### 扫描逻辑
+
+```go
+// 第一阶段：扫描歌词文件
+lyricMap := make(map[string]string)
+filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+    if ext := strings.ToLower(filepath.Ext(path)); ext == ".lrc" {
+        baseName := strings.TrimSuffix(info.Name(), ext)
+        lyricMap[baseName] = path
+    }
+    return nil
+})
+
+// 第二阶段：扫描音乐文件并关联歌词
+filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+    if supportedFormats[ext] {
+        baseName := strings.TrimSuffix(info.Name(), ext)
+        lyricPath := lyricMap[baseName] // 查找对应歌词
+        
+        track := TrackInfo{
+            Path:      path,
+            Title:     baseName,
+            LyricPath: lyricPath, // 保存歌词路径
+            // ... 其他字段
+        }
+        tracks = append(tracks, track)
+    }
+    return nil
+})
+```
+
+#### 优势
+
+- ✅ **自动化**: 无需手动配置歌词路径
+- ✅ **高效**: 一次扫描完成音乐和歌词的关联
+- ✅ **灵活**: 支持歌词文件与音乐文件在同一目录或不同目录
+- ✅ **容错**: 即使没有歌词文件也不影响音乐播放
 
 ---
 
