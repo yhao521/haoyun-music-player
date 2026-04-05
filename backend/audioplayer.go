@@ -10,42 +10,36 @@ import (
 	"sync"
 	"time"
 
+	mp3 "github.com/hajimehoshi/go-mp3"
 	"github.com/ebitengine/oto/v3"
 	"github.com/go-audio/wav"
 	"github.com/mewkiz/flac"
-	"github.com/tosone/minimp3"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// MP3Streamer 基于 minimp3 的流式读取器，实现 io.Reader 接口供 oto 使用
+// MP3Streamer 基于 go-mp3 的流式读取器，实现 io.Reader 接口供 oto 使用
 type MP3Streamer struct {
-	pcmData    []byte     // 完全解码后的 PCM 数据
-	pos        int        // 当前读取位置 (字节)
-	sampleRate int        // 采样率
-	channels   int        // 声道数
-	mu         sync.Mutex // 并发保护
-	closed     bool       // 是否已关闭
+	decoder    *mp3.Decoder // go-mp3 解码器
+	sampleRate int          // 采样率
+	channels   int          // 声道数
+	bytesRead  int64        // 已读取的字节数（用于计算位置）
+	mu         sync.Mutex   // 并发保护
+	closed     bool         // 是否已关闭
 }
 
 // NewMP3Streamer 创建 MP3 流式读取器
 func NewMP3Streamer(file *os.File) (*MP3Streamer, error) {
-	// 读取整个文件到内存
-	data, err := io.ReadAll(file)
+	// 使用 go-mp3 创建解码器（流式解码）
+	decoder, err := mp3.NewDecoder(file)
 	if err != nil {
-		return nil, fmt.Errorf("读取文件失败：%w", err)
-	}
-
-	// 使用 minimp3 的 DecodeFull 一次性解码所有数据
-	decoder, pcmData, err := minimp3.DecodeFull(data)
-	if err != nil {
-		return nil, fmt.Errorf("MP3 解码失败：%w", err)
+		return nil, fmt.Errorf("MP3 解码器初始化失败：%w", err)
 	}
 
 	streamer := &MP3Streamer{
-		pcmData:    pcmData,
-		pos:        0,
-		sampleRate: decoder.SampleRate,
-		channels:   decoder.Channels,
+		decoder:    decoder,
+		sampleRate: decoder.SampleRate(),
+		channels:   2, // go-mp3 始终输出立体声
+		bytesRead:  0,
 		closed:     false,
 	}
 
@@ -57,18 +51,19 @@ func (m *MP3Streamer) Read(p []byte) (n int, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.closed || m.pos >= len(m.pcmData) {
+	if m.closed {
 		return 0, io.EOF
 	}
 
-	n = copy(p, m.pcmData[m.pos:])
-	m.pos += n
+	// go-mp3 的 Decoder 直接实现 io.Reader
+	n, err = m.decoder.Read(p)
 
-	if m.pos >= len(m.pcmData) {
-		return n, io.EOF
+	// 追踪已读取的字节数
+	if n > 0 && err == nil {
+		m.bytesRead += int64(n)
 	}
 
-	return n, nil
+	return n, err
 }
 
 // Len 返回总时长 (秒)
@@ -76,11 +71,14 @@ func (m *MP3Streamer) Len() int {
 	if m.sampleRate == 0 || m.channels == 0 {
 		return 0
 	}
+
+	// go-mp3 提供 Length() 方法返回采样数
+	length := m.decoder.Length()
 	bytesPerSecond := m.sampleRate * m.channels * 2 // 16-bit = 2 bytes per channel
 	if bytesPerSecond == 0 {
 		return 0
 	}
-	return len(m.pcmData) / bytesPerSecond
+	return int(length) / bytesPerSecond
 }
 
 // Position 返回当前位置 (秒)
@@ -88,11 +86,14 @@ func (m *MP3Streamer) Position() int {
 	if m.sampleRate == 0 || m.channels == 0 {
 		return 0
 	}
+
 	bytesPerSecond := m.sampleRate * m.channels * 2
 	if bytesPerSecond == 0 {
 		return 0
 	}
-	return m.pos / bytesPerSecond
+
+	// 使用已读取的字节数计算当前位置
+	return int(m.bytesRead) / bytesPerSecond
 }
 
 // Seek 跳转到指定位置 (秒)
@@ -105,11 +106,16 @@ func (m *MP3Streamer) Seek(position int) error {
 	}
 
 	bytesPerSecond := m.sampleRate * m.channels * 2
-	m.pos = position * bytesPerSecond
+	targetByte := int64(position * bytesPerSecond)
 
-	if m.pos > len(m.pcmData) {
-		m.pos = len(m.pcmData)
+	// go-mp3 支持 Seek 方法
+	actualPos, err := m.decoder.Seek(targetByte, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("MP3 Seek 失败：%w", err)
 	}
+
+	// 更新已读取字节数
+	m.bytesRead = actualPos
 
 	return nil
 }
@@ -120,8 +126,8 @@ func (m *MP3Streamer) Close() error {
 	defer m.mu.Unlock()
 
 	if !m.closed {
-		m.pcmData = nil
 		m.closed = true
+		// go-mp3 的 Decoder 不需要显式关闭，底层文件由调用者管理
 	}
 	return nil
 }
@@ -259,7 +265,7 @@ func (ap *AudioPlayer) loadAudioFile(path string) (AudioReader, int, int, error)
 
 	switch ext {
 	case ".mp3":
-		// 使用 minimp3 解码 MP3 文件 (主要方案)
+		// 使用 go-mp3 解码 MP3 文件 (流式解码)
 		streamer, err := NewMP3Streamer(file)
 		if err != nil {
 			file.Close()

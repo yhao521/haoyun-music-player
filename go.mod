@@ -5,8 +5,8 @@ go 1.25
 require (
 	github.com/ebitengine/oto/v3 v3.4.0
 	github.com/go-audio/wav v1.1.0
+	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/mewkiz/flac v1.0.13
-	github.com/tosone/minimp3 v1.0.2
 	github.com/wailsapp/wails/v2 v2.12.0
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
 )

@@ -1,0 +1,120 @@
+package audio
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"sync"
+
+	"github.com/tosone/minimp3"
+)
+
+// MP3StreamerMinimp3 基于 minimp3 的流式读取器（备选方案，当前未使用）
+// 注意：此实现已提取到单独文件，主方案使用 go-mp3
+type MP3StreamerMinimp3 struct {
+	pcmData    []byte     // 完全解码后的 PCM 数据
+	pos        int        // 当前读取位置 (字节)
+	sampleRate int        // 采样率
+	channels   int        // 声道数
+	mu         sync.Mutex // 并发保护
+	closed     bool       // 是否已关闭
+}
+
+// NewMP3StreamerMinimp3 创建基于 minimp3 的 MP3 流式读取器
+func NewMP3StreamerMinimp3(file *os.File) (*MP3StreamerMinimp3, error) {
+	// 读取整个文件到内存
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("读取文件失败：%w", err)
+	}
+
+	// 使用 minimp3 的 DecodeFull 一次性解码所有数据
+	decoder, pcmData, err := minimp3.DecodeFull(data)
+	if err != nil {
+		return nil, fmt.Errorf("MP3 解码失败：%w", err)
+	}
+
+	streamer := &MP3StreamerMinimp3{
+		pcmData:    pcmData,
+		pos:        0,
+		sampleRate: decoder.SampleRate,
+		channels:   decoder.Channels,
+		closed:     false,
+	}
+
+	return streamer, nil
+}
+
+// Read 实现 io.Reader 接口，供 oto 使用
+func (m *MP3StreamerMinimp3) Read(p []byte) (n int, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.closed || m.pos >= len(m.pcmData) {
+		return 0, io.EOF
+	}
+
+	n = copy(p, m.pcmData[m.pos:])
+	m.pos += n
+
+	if m.pos >= len(m.pcmData) {
+		return n, io.EOF
+	}
+
+	return n, nil
+}
+
+// Len 返回总时长 (秒)
+func (m *MP3StreamerMinimp3) Len() int {
+	if m.sampleRate == 0 || m.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := m.sampleRate * m.channels * 2 // 16-bit = 2 bytes per channel
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return len(m.pcmData) / bytesPerSecond
+}
+
+// Position 返回当前位置 (秒)
+func (m *MP3StreamerMinimp3) Position() int {
+	if m.sampleRate == 0 || m.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := m.sampleRate * m.channels * 2
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return m.pos / bytesPerSecond
+}
+
+// Seek 跳转到指定位置 (秒)
+func (m *MP3StreamerMinimp3) Seek(position int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if position < 0 {
+		position = 0
+	}
+
+	bytesPerSecond := m.sampleRate * m.channels * 2
+	m.pos = position * bytesPerSecond
+
+	if m.pos > len(m.pcmData) {
+		m.pos = len(m.pcmData)
+	}
+
+	return nil
+}
+
+// Close 关闭流
+func (m *MP3StreamerMinimp3) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if !m.closed {
+		m.pcmData = nil
+		m.closed = true
+	}
+	return nil
+}
