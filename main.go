@@ -85,7 +85,7 @@ func main() {
 
 	// 创建基本播放控制菜单项（带快捷键）
 	playPauseItem = application.NewMenuItem("播放/暂停")
-	playPauseItem.SetAccelerator("MediaPlayPause") // 系统媒体播放/暂停键
+	playPauseItem.SetAccelerator("Space") // 空格键（注意：输入框中会输入空格）
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		// 检查当前是否有播放列表
 		playlist, _ := musicService.GetPlaylist()
@@ -115,7 +115,7 @@ func main() {
 	})
 
 	prevItem = application.NewMenuItem("上一曲")
-	prevItem.SetAccelerator("MediaPrevTrack") // 系统媒体上一曲键
+	prevItem.SetAccelerator("CmdOrCtrl+[") // Cmd/Ctrl + [ （类似浏览器后退）
 	prevItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Previous(); err != nil {
 			log.Printf("切换上一曲失败：%v", err)
@@ -123,7 +123,7 @@ func main() {
 	})
 
 	nextItem = application.NewMenuItem("下一曲")
-	nextItem.SetAccelerator("MediaNextTrack") // 系统媒体下一曲键
+	nextItem.SetAccelerator("CmdOrCtrl+]") // Cmd/Ctrl + ] （类似浏览器前进）
 	nextItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Next(); err != nil {
 			log.Printf("切换下一曲失败：%v", err)
