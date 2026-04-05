@@ -36,13 +36,23 @@ const volume = ref(0.7);
 const currentTrack = ref<TrackInfo | null>(null);
 const playlist = ref<string[]>([]);
 const playMode = ref("loop"); // order, loop, single, random - 默认为循环播放
+const playlistCollapsed = ref(false); // 播放列表折叠状态
+
+// 切换播放列表折叠状态
+const togglePlaylist = () => {
+  playlistCollapsed.value = !playlistCollapsed.value;
+  console.log(
+    "播放列表折叠状态:",
+    playlistCollapsed.value ? "已折叠" : "已展开",
+  );
+};
 
 // 播放模式图标映射
 const playModeIcons = {
-  order: "🔢",   // 顺序播放
-  loop: "🔁",    // 循环播放
-  single: "🔂",  // 单曲循环
-  random: "🔀",  // 随机播放
+  order: "🔢", // 顺序播放
+  loop: "🔁", // 循环播放
+  single: "🔂", // 单曲循环
+  random: "🔀", // 随机播放
 };
 
 // 播放模式中文名称
@@ -112,11 +122,13 @@ const togglePlayMode = async () => {
   const currentIndex = modes.indexOf(playMode.value);
   const nextIndex = (currentIndex + 1) % modes.length;
   const nextMode = modes[nextIndex];
-  
+
   try {
     await SetPlayMode(nextMode);
     playMode.value = nextMode;
-    console.log(`播放模式已切换为：${playModeNames[nextMode as keyof typeof playModeNames]}`);
+    console.log(
+      `播放模式已切换为：${playModeNames[nextMode as keyof typeof playModeNames]}`,
+    );
   } catch (error) {
     console.error("Failed to set play mode:", error);
   }
@@ -127,7 +139,9 @@ const setPlayMode = async (mode: string) => {
   try {
     await SetPlayMode(mode);
     playMode.value = mode;
-    console.log(`播放模式已设置为：${playModeNames[mode as keyof typeof playModeNames]}`);
+    console.log(
+      `播放模式已设置为：${playModeNames[mode as keyof typeof playModeNames]}`,
+    );
   } catch (error) {
     console.error("Failed to set play mode:", error);
   }
@@ -325,7 +339,9 @@ const initPlayMode = async () => {
   try {
     const mode = await GetPlayMode();
     playMode.value = mode;
-    console.log(`当前播放模式：${playModeNames[mode as keyof typeof playModeNames]}`);
+    console.log(
+      `当前播放模式：${playModeNames[mode as keyof typeof playModeNames]}`,
+    );
   } catch (error) {
     console.error("Failed to get play mode:", error);
     playMode.value = "order"; // 默认顺序播放
@@ -419,12 +435,16 @@ onUnmounted(() => {
         @click="togglePlayMode"
         :title="`当前：${playModeNames[playMode as keyof typeof playModeNames]}，点击切换`"
       >
-        <span class="mode-icon">{{ playModeIcons[playMode as keyof typeof playModeIcons] }}</span>
-        <span class="mode-text">{{ playModeNames[playMode as keyof typeof playModeNames] }}</span>
+        <span class="mode-icon">{{
+          playModeIcons[playMode as keyof typeof playModeIcons]
+        }}</span>
+        <span class="mode-text">{{
+          playModeNames[playMode as keyof typeof playModeNames]
+        }}</span>
       </button>
-      
+
       <!-- 快速切换按钮组 -->
-      <div class="play-mode-options">
+      <!-- <div class="play-mode-options">
         <button
           v-for="(name, mode) in playModeNames"
           :key="mode"
@@ -435,7 +455,7 @@ onUnmounted(() => {
         >
           {{ playModeIcons[mode as keyof typeof playModeIcons] }}
         </button>
-      </div>
+      </div> -->
     </div>
 
     <!-- 操作按钮 -->
@@ -445,9 +465,21 @@ onUnmounted(() => {
     -->
 
     <!-- 播放列表 -->
-    <div class="playlist-section" v-if="playlist.length > 0">
-      <h3>播放列表 ({{ playlist.length }})</h3>
-      <div class="playlist">
+    <div
+      class="playlist-section"
+      v-if="playlist.length > 0"
+      :class="{ collapsed: playlistCollapsed }"
+    >
+      <div class="playlist-header" @click="togglePlaylist">
+        <h3>播放列表 ({{ playlist.length }})</h3>
+        <button
+          class="collapse-btn"
+          :title="playlistCollapsed ? '展开播放列表' : '折叠播放列表'"
+        >
+          {{ playlistCollapsed ? "▼" : "▲" }}
+        </button>
+      </div>
+      <div class="playlist" v-show="!playlistCollapsed">
         <div
           v-for="(track, index) in playlist"
           :key="index"
@@ -468,46 +500,48 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  padding: 15px;
+  padding: 8px;
   background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
   color: white;
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
     Cantarell, sans-serif;
+  gap: 6px;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 15px;
+  margin-bottom: 2px;
 }
 
 .header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .album-art {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 15px;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 8px;
   backdrop-filter: blur(10px);
 }
 
 .album-cover {
-  width: 60px;
-  height: 60px;
+  width: 42px;
+  height: 42px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  font-size: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .track-info {
@@ -516,133 +550,54 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 1px;
+  min-width: 0;
 }
 
 .track-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .track-artist {
   margin: 0;
-  font-size: 12px;
-  opacity: 0.8;
+  font-size: 10px;
+  opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .track-album {
   margin: 0;
-  font-size: 11px;
-  opacity: 0.6;
+  font-size: 9px;
+  opacity: 0.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .progress-section {
-  margin-bottom: 15px;
+  margin-bottom: 4px;
 }
 
 .time-display {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
-  opacity: 0.8;
-  margin-bottom: 6px;
+  font-size: 9px;
+  opacity: 0.7;
+  margin-bottom: 2px;
 }
 
 .progress-bar {
   width: 100%;
-  height: 5px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
-  outline: none;
-  cursor: pointer;
-}
-
-.progress-bar::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #fff;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.progress-bar::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  background: #fff;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 15px;
-}
-
-.control-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  color: white;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.control-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: scale(1.1);
-}
-
-.control-btn.play-btn {
-  width: 50px;
-  height: 50px;
-  font-size: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.control-btn.play-btn:hover {
-  background: linear-gradient(135deg, #7c8eee 0%, #8659ac 100%);
-  transform: scale(1.15);
-}
-
-.volume-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 15px;
-  padding: 0 10px;
-}
-
-.volume-icon {
-  font-size: 18px;
-}
-
-.volume-slider {
-  flex: 1;
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
@@ -652,7 +607,7 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.volume-slider::-webkit-slider-thumb {
+.progress-bar::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -660,21 +615,77 @@ onUnmounted(() => {
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-.volume-slider::-moz-range-thumb {
+.progress-bar::-moz-range-thumb {
   width: 12px;
   height: 12px;
   background: #fff;
   border-radius: 50%;
   cursor: pointer;
   border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.control-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.control-btn.play-btn {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.control-btn.play-btn:hover {
+  background: linear-gradient(135deg, #7c8eee 0%, #8659ac 100%);
+  transform: scale(1.1);
+}
+
+.volume-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.volume-icon {
+  font-size: 14px;
 }
 
 /* 播放模式选择器样式 */
 .play-mode-section {
-  margin-bottom: 15px;
-  padding: 0 10px;
+  margin-bottom: 4px;
+  padding: 0 4px;
 }
 
 .play-mode-btn {
@@ -682,63 +693,30 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 15px;
+  gap: 4px;
+  padding: 5px 8px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   color: white;
-  font-size: 14px;
+  font-size: 11px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   backdrop-filter: blur(10px);
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 
 .play-mode-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
 }
 
 .mode-icon {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .mode-text {
   font-weight: 500;
-}
-
-.play-mode-options {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.mode-option-btn {
-  flex: 1;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: white;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  opacity: 0.6;
-}
-
-.mode-option-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  opacity: 0.8;
-  transform: scale(1.05);
-}
-
-.mode-option-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: rgba(102, 126, 234, 0.5);
-  opacity: 1;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .playlist-section {
@@ -746,35 +724,70 @@ onUnmounted(() => {
   min-height: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 6px;
+  padding: 6px;
   backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
 }
 
-.playlist-section h3 {
-  margin: 0 0 10px 0;
-  font-size: 14px;
+.playlist-section.collapsed {
+  flex: 0 0 auto;
+}
+
+.playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 4px;
+  padding: 2px 4px;
+}
+
+.playlist-header:hover {
+  opacity: 0.8;
+}
+
+.playlist-header h3 {
+  margin: 0;
+  font-size: 12px;
   font-weight: 600;
-  text-align: center;
+  flex: 1;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 1px 4px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn:hover {
+  opacity: 1;
 }
 
 .playlist {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  max-height: 320px;
 }
 
 .playlist-item {
   display: flex;
   align-items: center;
-  padding: 10px;
-  margin-bottom: 5px;
+  padding: 5px 6px;
+  margin-bottom: 2px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .playlist-item:hover {
@@ -783,37 +796,38 @@ onUnmounted(() => {
 
 .playlist-item.active {
   background: rgba(102, 126, 234, 0.3);
-  border-left: 3px solid #667eea;
+  border-left: 2px solid #667eea;
 }
 
 .track-number {
-  font-size: 12px;
-  opacity: 0.6;
-  margin-right: 10px;
-  min-width: 25px;
+  font-size: 9px;
+  opacity: 0.5;
+  margin-right: 6px;
+  min-width: 14px;
 }
 
 .track-name {
   flex: 1;
-  font-size: 13px;
+  font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 /* 滚动条样式 */
 .playlist::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .playlist::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .playlist::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .playlist::-webkit-scrollbar-thumb:hover {
