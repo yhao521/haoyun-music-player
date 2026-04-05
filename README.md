@@ -7,10 +7,11 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9-blue)
 ![Go](https://img.shields.io/badge/Go-1.25+-00ADD8)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
-[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [主文档](./README.md)
+[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md)
 
 </div>
 
@@ -18,26 +19,33 @@
 
 - 🎨 **现代 UI** - 精美的渐变设计和毛玻璃特效
 - ⚡ **高性能** - Go + Vue 的原生性能体验
-- 🔧 **可扩展** - 清晰的架构，易于添加新功能
+- 🔧 **可扩展** - 清晰的 MVC 架构，易于添加新功能
 - 📱 **跨平台** - 支持 macOS、Windows、Linux
 - 🎯 **类型安全** - 完整的 TypeScript 类型定义
-- 📋 **播放列表** - 完善的播放列表管理
-- 🎚️ **音量控制** - 精细的音量调节
-- 💻 **菜单集成** - 系统菜单栏快速访问
+- 📋 **播放列表管理** - 完善的播放列表控制和播放模式（顺序/循环/随机/单曲）
+- 🎚️ **音量控制** - 精细的音量调节 (0-100%)
+- 💻 **菜单集成** - 系统托盘菜单快速访问
+- 🎵 **多格式支持** - 支持 MP3、WAV、FLAC 音频格式
+- 📂 **音乐库管理** - 支持多个音乐库，自动扫描和索引
+- ⌨️ **全局快捷键** - 空格键播放/暂停，Cmd/Ctrl+[ 上一曲，Cmd/Ctrl+] 下一曲
+- 🔍 **歌曲搜索** - 浏览视图中支持按标题、艺术家、专辑搜索
+- 📄 **分页显示** - 大型音乐库支持分页浏览（20/50/100/200 首每页）
+- 🔄 **断点续播** - 暂停后恢复播放时自动跳转到原位置
 
 ## 🖼️ 界面预览
 
+### 主播放器界面
 ```
 ┌─────────────────────────────────┐
-│  🎵 Haoyun Music                │
+│  🎵 Haoyun Music Player         │
 ├─────────────────────────────────┤
 │                                 │
 │  ┌──────┐                       │
-│  │ 🎵   │  未播放音乐            │
+│  │ 🎵   │  歌曲名称.mp3          │
 │  └──────┘  未知艺术家            │
 │                                 │
-│  0:00              0:00         │
-│  ━━━━━━━━━━━━━━━━━━━━━━━        │
+│  1:23              3:45         │
+│  ━━━━━━━━━━━━━━○━━━━━━━        │
 │                                 │
 │      ⏮   ▶️   ⏭                │
 │                                 │
@@ -45,18 +53,45 @@
 │                                 │
 │  📂 打开文件                     │
 │                                 │
-│  播放列表 (0)                    │
+│  播放列表 (15)                   │
 │  ─────────────────────────────  │
+│  1. 歌曲1.mp3                    │
+│  2. 歌曲2.mp3                    │
+│  ...                             │
 │                                 │
 └─────────────────────────────────┘
+```
+
+### 浏览音乐库界面
+```
+┌──────────────────────────────────────────────────┐
+│  🎵 浏览音乐库                                    │
+├──────────────────────────────────────────────────┤
+│  音乐库: [我的音乐 ▼]  🔍 搜索歌曲、艺术家...     │
+├──────────────────────────────────────────────────┤
+│  📁 我的音乐 | 🎵 150 首 | ⏱️ 总时长：8:32:15    │
+│  💾 总大小：1.2 GB | 📂 /Users/xxx/Music         │
+├──────────────────────────────────────────────────┤
+│  #  | 标题           | 艺术家  | 专辑   | 时长 | 大小│
+│  ──────────────────────────────────────────────── │
+│  1  | 歌曲名称1.mp3  | 艺术家1 | 专辑1  | 3:45 | 8MB │
+│  2  | 歌曲名称2.mp3  | 艺术家2 | 专辑2  | 4:12 | 9MB │
+│  ...                                              │
+├──────────────────────────────────────────────────┤
+│  显示第 1-50 首，共 150 首                        │
+│  ⏮ ◀ 1 2 3 4 5 ▶ ⏭  每页显示: [50 ▼]           │
+└──────────────────────────────────────────────────┘
 ```
 
 ## 🛠️ 技术栈
 
 ### 后端
-- **Go** - 核心业务逻辑
-- **Wails v3** - 桌面应用框架
-- **Oto** (可选) - 音频播放引擎
+- **Go 1.25+** - 核心业务逻辑
+- **Wails v3 (Alpha)** - 桌面应用框架
+- **Oto v3** - 跨平台音频播放引擎
+- **go-mp3** - MP3 流式解码器
+- **go-audio/wav** - WAV 音频解码器
+- **mewkiz/flac** - FLAC 音频解码器
 
 ### 前端
 - **Vue 3** - 渐进式 JavaScript 框架
@@ -64,13 +99,20 @@
 - **Vite** - 下一代前端构建工具
 - **@wailsio/runtime** - Wails 运行时
 
+### 音频架构
+- **Oto Context 单例模式** - 整个应用生命周期只创建一次
+- **流式解码** - MP3 采用流式读取，内存效率高
+- **PCM 缓存** - WAV/FLAC 全量解码后缓存
+- **状态标志位控制** - 暂停通过停止数据流实现，而非关闭 Player
+
 ## 🚀 快速开始
 
 ### 前置要求
 
-- Go 1.25+
-- Node.js 18+
-- Wails v3 CLI（可选）
+- **Go 1.25+** - [下载安装](https://golang.org/dl/)
+- **Node.js 18+** - [下载安装](https://nodejs.org/)
+- **Wails v3 CLI**（可选）- `go install github.com/wailsapp/wails/v3/cmd/wails3@latest`
+- **编译器** - macOS: Xcode Command Line Tools, Windows: GCC/MinGW, Linux: build-essential
 
 ### 安装依赖
 
@@ -86,6 +128,8 @@ cd ..
 
 ### 运行应用
 
+#### 开发模式（热重载）
+
 ```bash
 # 使用 Wails CLI
 wails3 dev -config ./build/config.yml
@@ -97,10 +141,20 @@ wails3 dev -config ./build/config.yml
 start.bat
 ```
 
+#### 生产模式
+
+```bash
+# 构建应用
+wails3 build
+
+# 或直接运行
+go run .
+```
+
 ### 生产构建
 
 ```bash
-# macOS
+# macOS (Intel & Apple Silicon)
 wails3 build -platform darwin
 
 # Windows
@@ -108,97 +162,192 @@ wails3 build -platform windows
 
 # Linux
 wails3 build -platform linux
+
+# 指定输出目录
+wails3 build -o ./dist
 ```
 
 ## 📁 项目结构
 
 ```
 haoyun-music-player/
-├── main.go                 # Go 主入口
-├── greetservice.go         # 音乐服务实现
-├── go.mod                  # Go 模块配置
-├── Taskfile.yml           # 构建任务配置
-├── README.md              # 项目说明
-├── QUICKSTART.md          # 快速开始指南
-├── IMPLEMENTATION.md      # 实现文档
-├── start.sh               # Unix 启动脚本
-├── start.bat              # Windows 启动脚本
-├── .gitignore             # Git 忽略文件
-│
-└── frontend/              # 前端代码
-    ├── src/
-    │   ├── App.vue       # 主应用组件
-    │   ├── main.ts       # Vue 入口
-    │   └── vite-env.d.ts # TypeScript 定义
-    ├── public/
-    │   └── style.css     # 全局样式
-    ├── package.json      # 前端依赖
-    ├── vite.config.ts    # Vite 配置
-    └── tsconfig.json     # TypeScript 配置
+├── main.go                      # Go 主入口，应用初始化
+├── backend/                     # 后端代码
+│   ├── music_service.go         # 统一音乐服务（MVC Model 层）
+│   ├── audioplayer.go           # 音频播放器（Oto + 解码器）
+│   ├── libraryservice.go        # 音乐库管理服务
+│   ├── musicsmanager.go         # 播放列表管理器
+│   ├── com.go                   # 通用工具函数
+│   └── pkg/                     # 工具包
+│       ├── file/                # 文件操作工具
+│       └── utils/               # 实用工具
+├── frontend/                    # 前端代码
+│   ├── src/
+│   │   ├── App.vue             # 根组件（路由控制）
+│   │   ├── components/
+│   │   │   └── AppMain.vue     # 主播放器组件
+│   │   ├── views/
+│   │   │   └── BrowseView.vue  # 浏览音乐库视图
+│   │   ├── main.ts             # Vue 入口
+│   │   └── vite-env.d.ts       # TypeScript 定义
+│   ├── public/
+│   │   ├── style.css           # 全局样式
+│   │   └── wails.png           # 应用图标
+│   ├── bindings/               # Wails 自动生成的绑定
+│   ├── package.json            # 前端依赖
+│   ├── vite.config.ts          # Vite 配置
+│   └── tsconfig.json           # TypeScript 配置
+├── build/
+│   └── config.yml              # Wails 构建配置
+├── Taskfile.yml                # 任务自动化配置
+├── go.mod                      # Go 模块配置
+├── README.md                   # 项目说明（本文件）
+├── QUICKSTART.md               # 快速开始指南
+├── IMPLEMENTATION.md           # 实现文档
+├── API_GUIDE.md                # API 使用指南
+├── KEYBOARD_SHORTCUTS.md       # 键盘快捷键说明
+├── MEDIA_KEYS_GUIDE.md         # 媒体键支持说明
+├── MUSIC_INFO_DISPLAY.md       # 音乐信息显示说明
+├── NOW_PLAYING_FEATURE.md      # 正在播放功能说明
+├── SPEAKER_FIX.md              # 扬声器修复说明
+├── TRAY_FIX.md                 # 托盘修复说明
+├── TRAY_UPDATE.md              # 托盘更新说明
+├── TROUBLESHOOTING.md          # 故障排除指南
+├── WAILS_BINDINGS.md           # Wails 绑定说明
+├── start.sh                    # Unix 启动脚本
+└── start.bat                   # Windows 启动脚本
 ```
 
 ## 📖 功能清单
 
 ### ✅ 已实现
 
-- [x] 基础 UI 界面
-- [x] 播放/暂停控制
+#### 核心功能
+- [x] 基础 UI 界面（主播放器 + 浏览视图）
+- [x] 真实音频播放核心（MP3/WAV/FLAC）
+- [x] 播放/暂停控制（含断点续播）
 - [x] 上一首/下一首切换
-- [x] 进度条显示和拖拽
-- [x] 音量调节滑块
-- [x] 播放列表管理
+- [x] 进度条显示和拖拽跳转
+- [x] 音量调节滑块（0-100%）
+- [x] 播放列表管理（添加、清空、切换）
+- [x] 播放模式支持（顺序/循环/随机/单曲）
 - [x] 文件选择器集成
-- [x] 前后端事件通信
+- [x] 前后端事件通信（Wails RPC）
 - [x] 状态同步机制
-- [x] 菜单栏基础结构
+
+#### 音乐库管理
+- [x] 多音乐库支持
+- [x] 后台异步扫描
+- [x] 音乐库切换
+- [x] 音乐库刷新
+- [x] JSON 持久化存储（~/.haoyun-music/）
+- [x] 自动加载当前音乐库到播放列表
+
+#### 系统集成
+- [x] 系统托盘图标
+- [x] 托盘菜单控制
+- [x] 正在播放显示（托盘菜单）
+- [x] 窗口隐藏/显示（关闭时不退出）
+- [x] 多窗口支持（主窗口 + 浏览窗口）
+- [x] 键盘快捷键（空格、Cmd/Ctrl+[、Cmd/Ctrl+]）
+- [x] 菜单栏播放控制
+
+#### 浏览视图
+- [x] 音乐库列表展示
+- [x] 歌曲列表表格显示
+- [x] 实时搜索过滤（标题/艺术家/专辑）
+- [x] 分页显示（20/50/100/200 首每页）
+- [x] 双击播放歌曲
+- [x] 统计信息（总数、总时长、总大小）
+- [x] 响应式布局
 
 ### ⏳ 计划中
 
-- [ ] 真实音频播放核心
-- [ ] 全局快捷键支持
-- [ ] 歌词显示
-- [ ] 专辑封面提取
-- [ ] 播放模式切换
+- [ ] 歌词显示（LRC 文件支持）
+- [ ] 专辑封面提取和显示
 - [ ] 均衡器调节
-- [ ] 系统托盘图标
-- [ ] 媒体键支持
+- [ ] 媒体键支持（播放/暂停、上一曲、下一曲）
+- [ ] 全局快捷键自定义
+- [ ] 睡眠定时器
+- [ ] 播放历史记录
+- [ ] 收藏夹功能
+- [ ] 在线音乐搜索
+- [ ] 主题切换（深色/浅色模式）
+- [ ] 国际化支持（i18n）
+- [ ] 单元测试覆盖
 
-## 🎯 如何添加真实音频播放
+## 🎯 架构设计
 
-当前版本使用模拟播放功能。要添加真实的音频播放：
+### MVC 架构模式
 
-### 1. 安装音频库
+本项目采用 **MVC + Facade** 架构模式：
 
-```bash
-go get github.com/hajimehoshi/oto/v2
+```
+┌─────────────────────────────────────┐
+│         Frontend (Vue 3)            │  ← View 层
+│  - AppMain.vue (主播放器)            │
+│  - BrowseView.vue (浏览视图)         │
+└──────────────┬──────────────────────┘
+               │ Wails RPC
+┌──────────────▼──────────────────────┐
+│      MusicService (Facade)          │  ← Controller 层
+│  - 统一对外接口                      │
+│  - 协调子服务                        │
+└──┬────────────┬──────────────┬──────┘
+   │            │              │
+┌──▼──────┐ ┌──▼────────┐ ┌──▼──────────┐
+│Audio    │ │Playlist   │ │Library      │  ← Model 层
+│Player   │ │Manager    │ │Manager      │
+│         │ │           │ │             │
+│- Oto    │ │- 播放列表  │ │- 音乐库扫描  │
+│- 解码器  │ │- 播放模式  │ │- JSON 存储  │
+│- 状态管理│ │- 索引管理  │ │- 元数据解析  │
+└─────────┘ └───────────┘ └─────────────┘
 ```
 
-### 2. 实现播放逻辑
+### 关键设计决策
 
-在 `greetservice.go` 中：
+1. **Oto Context 全局单例**
+   - 整个应用生命周期只创建一次
+   - 严禁重复创建或中途关闭
+   - Player 动态重建，Context 保持不变
 
-```go
-import "github.com/hajimehoshi/oto/v2"
+2. **暂停实现策略**
+   - 采用状态标志位 + 数据流控制
+   - 暂停时关闭 streamer，保存播放位置
+   - 恢复时重新加载文件并 Seek 到原位置
 
-type MusicService struct {
-    player *oto.Player
-    // ... 其他字段
-}
+3. **MP3 流式解码**
+   - 使用 go-mp3 实现真正的流式读取
+   - 内存效率高，适合大文件
+   - WAV/FLAC 采用全量解码后缓存
 
-func (m *MusicService) Initialize() error {
-    var err error
-    m.player, err = oto.NewPlayer(oto.PlayerOptions{
-        SampleRate:   44100,
-        ChannelCount: 2,
-        Format:       oto.FormatSignedInt16LE,
-    })
-    return err
-}
+4. **服务下沉与依赖注入**
+   - 具体功能拆分为独立子服务
+   - 每个子服务内部封装 sync.RWMutex
+   - 顶层 Facade 组合所有子服务
 
-// 实现 Play(), Pause() 等方法
-```
+详细架构说明请查看 [BACKEND_DESIGN.md](./BACKEND_DESIGN.md)
 
-详细示例请参考 [IMPLEMENTATION.md](./IMPLEMENTATION.md)
+## 📚 文档
+
+### 用户文档
+- [快速开始指南](./QUICKSTART.md) - 5 分钟上手
+- [键盘快捷键](./KEYBOARD_SHORTCUTS.md) - 完整快捷键列表
+- [故障排除](./TROUBLESHOOTING.md) - 常见问题解决
+
+### 开发文档
+- [实现文档](./IMPLEMENTATION.md) - 功能实现细节
+- [API 指南](./API_GUIDE.md) - 后端 API 使用说明
+- [后端设计](./BACKEND_DESIGN.md) - 架构设计详解
+- [Wails 绑定](./WAILS_BINDINGS.md) - 前后端通信机制
+
+### 特性文档
+- [音乐信息显示](./MUSIC_INFO_DISPLAY.md)
+- [正在播放功能](./NOW_PLAYING_FEATURE.md)
+- [媒体键支持](./MEDIA_KEYS_GUIDE.md)
+- [托盘修复说明](./TRAY_FIX.md)
+- [扬声器修复](./SPEAKER_FIX.md)
 
 ## 🤝 贡献
 
@@ -214,14 +363,64 @@ func (m *MusicService) Initialize() error {
 
 ### 开发建议
 
-- 遵循 Go 代码规范
-- 使用 TypeScript 类型检查
-- 编写必要的测试
-- 更新相关文档
+- ✅ 遵循 Go 代码规范（gofmt、golint）
+- ✅ 使用 TypeScript 严格模式
+- ✅ 编写必要的单元测试
+- ✅ 更新相关文档
+- ✅ 保持向后兼容性
+- ✅ 添加适当的日志记录
+
+### 代码规范
+
+#### Go 后端
+```go
+// 使用有意义的变量名
+audioPlayer := NewAudioPlayer()
+
+// 错误处理
+if err != nil {
+    log.Printf("操作失败：%v", err)
+    return err
+}
+
+// 并发安全
+ap.mu.Lock()
+defer ap.mu.Unlock()
+```
+
+#### Vue 前端
+```typescript
+// 使用 Composition API
+import { ref, computed } from "vue"
+
+// 类型定义
+interface TrackInfo {
+  title: string
+  artist: string
+  duration: number
+}
+
+// 响应式状态
+const tracks = ref<TrackInfo[]>([])
+```
+
+## 🐛 已知问题
+
+1. **Wails v3 Alpha 阶段**
+   - 框架处于 Alpha 版本，API 可能变动
+   - 部分功能可能需要 workaround
+
+2. **音频格式限制**
+   - 目前仅支持 MP3、WAV、FLAC
+   - AAC、OGG Vorbis 等格式暂不支持
+
+3. **macOS 权限**
+   - 首次运行可能需要授权访问音乐文件夹
+   - 系统偏好设置 > 安全性与隐私 > 完全磁盘访问权限
 
 ## 📄 许可证
 
-MIT License
+MIT License - 详见 [LICENSE](./LICENSE) 文件
 
 ## 🙏 致谢
 
@@ -231,13 +430,17 @@ MIT License
 - [Vue.js](https://vuejs.org/) - 渐进式 JavaScript 框架
 - [TypeScript](https://www.typescriptlang.org/) - JavaScript 的超集
 - [Vite](https://vitejs.dev/) - 极速的前端构建工具
-- [Oto](https://github.com/hajimehoshi/oto) - 跨平台音频播放库
+- [Oto](https://github.com/ebitengine/oto) - 跨平台音频播放库
+- [go-mp3](https://github.com/hajimehoshi/go-mp3) - MP3 解码器
+- [go-audio](https://github.com/go-audio/wav) - WAV 解码器
+- [flac](https://github.com/mewkiz/flac) - FLAC 解码器
 
 ## 📬 联系方式
 
-- 📧 Email: your.email@example.com
-- 💬 Issues: [GitHub Issues](https://github.com/yourusername/haoyun-music-player/issues)
-- 📖 Docs: [实现文档](./IMPLEMENTATION.md)
+- 👤 **作者**: Yang Hao (yhao521)
+- 📧 **Email**: your.email@example.com
+- 💬 **Issues**: [GitHub Issues](https://github.com/yhao521/haoyun-music-player/issues)
+- 📖 **文档**: [完整文档列表](#-文档)
 
 ---
 
@@ -247,19 +450,6 @@ MIT License
 
 🎵 Enjoy Your Music!
 
+⭐ 如果这个项目对你有帮助，请给个 Star！
+
 </div>
-
-## ⌨️ 键盘快捷键
-
-### 播放控制
-- **播放/暂停**: `Space` (空格键)
-- **上一曲**: `Cmd+←` (macOS) / `Ctrl+←` (Windows/Linux)
-- **下一曲**: `Cmd+→` (macOS) / `Ctrl+→` (Windows/Linux)
-
-### 其他快捷键
-- **浏览歌曲**: `Cmd/Ctrl+F`
-- **刷新音乐库**: `Cmd/Ctrl+R`
-- **下载**: `Cmd/Ctrl+D`
-- **设置**: `Cmd/Ctrl+S`
-
-> 📝 详细说明请查看 [KEYBOARD_SHORTCUTS.md](./KEYBOARD_SHORTCUTS.md)
