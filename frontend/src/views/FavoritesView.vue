@@ -80,9 +80,9 @@ onMounted(() => {
   <div class="favorites-container">
     <!-- 头部导航 -->
     <div class="header">
-      <button class="back-btn" @click="goBack" title="返回主界面">
+      <!-- <button class="back-btn" @click="goBack" title="返回主界面">
         ← 返回
-      </button>
+      </button> -->
       <h1>❤️ 喜爱音乐</h1>
       <button class="refresh-btn" @click="refreshList" :disabled="isLoading" title="刷新列表">
         🔄 刷新

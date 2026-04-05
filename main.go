@@ -542,27 +542,7 @@ func main() {
 	}
 	favoriteItem = application.NewMenuItem("❤️ 喜爱音乐")
 	favoriteItem.SetAccelerator("CmdOrCtrl+H") // Cmd/Ctrl + H (Heart)
-	favoriteItem.OnClick(func(ctx *application.Context) {
-		log.Println("打开喜爱音乐界面")
-		
-		// 显示主窗口（如果未显示）
-		if mainWindow != nil && !mainWindow.IsVisible() {
-			mainWindow.Show()
-			mainWindow.Focus()
-		}
-		
-		// 导航到喜爱音乐页面
-		go func() {
-			time.Sleep(100 * time.Millisecond) // 等待窗口初始化
-			if mainWindow != nil && mainWindow.IsVisible() {
-				app.Event.Emit("windowUrl", map[string]interface{}{
-					"type": "navigate",
-					"url":  "#/favorites",
-				})
-				log.Println("📤 已发送导航事件到 #/favorites")
-			}
-		}()
-	})
+	// OnClick 回调将在 favoritesWindow 创建后设置
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
 	downloadItem = application.NewMenuItem("下载音乐")
@@ -712,6 +692,65 @@ func main() {
 	// 初始隐藏浏览窗口
 	browseWindow.Hide()
 	log.Println("✓ Browse window created (Minimise)")
+
+	// 创建喜爱音乐窗口（用于展示按播放次数排序的歌曲列表）
+	var favoritesWindow *application.WebviewWindow
+	favoritesWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "喜爱音乐 - Haoyun Music Player",
+		Mac: application.MacWindow{
+			InvisibleTitleBarHeight: 50,
+			Backdrop:                application.MacBackdropTranslucent,
+			TitleBar:                application.MacTitleBarHiddenInset,
+		},
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "#/favorites",
+		Width:            900,
+		Height:           700,
+	})
+
+	// 拦截喜爱音乐窗口关闭事件，改为隐藏窗口
+	favoritesWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("喜爱音乐窗口关闭事件被拦截，改为隐藏窗口")
+		favoritesWindow.Hide()
+		e.Cancel() // 取消关闭操作
+	})
+
+	// 初始隐藏喜爱音乐窗口
+	favoritesWindow.Hide()
+	log.Println("✓ Favorites window created (Hidden)")
+
+	// 设置喜爱音乐菜单项的点击事件（在 favoritesWindow 初始化之后）
+	favoriteItem.OnClick(func(ctx *application.Context) {
+		log.Println("打开喜爱音乐窗口")
+		
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ 打开喜爱音乐窗口时发生 panic: %v", r)
+				debug.PrintStack()
+			}
+		}()
+
+		if favoritesWindow == nil {
+			log.Println("❌ favoritesWindow 为 nil")
+			return
+		}
+
+		isVisible := favoritesWindow.IsVisible()
+		log.Printf("✓ favoritesWindow IsVisible() = %v", isVisible)
+		
+		if isVisible {
+			log.Println("准备调用 Hide()...")
+			favoritesWindow.Hide()
+		} else {
+			log.Println("准备调用 Show()...")
+			favoritesWindow.Show()
+			log.Println("准备调用 Focus()...")
+			favoritesWindow.Focus()
+			log.Println("✓ Focus() 完成")
+		}
+
+		log.Println("=== 喜爱音乐窗口操作完成 ===")
+	})
 
 	// 定时向 browseWindow 发送测试消息（用于调试）
 	go func() {
