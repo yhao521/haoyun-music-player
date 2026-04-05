@@ -412,6 +412,15 @@ onUnmounted(() => {
         {{ isPlaying ? "⏸" : "▶️" }}
       </button>
       <button class="control-btn" @click="next" title="下一首">⏭</button>
+      
+      <!-- 播放模式按钮 -->
+      <button
+        class="control-btn mode-btn"
+        @click="togglePlayMode"
+        :title="`当前：${playModeNames[playMode as keyof typeof playModeNames]}，点击切换`"
+      >
+        {{ playModeIcons[playMode as keyof typeof playModeIcons] }}
+      </button>
     </div>
 
     <!-- 音量控制 -->
@@ -426,36 +435,6 @@ onUnmounted(() => {
         step="0.01"
         @input="setVolume(Number(($event.target as HTMLInputElement).value))"
       />
-    </div>
-
-    <!-- 播放模式选择 -->
-    <div class="play-mode-section">
-      <button
-        class="play-mode-btn"
-        @click="togglePlayMode"
-        :title="`当前：${playModeNames[playMode as keyof typeof playModeNames]}，点击切换`"
-      >
-        <span class="mode-icon">{{
-          playModeIcons[playMode as keyof typeof playModeIcons]
-        }}</span>
-        <span class="mode-text">{{
-          playModeNames[playMode as keyof typeof playModeNames]
-        }}</span>
-      </button>
-
-      <!-- 快速切换按钮组 -->
-      <!-- <div class="play-mode-options">
-        <button
-          v-for="(name, mode) in playModeNames"
-          :key="mode"
-          class="mode-option-btn"
-          :class="{ active: playMode === mode }"
-          @click="setPlayMode(mode)"
-          :title="name"
-        >
-          {{ playModeIcons[mode as keyof typeof playModeIcons] }}
-        </button>
-      </div> -->
     </div>
 
     <!-- 操作按钮 -->
@@ -670,6 +649,20 @@ onUnmounted(() => {
   transform: scale(1.1);
 }
 
+.control-btn.mode-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  background: rgba(102, 126, 234, 0.3);
+  border: 1px solid rgba(102, 126, 234, 0.5);
+}
+
+.control-btn.mode-btn:hover {
+  background: rgba(102, 126, 234, 0.5);
+  border-color: rgba(102, 126, 234, 0.7);
+  transform: scale(1.1);
+}
+
 .volume-section {
   display: flex;
   align-items: center;
@@ -680,43 +673,6 @@ onUnmounted(() => {
 
 .volume-icon {
   font-size: 14px;
-}
-
-/* 播放模式选择器样式 */
-.play-mode-section {
-  margin-bottom: 4px;
-  padding: 0 4px;
-}
-
-.play-mode-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 5px 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  color: white;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
-  margin-bottom: 4px;
-}
-
-.play-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.mode-icon {
-  font-size: 16px;
-}
-
-.mode-text {
-  font-weight: 500;
 }
 
 .playlist-section {
