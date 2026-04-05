@@ -140,3 +140,72 @@ for _, libName := range libraries {
 **Bug 已修复，应用可正常运行！** ✅
 
 </div>
+
+## 2026-04-05: 菜单崩溃问题修复记录
+
+## 问题描述
+应用在启动时出现 `runtime error: invalid memory address or nil pointer dereference` 崩溃，错误发生在 Wails 内部的 `processRadioGroups` 方法中。
+
+## 根本原因分析
+
+### 第一次崩溃（已修复）
+在 `createMenu` 函数中，创建 radio menu items 时没有保存返回值：
+```go
+viewMenu.AddRadio("List View", true)  // ❌ 错误：未接收返回值
+viewMenu.AddRadio("Grid View", false)
+viewMenu.AddRadio("Detail View", false)
+```
+
+**修复方案**：使用空白标识符接收返回值
+```go
+_ = viewMenu.AddRadio("List View", true)  // ✅ 正确
+_ = viewMenu.AddRadio("Grid View", false)
+_ = viewMenu.AddRadio("Detail View", false)
+```
+
+### 第二次崩溃（本次修复）
+在 `buildMusicLibMenu` 函数中构建托盘菜单时，使用了未初始化的 `favoriteItem` 变量：
+```go
+menu = application.NewMenuFromItems(
+    nowPlayingItem,
+    application.NewMenuItemSeparator(),
+    playPauseItem,
+    prevItem,
+    nextItem,
+    application.NewMenuItemSeparator(),
+    browseItem,
+    favoriteItem,  // ❌ 错误：favoriteItem 为 nil
+    playModeItem,
+    musicLibItem,
+    // ...
+)
+```
+
+当 Wails 尝试处理包含 nil MenuItem 的菜单结构时，在内部遍历和分组处理过程中访问了空指针，导致崩溃。
+
+**修复方案**：
+1. 从托盘菜单中移除 `favoriteItem` 引用
+2. 删除未使用的 `favoriteItem` 变量声明
+
+## 技术要点
+
+### Wails v3 菜单系统注意事项
+
+1. **Radio Menu Items 必须接收返回值**
+   - 即使不使用该引用，也必须用 `_ =` 接收
+   - 否则 Wails 内部无法正确追踪和管理这些菜单项
+
+2. **严禁向菜单传递 nil MenuItem**
+   - 所有传入 `NewMenuFromItems` 或添加到子菜单的 MenuItem 必须已正确初始化
+   - 使用前应确保变量已被赋值（通过 `application.NewMenuItem()` 等工厂方法）
+
+3. **Checkbox 和 Radio 的替代方案**
+   - 根据项目规范，在子菜单中避免使用 `NewMenuItemCheckbox`
+   - 推荐使用普通菜单项 + Unicode 字符（如 `✓`）+ 动态 Label 更新来模拟选中状态
+
+## 相关文件
+- `/Users/yanghao/storage/code_projects/goProjects/haoyun-music-player/main.go`
+
+## 参考记忆
+- `d718f419-52e3-4666-bcf1-dbbf5cf30a51`: Wails菜单组件空指针异常避坑指南
+- `29816ac2-b805-4211-b07b-a5c5fe2f1586`: macOS 平台交互与 UI 规范

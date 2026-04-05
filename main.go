@@ -540,6 +540,10 @@ func main() {
 		// 重新设置托盘菜单
 		tray.SetMenu(menu)
 	}
+	favoriteItem = application.NewMenuItem("喜爱音乐")
+	favoriteItem.OnClick(func(ctx *application.Context) {
+		musicService.GetFavoriteTracks(100)
+	})
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
 	downloadItem = application.NewMenuItem("下载音乐")
@@ -848,9 +852,10 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 		app.Logger.Info("Dark mode", "enabled", isChecked)
 	})
 	viewMenu.AddSeparator()
-	viewMenu.AddRadio("List View", true)
-	viewMenu.AddRadio("Grid View", false)
-	viewMenu.AddRadio("Detail View", false)
+	// 必须保存 radio items 的引用，避免 Wails 处理 radio groups 时出现空指针错误
+	_ = viewMenu.AddRadio("List View", true)
+	_ = viewMenu.AddRadio("Grid View", false)
+	_ = viewMenu.AddRadio("Detail View", false)
 
 	// Help menu
 	helpMenu := menu.AddSubmenu("Help")
