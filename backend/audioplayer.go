@@ -463,6 +463,8 @@ func (ap *AudioPlayer) monitorPlayback() {
 
 			if ap.app != nil {
 				ap.app.Event.Emit("playbackStateChanged", "stopped")
+				// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
+				ap.app.Event.Emit("playbackEnded", nil)
 			}
 			return
 		}

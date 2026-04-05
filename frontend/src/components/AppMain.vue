@@ -35,12 +35,13 @@ const duration = ref(0);
 const volume = ref(0.7);
 const currentTrack = ref<TrackInfo | null>(null);
 const playlist = ref<string[]>([]);
-const playMode = ref("order"); // order, loop, random
+const playMode = ref("loop"); // order, loop, single, random - 默认为循环播放
 
 // 播放模式图标映射
 const playModeIcons = {
   order: "🔢",   // 顺序播放
   loop: "🔁",    // 循环播放
+  single: "🔂",  // 单曲循环
   random: "🔀",  // 随机播放
 };
 
@@ -48,6 +49,7 @@ const playModeIcons = {
 const playModeNames = {
   order: "顺序播放",
   loop: "循环播放",
+  single: "单曲循环",
   random: "随机播放",
 };
 
@@ -106,7 +108,7 @@ const setVolume = async (value: number) => {
 
 // 切换播放模式
 const togglePlayMode = async () => {
-  const modes = ["order", "loop", "random"];
+  const modes = ["order", "loop", "single", "random"];
   const currentIndex = modes.indexOf(playMode.value);
   const nextIndex = (currentIndex + 1) % modes.length;
   const nextMode = modes[nextIndex];
@@ -266,16 +268,30 @@ const listenToEvents = () => {
     currentPosition.value = data.position;
     duration.value = data.duration;
   });
+
+  // 获取播放列表
   GetPlaylist()
     .then((tracks) => {
-      console.log("GetPlaylist", tracks);
-      playlist.value = tracks;
+      console.log("初始化播放列表:", tracks, "长度:", tracks.length);
+      if (tracks && Array.isArray(tracks)) {
+        playlist.value = tracks;
+        console.log(`✓ 播放列表已加载，共 ${tracks.length} 首歌曲`);
+      } else {
+        console.warn("⚠️ 播放列表数据格式异常:", tracks);
+      }
     })
-    .catch(() => {});
+    .catch((error) => {
+      console.error("❌ 获取播放列表失败:", error);
+    });
+
   // 监听播放列表更新
   Events.On("playlistUpdated", (tracks: any) => {
     console.log("playlistUpdated", tracks);
-    playlist.value = tracks;
+    if (tracks && Array.isArray(tracks.data)) {
+      playlist.value = tracks.data;
+    } else if (Array.isArray(tracks)) {
+      playlist.value = tracks;
+    }
   });
 
   // 监听当前歌曲变化

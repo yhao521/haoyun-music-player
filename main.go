@@ -36,6 +36,7 @@ func init() {
 	application.RegisterEvent[TrackInfo]("currentTrackChanged")
 	application.RegisterEvent[map[string]interface{}]("windowUrl") // 添加窗口 URL 变化事件
 	application.RegisterEvent[[]string]("launchArgs")              // 添加第二实例启动参数事件
+	application.RegisterEvent[interface{}]("playbackEnded")        // 添加播放结束事件
 }
 
 func main() {

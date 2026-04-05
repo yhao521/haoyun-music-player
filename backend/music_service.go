@@ -33,6 +33,52 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.audioPlayer.SetApp(app)
 	m.playlistManager.SetApp(app)
 	m.libraryManager.SetApp(app)
+	
+	// 监听播放结束事件，根据播放模式决定是否自动播放下一首
+	app.Event.On("playbackEnded", func(event *application.CustomEvent) {
+		log.Println("🎵 收到 playbackEnded 事件，检查是否需要自动播放下一首")
+		
+		// 获取当前播放模式
+		playMode, err := m.playlistManager.GetPlayMode()
+		if err != nil {
+			log.Printf("⚠️ 获取播放模式失败：%v", err)
+			return
+		}
+		
+		log.Printf("当前播放模式：%s", playMode)
+		
+		// 单曲循环模式下不自动播放下一首（保持当前歌曲）
+		if playMode == "single" {
+			log.Println("🔂 单曲循环模式，重新播放当前歌曲")
+			// 重新播放当前歌曲
+			if err := m.Play(); err != nil {
+				log.Printf("❌ 重新播放失败：%v", err)
+			}
+			return
+		}
+		
+		// order 模式：顺序播放完最后一首后停止
+		if playMode == "order" {
+			currentIndex, _ := m.playlistManager.GetCurrentIndex()
+			playlistLen := len(m.getPlaylistUnsafe())
+			if currentIndex >= playlistLen-1 {
+				log.Println("🔢 顺序播放模式，已到达列表末尾，停止播放")
+				return // 不自动播放下一首
+			}
+		}
+		
+		// loop 和 random 模式：自动播放下一首
+		log.Printf("🔄 %s 模式，自动播放下一首", playMode)
+		if err := m.Next(); err != nil {
+			log.Printf("❌ 自动播放下一首失败：%v", err)
+		}
+	})
+}
+
+// getPlaylistUnsafe 获取播放列表（不加锁，仅在内部使用）
+func (m *MusicService) getPlaylistUnsafe() []string {
+	playlist, _ := m.playlistManager.GetPlaylist()
+	return playlist
 }
 
 // SetContext 设置上下文

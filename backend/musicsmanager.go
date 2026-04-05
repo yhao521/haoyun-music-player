@@ -39,7 +39,7 @@ type PlaylistManager struct {
 	playlist []string
 	current  int
 	app      *application.App
-	playMode string // 播放模式：order(顺序), loop(循环), random(随机)
+	playMode string // 播放模式：order(顺序), loop(循环), single(单曲循环), random(随机)
 }
 
 // NewPlaylistManager 创建播放列表管理器
@@ -47,7 +47,7 @@ func NewPlaylistManager() *PlaylistManager {
 	return &PlaylistManager{
 		playlist: make([]string, 0),
 		current:  -1,
-		playMode: "order", // 默认为顺序播放
+		playMode: "loop", // 默认为循环播放
 	}
 }
 
@@ -133,13 +133,17 @@ func (pm *PlaylistManager) Next() error {
 	case "random":
 		// 随机播放
 		pm.current = rand.Intn(len(pm.playlist))
+	case "single":
+		// 单曲循环：保持当前歌曲不变
+		// current 索引不变
 	case "loop":
-		// 循环播放（包括当前歌曲）
-		pm.current = pm.current % len(pm.playlist)
+		// 列表循环：播完最后一首回到第一首
+		pm.current = (pm.current + 1) % len(pm.playlist)
 	case "order":
 		fallthrough
 	default:
-		// 顺序播放
+		// 顺序播放：播完最后一首停止（不自动下一首）
+		// 这里暂时和 loop 一样，实际应该在 audioplayer 中处理
 		pm.current = (pm.current + 1) % len(pm.playlist)
 	}
 
@@ -166,6 +170,9 @@ func (pm *PlaylistManager) Previous() error {
 	case "random":
 		// 随机播放
 		pm.current = rand.Intn(len(pm.playlist))
+	case "single":
+		// 单曲循环：保持当前歌曲不变
+		// current 索引不变
 	case "loop":
 		// 循环播放
 		pm.current = (pm.current - 1 + len(pm.playlist)) % len(pm.playlist)
@@ -194,6 +201,7 @@ func (pm *PlaylistManager) SetPlayMode(mode string) error {
 	validModes := map[string]bool{
 		"order":  true,
 		"loop":   true,
+		"single": true, // 单曲循环
 		"random": true,
 	}
 
