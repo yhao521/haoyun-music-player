@@ -13,6 +13,8 @@ import {
   SetVolume,
   TogglePlayPause,
   GetPlaylist,
+  SetPlayMode,
+  GetPlayMode,
 } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
 
 // TrackInfo 音乐文件信息
@@ -33,6 +35,21 @@ const duration = ref(0);
 const volume = ref(0.7);
 const currentTrack = ref<TrackInfo | null>(null);
 const playlist = ref<string[]>([]);
+const playMode = ref("order"); // order, loop, random
+
+// 播放模式图标映射
+const playModeIcons = {
+  order: "🔢",   // 顺序播放
+  loop: "🔁",    // 循环播放
+  random: "🔀",  // 随机播放
+};
+
+// 播放模式中文名称
+const playModeNames = {
+  order: "顺序播放",
+  loop: "循环播放",
+  random: "随机播放",
+};
 
 // 格式化时间
 const formatTime = (seconds: number): string => {
@@ -84,6 +101,33 @@ const setVolume = async (value: number) => {
     await SetVolume(value);
   } catch (error) {
     console.error("Failed to set volume:", error);
+  }
+};
+
+// 切换播放模式
+const togglePlayMode = async () => {
+  const modes = ["order", "loop", "random"];
+  const currentIndex = modes.indexOf(playMode.value);
+  const nextIndex = (currentIndex + 1) % modes.length;
+  const nextMode = modes[nextIndex];
+  
+  try {
+    await SetPlayMode(nextMode);
+    playMode.value = nextMode;
+    console.log(`播放模式已切换为：${playModeNames[nextMode as keyof typeof playModeNames]}`);
+  } catch (error) {
+    console.error("Failed to set play mode:", error);
+  }
+};
+
+// 设置指定播放模式
+const setPlayMode = async (mode: string) => {
+  try {
+    await SetPlayMode(mode);
+    playMode.value = mode;
+    console.log(`播放模式已设置为：${playModeNames[mode as keyof typeof playModeNames]}`);
+  } catch (error) {
+    console.error("Failed to set play mode:", error);
   }
 };
 
@@ -260,6 +304,18 @@ const listenToEvents = () => {
   console.log("Music Player initialized");
 };
 
+// 初始化播放模式
+const initPlayMode = async () => {
+  try {
+    const mode = await GetPlayMode();
+    playMode.value = mode;
+    console.log(`当前播放模式：${playModeNames[mode as keyof typeof playModeNames]}`);
+  } catch (error) {
+    console.error("Failed to get play mode:", error);
+    playMode.value = "order"; // 默认顺序播放
+  }
+};
+
 // 清理事件监听
 const cleanupEvents = () => {
   Events.Off("playbackStateChanged");
@@ -271,6 +327,7 @@ const cleanupEvents = () => {
 // 生命周期
 onMounted(() => {
   listenToEvents();
+  initPlayMode(); // 初始化播放模式
 });
 
 onUnmounted(() => {
@@ -337,6 +394,32 @@ onUnmounted(() => {
         step="0.01"
         @input="setVolume(Number(($event.target as HTMLInputElement).value))"
       />
+    </div>
+
+    <!-- 播放模式选择 -->
+    <div class="play-mode-section">
+      <button
+        class="play-mode-btn"
+        @click="togglePlayMode"
+        :title="`当前：${playModeNames[playMode as keyof typeof playModeNames]}，点击切换`"
+      >
+        <span class="mode-icon">{{ playModeIcons[playMode as keyof typeof playModeIcons] }}</span>
+        <span class="mode-text">{{ playModeNames[playMode as keyof typeof playModeNames] }}</span>
+      </button>
+      
+      <!-- 快速切换按钮组 -->
+      <div class="play-mode-options">
+        <button
+          v-for="(name, mode) in playModeNames"
+          :key="mode"
+          class="mode-option-btn"
+          :class="{ active: playMode === mode }"
+          @click="setPlayMode(mode)"
+          :title="name"
+        >
+          {{ playModeIcons[mode as keyof typeof playModeIcons] }}
+        </button>
+      </div>
     </div>
 
     <!-- 操作按钮 -->
@@ -570,6 +653,76 @@ onUnmounted(() => {
   border-radius: 50%;
   cursor: pointer;
   border: none;
+}
+
+/* 播放模式选择器样式 */
+.play-mode-section {
+  margin-bottom: 15px;
+  padding: 0 10px;
+}
+
+.play-mode-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  margin-bottom: 10px;
+}
+
+.play-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.mode-icon {
+  font-size: 20px;
+}
+
+.mode-text {
+  font-weight: 500;
+}
+
+.play-mode-options {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.mode-option-btn {
+  flex: 1;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.mode-option-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.mode-option-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: rgba(102, 126, 234, 0.5);
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .playlist-section {
