@@ -37,6 +37,8 @@ const currentTrack = ref<TrackInfo | null>(null);
 const playlist = ref<string[]>([]);
 const playMode = ref("loop"); // order, loop, single, random - 默认为循环播放
 const playlistCollapsed = ref(false); // 播放列表折叠状态
+const isHoveringPlaylist = ref(false); // 鼠标是否悬停在播放列表区域
+const playlistContainerRef = ref<HTMLElement | null>(null); // 播放列表容器引用
 
 // 切换播放列表折叠状态
 const togglePlaylist = () => {
@@ -45,6 +47,50 @@ const togglePlaylist = () => {
     "播放列表折叠状态:",
     playlistCollapsed.value ? "已折叠" : "已展开",
   );
+};
+
+// 定位到当前播放的歌曲
+const scrollToCurrentTrack = () => {
+  if (!currentTrack.value || !playlistContainerRef.value) {
+    console.log("没有当前播放的歌曲或容器未就绪");
+    return;
+  }
+
+  // 获取当前播放歌曲的索引
+  const currentIndex = playlist.value.findIndex(
+    (track) => track === currentTrack.value?.path,
+  );
+
+  if (currentIndex === -1) {
+    console.log("当前歌曲不在播放列表中");
+    return;
+  }
+
+  console.log(`定位到第 ${currentIndex + 1} 首歌曲`);
+
+  // 使用 nextTick 确保 DOM 已更新
+  setTimeout(() => {
+    if (!playlistContainerRef.value) return;
+
+    // 获取播放列表容器和当前歌曲项
+    const container = playlistContainerRef.value;
+    const items = container.querySelectorAll(".playlist-item");
+    const currentItem = items[currentIndex];
+
+    if (currentItem) {
+      // 滚动到当前歌曲位置，居中显示
+      currentItem.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      // 添加高亮动画效果
+      currentItem.classList.add("highlight-animation");
+      setTimeout(() => {
+        currentItem.classList.remove("highlight-animation");
+      }, 1500);
+    }
+  }, 50);
 };
 
 // 播放模式图标映射
@@ -448,17 +494,35 @@ onUnmounted(() => {
       class="playlist-section"
       v-if="playlist.length > 0"
       :class="{ collapsed: playlistCollapsed }"
+      @mouseenter="isHoveringPlaylist = true"
+      @mouseleave="isHoveringPlaylist = false"
     >
       <div class="playlist-header" @click="togglePlaylist">
         <h3>播放列表 ({{ playlist.length }})</h3>
-        <button
-          class="collapse-btn"
-          :title="playlistCollapsed ? '展开播放列表' : '折叠播放列表'"
-        >
-          {{ playlistCollapsed ? "▼" : "▲" }}
-        </button>
+        <div class="header-actions">
+          <!-- 定位到当前歌曲按钮 -->
+          <button
+            v-if="isHoveringPlaylist && currentTrack"
+            class="locate-btn"
+            @click.stop="scrollToCurrentTrack"
+            title="定位到当前播放的歌曲"
+          >
+            📍
+          </button>
+          <!-- 折叠/展开按钮 -->
+          <button
+            class="collapse-btn"
+            :title="playlistCollapsed ? '展开播放列表' : '折叠播放列表'"
+          >
+            {{ playlistCollapsed ? "▼" : "▲" }}
+          </button>
+        </div>
       </div>
-      <div class="playlist" v-show="!playlistCollapsed">
+      <div
+        class="playlist"
+        v-show="!playlistCollapsed"
+        ref="playlistContainerRef"
+      >
         <div
           v-for="(track, index) in playlist"
           :key="index"
@@ -686,6 +750,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.playlist-section:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .playlist-section.collapsed {
@@ -700,6 +769,7 @@ onUnmounted(() => {
   user-select: none;
   margin-bottom: 4px;
   padding: 2px 4px;
+  position: relative;
 }
 
 .playlist-header:hover {
@@ -711,6 +781,29 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 600;
   flex: 1;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.locate-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 1px 4px;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+  animation: pulse 2s infinite;
+}
+
+.locate-btn:hover {
+  opacity: 1;
+  transform: scale(1.3);
 }
 
 .collapse-btn {
@@ -726,6 +819,17 @@ onUnmounted(() => {
 
 .collapse-btn:hover {
   opacity: 1;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .playlist {
@@ -753,6 +857,33 @@ onUnmounted(() => {
 .playlist-item.active {
   background: rgba(102, 126, 234, 0.3);
   border-left: 2px solid #667eea;
+}
+
+.playlist-item.highlight-animation {
+  animation: highlightPulse 1.5s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0% {
+    background: rgba(102, 126, 234, 0.3);
+    transform: scale(1);
+  }
+  25% {
+    background: rgba(102, 126, 234, 0.6);
+    transform: scale(1.02);
+  }
+  50% {
+    background: rgba(102, 126, 234, 0.3);
+    transform: scale(1);
+  }
+  75% {
+    background: rgba(102, 126, 234, 0.6);
+    transform: scale(1.02);
+  }
+  100% {
+    background: rgba(102, 126, 234, 0.3);
+    transform: scale(1);
+  }
 }
 
 .track-number {
