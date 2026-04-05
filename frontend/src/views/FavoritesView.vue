@@ -80,12 +80,9 @@ onMounted(() => {
   <div class="favorites-container">
     <!-- 头部导航 -->
     <div class="header">
-      <!-- <button class="back-btn" @click="goBack" title="返回主界面">
-        ← 返回
-      </button> -->
       <h1>❤️ 喜爱音乐</h1>
       <button class="refresh-btn" @click="refreshList" :disabled="isLoading" title="刷新列表">
-        🔄 刷新
+        🔄
       </button>
     </div>
 
@@ -116,7 +113,7 @@ onMounted(() => {
             <th class="col-title">歌曲</th>
             <th class="col-artist">艺术家</th>
             <th class="col-album">专辑</th>
-            <th class="col-count">播放次数</th>
+            <th class="col-count">次数</th>
             <th class="col-duration">时长</th>
             <th class="col-size">大小</th>
           </tr>
@@ -135,7 +132,7 @@ onMounted(() => {
             <td class="col-artist">{{ track.artist || '未知艺术家' }}</td>
             <td class="col-album">{{ track.album || '未知专辑' }}</td>
             <td class="col-count">
-              <span class="play-count-badge">{{ track.play_count }} 次</span>
+              <span class="play-count-badge">{{ track.play_count }}</span>
             </td>
             <td class="col-duration">{{ formatDuration(track.duration) }}</td>
             <td class="col-size">{{ formatFileSize(track.file_size) }}</td>
@@ -146,7 +143,7 @@ onMounted(() => {
 
     <!-- 统计信息 -->
     <div v-if="!isLoading && favorites.length > 0" class="stats-info">
-      共 {{ favorites.length }} 首喜爱音乐
+      共 {{ favorites.length }} 首
     </div>
   </div>
 </template>
@@ -166,44 +163,44 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 30px;
+  padding: 10px 16px;
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(10px);
 }
 
 .header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 600;
 }
 
-.back-btn, .refresh-btn {
-  padding: 8px 16px;
+.refresh-btn {
+  padding: 6px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.2);
   color: white;
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
-.back-btn:hover, .refresh-btn:hover {
+.refresh-btn:hover {
   background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
 }
 
-.back-btn:disabled, .refresh-btn:disabled {
+.refresh-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
 .error-message {
-  margin: 20px 30px;
-  padding: 12px 20px;
+  margin: 10px 16px;
+  padding: 8px 12px;
   background: rgba(255, 100, 100, 0.3);
-  border-radius: 8px;
+  border-radius: 4px;
   text-align: center;
+  font-size: 13px;
 }
 
 .loading-state {
@@ -212,13 +209,13 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -234,36 +231,37 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .empty-icon {
-  font-size: 80px;
+  font-size: 60px;
   opacity: 0.5;
 }
 
 .empty-state h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 18px;
   opacity: 0.8;
 }
 
 .empty-state p {
   margin: 0;
   opacity: 0.6;
+  font-size: 13px;
 }
 
 .tracks-table-container {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 30px;
+  padding: 8px 12px;
 }
 
 .tracks-table {
   width: 100%;
   border-collapse: collapse;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   backdrop-filter: blur(10px);
 }
@@ -276,10 +274,10 @@ onMounted(() => {
 }
 
 .tracks-table th {
-  padding: 15px 12px;
+  padding: 8px 10px;
   text-align: left;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.9);
@@ -287,13 +285,12 @@ onMounted(() => {
 
 .track-row {
   cursor: pointer;
-  transition: all 0.2s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .track-row:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.01);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .track-row:last-child {
@@ -301,21 +298,22 @@ onMounted(() => {
 }
 
 .tracks-table td {
-  padding: 12px;
-  font-size: 14px;
+  padding: 8px 10px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.95);
 }
 
 .col-rank {
-  width: 60px;
+  width: 40px;
   text-align: center;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
 }
 
 .col-title {
-  min-width: 200px;
-  max-width: 300px;
+  min-width: 180px;
+  max-width: 250px;
 }
 
 .track-name {
@@ -326,61 +324,62 @@ onMounted(() => {
 }
 
 .col-artist {
-  min-width: 150px;
-  max-width: 200px;
+  min-width: 120px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .col-album {
-  min-width: 150px;
-  max-width: 200px;
+  min-width: 120px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .col-count {
-  width: 120px;
+  width: 60px;
   text-align: center;
 }
 
 .play-count-badge {
   display: inline-block;
-  padding: 4px 10px;
-  background: rgba(255, 215, 0, 0.3);
-  border-radius: 12px;
+  padding: 2px 6px;
+  background: rgba(255, 215, 0, 0.25);
+  border-radius: 8px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   color: #ffd700;
 }
 
 .col-duration {
-  width: 100px;
+  width: 65px;
   text-align: center;
   font-family: monospace;
+  font-size: 11px;
 }
 
 .col-size {
-  width: 100px;
+  width: 70px;
   text-align: right;
   font-family: monospace;
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.8;
 }
 
 .stats-info {
-  padding: 15px 30px;
+  padding: 8px 16px;
   text-align: center;
   background: rgba(0, 0, 0, 0.2);
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0.8;
 }
 
 /* 滚动条样式 */
 .tracks-table-container::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .tracks-table-container::-webkit-scrollbar-track {
@@ -389,7 +388,7 @@ onMounted(() => {
 
 .tracks-table-container::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .tracks-table-container::-webkit-scrollbar-thumb:hover {
