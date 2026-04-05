@@ -430,8 +430,16 @@ func (ap *AudioPlayer) Play(path string) error {
 	ap.isPlaying = true
 	ap.paused = false
 
-	if ap.app != nil {
-		ap.app.Event.Emit("playbackStateChanged", "playing")
+	// 使用局部变量避免并发问题
+	if app := ap.app; app != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Play] 发送事件时发生 panic: %v", r)
+				}
+			}()
+			app.Event.Emit("playbackStateChanged", "playing")
+		}()
 	}
 
 	return nil
@@ -439,6 +447,9 @@ func (ap *AudioPlayer) Play(path string) error {
 
 // monitorPlayback 监控播放状态
 func (ap *AudioPlayer) monitorPlayback() {
+	// 保存 app 引用到局部变量,避免并发修改导致 nil pointer
+	app := ap.app
+	
 	for {
 		select {
 		case <-ap.stopChan:
@@ -461,10 +472,18 @@ func (ap *AudioPlayer) monitorPlayback() {
 			ap.isPlaying = false
 			ap.mu.Unlock()
 
-			if ap.app != nil {
-				ap.app.Event.Emit("playbackStateChanged", "stopped")
-				// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
-				ap.app.Event.Emit("playbackEnded", nil)
+			// 使用局部变量 app,并添加 panic 恢复
+			if app != nil {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("[monitorPlayback] 发送事件时发生 panic: %v", r)
+						}
+					}()
+					app.Event.Emit("playbackStateChanged", "stopped")
+					// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
+					app.Event.Emit("playbackEnded", nil)
+				}()
 			}
 			return
 		}
@@ -542,8 +561,16 @@ func (ap *AudioPlayer) Pause() error {
 
 	log.Printf("[Pause] 暂停完成 - isPlaying: %v, paused: %v, position: %d", ap.isPlaying, ap.paused, ap.pausePosition)
 
-	if ap.app != nil {
-		ap.app.Event.Emit("playbackStateChanged", "paused")
+	// 使用局部变量避免并发问题
+	if app := ap.app; app != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Pause] 发送事件时发生 panic: %v", r)
+				}
+			}()
+			app.Event.Emit("playbackStateChanged", "paused")
+		}()
 	}
 
 	return nil
@@ -556,8 +583,16 @@ func (ap *AudioPlayer) Stop() error {
 
 	ap.stopPlayback()
 
-	if ap.app != nil {
-		ap.app.Event.Emit("playbackStateChanged", "stopped")
+	// 使用局部变量避免并发问题
+	if app := ap.app; app != nil {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Stop] 发送事件时发生 panic: %v", r)
+				}
+			}()
+			app.Event.Emit("playbackStateChanged", "stopped")
+		}()
 	}
 
 	return nil
@@ -713,8 +748,16 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 			log.Println("[TogglePlayPause] 重新播放完成")
 			ap.mu.Unlock()
 			
-			if ap.app != nil {
-				ap.app.Event.Emit("playbackStateChanged", "playing")
+			// 使用局部变量避免并发问题
+			if app := ap.app; app != nil {
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("[TogglePlayPause-Resume] 发送事件时发生 panic: %v", r)
+						}
+					}()
+					app.Event.Emit("playbackStateChanged", "playing")
+				}()
 			}
 			
 			return true, nil
@@ -765,8 +808,16 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 
 		ap.mu.Unlock()
 		
-		if ap.app != nil {
-			ap.app.Event.Emit("playbackStateChanged", "paused")
+		// 使用局部变量避免并发问题
+		if app := ap.app; app != nil {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("[TogglePlayPause-Pause] 发送事件时发生 panic: %v", r)
+					}
+				}()
+				app.Event.Emit("playbackStateChanged", "paused")
+			}()
 		}
 
 		return false, nil
