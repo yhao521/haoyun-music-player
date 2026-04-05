@@ -13,6 +13,7 @@ import (
 	"github.com/yhao521/wailsMusicPlay/backend/pkg/utils"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // TrackInfo 音乐文件信息（用于事件注册）
@@ -51,7 +52,7 @@ func main() {
 			Handler: application.AssetFileServerFS(assets),
 		},
 		Mac: application.MacOptions{
-			ApplicationShouldTerminateAfterLastWindowClosed: false, // 关闭窗口时不退出程序
+			ApplicationShouldTerminateAfterLastWindowClosed: false, // macOS: 关闭窗口时不退出程序
 		},
 	})
 
@@ -586,6 +587,12 @@ func main() {
 		Height:           600,
 		// Visible 字段不存在，使用 Hide() 方法
 	})
+	// 拦截窗口关闭事件，改为隐藏窗口（Windows/Linux/macOS 通用）
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("主窗口关闭事件被拦截，改为隐藏窗口")
+		mainWindow.Hide()
+		e.Cancel() // 取消关闭操作
+	})
 
 	// 初始隐藏窗口
 	// mainWindow.Hide()
@@ -607,6 +614,13 @@ func main() {
 		URL:              "#/browse",
 		Width:            900,
 		Height:           700,
+	})
+
+	// 拦截浏览窗口关闭事件，改为隐藏窗口
+	browseWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("浏览窗口关闭事件被拦截，改为隐藏窗口")
+		browseWindow.Hide()
+		e.Cancel() // 取消关闭操作
 	})
 
 	// 初始隐藏浏览窗口
