@@ -54,3 +54,4 @@ frontend/bindings/
 build/darwin/Assets.car
 haoyun-music-player
 wailsMusicPlay
+wails_windows_arm64.syso

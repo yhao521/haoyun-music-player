@@ -62,6 +62,14 @@ tasks:
     cmds:
       - task: common:run:docker
 
+  build-all:
+    desc: "Build for all platforms"
+    cmds:
+      - wails3 task windows:package # 生成 .exe 或 .msi
+      # - CGO_ENABLED=1 CGO_CFLAGS="-fno-sanitize=undefined" wails3 task windows:package # 生成 .exe 或 .msi
+      # - CGO_ENABLED=1 CGO_CFLAGS="-fsanitize=undefined -fsanitize-trap=undefined" wails3 linux:package
+      - wails3 task darwin:package # 生成 .app
+      - wails3 task linux:package # 生成 .deb 或 .AppImage
   packages:
     summary: Package the application with version and timestamp
     cmds:
