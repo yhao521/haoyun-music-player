@@ -1,0 +1,36 @@
+{
+  "menu": {
+    "nowPlaying": "Now Playing: None",
+    "playPause": "Play/Pause",
+    "previousTrack": "Previous Track",
+    "nextTrack": "Next Track",
+    "browseSongs": "Browse Songs",
+    "favoriteSongs": "❤️ Favorite Songs",
+    "playMode": "Play Mode",
+    "musicLibrary": "Music Library",
+    "downloadMusic": "Download Music",
+    "keepAwake": "Keep System Awake",
+    "autoLaunch": "Auto Launch",
+    "settings": "Settings",
+    "version": "Version 0.5.0",
+    "quit": "Quit",
+    "showMainWindow": "Show Main Window"
+  },
+  "playMode": {
+    "order": "Order Play",
+    "loop": "Loop Play",
+    "random": "Random Play",
+    "single": "Single Loop"
+  },
+  "library": {
+    "addNew": "Add New Library",
+    "refreshCurrent": "Refresh Current Library",
+    "renameCurrent": "Rename Current Library",
+    "deleteCurrent": "Delete Current Library",
+    "noLibrary": "No Library Available"
+  },
+  "status": {
+    "notPlaying": "Not Playing",
+    "loading": "Loading..."
+  }
+}

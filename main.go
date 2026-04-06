@@ -12,6 +12,7 @@ import (
 
 	"github.com/yhao521/wailsMusicPlay/backend"
 	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/wailsMusicPlay/backend/pkg/i18n"
 	"github.com/yhao521/wailsMusicPlay/backend/pkg/utils"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -45,6 +46,15 @@ func init() {
 }
 
 func main() {
+	// 初始化国际化模块
+	translator := i18n.GetTranslator()
+	log.Printf("✓ 国际化模块已初始化，当前语言: %s", translator.GetLocale())
+	
+	// 创建翻译辅助函数（闭包）
+	t := func(key string) string {
+		return translator.T(key)
+	}
+
 	// 创建统一的音乐服务（MVC Model 层）
 	musicService := backend.NewMusicService()
 
@@ -119,7 +129,7 @@ func main() {
 	var menu *application.Menu
 
 	// 创建基本播放控制菜单项（带快捷键）
-	playPauseItem = application.NewMenuItem("播放/暂停")
+	playPauseItem = application.NewMenuItem(t("menu.playPause"))
 	playPauseItem.SetAccelerator("Space") // 空格键（注意：输入框中会输入空格）
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		// 检查当前是否有播放列表
@@ -149,7 +159,7 @@ func main() {
 		}
 	})
 
-	prevItem = application.NewMenuItem("上一曲")
+	prevItem = application.NewMenuItem(t("menu.previousTrack"))
 	prevItem.SetAccelerator("CmdOrCtrl+[") // Cmd/Ctrl + [ （类似浏览器后退）
 	prevItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Previous(); err != nil {
@@ -157,7 +167,7 @@ func main() {
 		}
 	})
 
-	nextItem = application.NewMenuItem("下一曲")
+	nextItem = application.NewMenuItem(t("menu.nextTrack"))
 	nextItem.SetAccelerator("CmdOrCtrl+]") // Cmd/Ctrl + ] （类似浏览器前进）
 	nextItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Next(); err != nil {
@@ -165,7 +175,7 @@ func main() {
 		}
 	})
 
-	mainWindowItem = application.NewMenuItem("显示主窗口")
+	mainWindowItem = application.NewMenuItem(t("menu.showMainWindow"))
 	mainWindowItem.OnClick(func(ctx *application.Context) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -215,54 +225,54 @@ func main() {
 
 	// 创建浏览歌曲菜单项（带快捷键 Cmd+F）
 	// 注意：OnClick 回调会在后面窗口创建后重新定义
-	browseItem = application.NewMenuItem("浏览歌曲")
+	browseItem = application.NewMenuItem(t("menu.browseSongs"))
 	browseItem.SetAccelerator("CmdOrCtrl+F")
 
 	// 创建播放模式子菜单（使用普通菜单项，通过标签显示当前模式）
 	var playModeOrder, playModeLoop, playModeRandom, playModeSingle *application.MenuItem
 
-	playModeOrder = application.NewMenuItem("  顺序播放")
+	playModeOrder = application.NewMenuItem("  " + t("playMode.order"))
 	playModeOrder.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("order")
 		log.Println("✓ 切换到顺序播放")
 		// 更新菜单标签
-		playModeOrder.SetLabel("✓ 顺序播放")
-		playModeLoop.SetLabel("  循环播放")
-		playModeRandom.SetLabel("  随机播放")
-		playModeSingle.SetLabel("  单曲循环")
+		playModeOrder.SetLabel("✓ " + t("playMode.order"))
+		playModeLoop.SetLabel("  " + t("playMode.loop"))
+		playModeRandom.SetLabel("  " + t("playMode.random"))
+		playModeSingle.SetLabel("  " + t("playMode.single"))
 	})
 
-	playModeLoop = application.NewMenuItem("✓ 循环播放")
+	playModeLoop = application.NewMenuItem("✓ " + t("playMode.loop"))
 	playModeLoop.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("loop")
 		log.Println("✓ 切换到循环播放")
 		// 更新菜单标签
-		playModeOrder.SetLabel("  顺序播放")
-		playModeLoop.SetLabel("✓ 循环播放")
-		playModeRandom.SetLabel("  随机播放")
-		playModeSingle.SetLabel("  单曲循环")
+		playModeOrder.SetLabel("  " + t("playMode.order"))
+		playModeLoop.SetLabel("✓ " + t("playMode.loop"))
+		playModeRandom.SetLabel("  " + t("playMode.random"))
+		playModeSingle.SetLabel("  " + t("playMode.single"))
 	})
 
-	playModeRandom = application.NewMenuItem("  随机播放")
+	playModeRandom = application.NewMenuItem("  " + t("playMode.random"))
 	playModeRandom.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("random")
 		log.Println("✓ 切换到随机播放")
 		// 更新菜单标签
-		playModeOrder.SetLabel("  顺序播放")
-		playModeLoop.SetLabel("  循环播放")
-		playModeRandom.SetLabel("✓ 随机播放")
-		playModeSingle.SetLabel("  单曲循环")
+		playModeOrder.SetLabel("  " + t("playMode.order"))
+		playModeLoop.SetLabel("  " + t("playMode.loop"))
+		playModeRandom.SetLabel("✓ " + t("playMode.random"))
+		playModeSingle.SetLabel("  " + t("playMode.single"))
 	})
 
-	playModeSingle = application.NewMenuItem("  单曲循环")
+	playModeSingle = application.NewMenuItem("  " + t("playMode.single"))
 	playModeSingle.OnClick(func(ctx *application.Context) {
 		musicService.SetPlayMode("random")
 		log.Println("✓ 切换到单曲循环")
 		// 更新菜单标签
-		playModeOrder.SetLabel("  顺序播放")
-		playModeLoop.SetLabel("  循环播放")
-		playModeRandom.SetLabel("  随机播放")
-		playModeSingle.SetLabel("✓ 单曲循环")
+		playModeOrder.SetLabel("  " + t("playMode.order"))
+		playModeLoop.SetLabel("  " + t("playMode.loop"))
+		playModeRandom.SetLabel("  " + t("playMode.random"))
+		playModeSingle.SetLabel("✓ " + t("playMode.single"))
 	})
 
 	playModeMenu := application.NewMenuFromItems(
@@ -277,9 +287,9 @@ func main() {
 	var buildMusicLibMenu func()
 	buildMusicLibMenu = func() {
 		// 先创建"添加新音乐库"菜单项
-		addLibItem := application.NewMenuItem("添加新音乐库")
+		addLibItem := application.NewMenuItem(t("library.addNew"))
 		addLibItem.OnClick(func(ctx *application.Context) {
-			log.Println("添加新音乐库")
+			log.Println(t("library.addNew"))
 
 			if musicService == nil {
 				log.Println("❌ musicService 为 nil")
@@ -331,10 +341,10 @@ func main() {
 		})
 
 		// 创建"刷新当前音乐库"菜单项
-		refreshLibItem := application.NewMenuItem("刷新当前音乐库")
+		refreshLibItem := application.NewMenuItem(t("library.refreshCurrent"))
 		refreshLibItem.SetAccelerator("CmdOrCtrl+R")
 		refreshLibItem.OnClick(func(ctx *application.Context) {
-			log.Println("刷新当前音乐库")
+			log.Println(t("library.refreshCurrent"))
 
 			if musicService == nil {
 				return
@@ -386,16 +396,16 @@ func main() {
 		})
 
 		// 创建"重命名当前音乐库"菜单项
-		renameLibItem := application.NewMenuItem("重命名当前音乐库")
+		renameLibItem := application.NewMenuItem(t("library.renameCurrent"))
 		renameLibItem.OnClick(func(ctx *application.Context) {
-			log.Println("重命名当前音乐库")
+			log.Println(t("library.renameCurrent"))
 			// TODO: 实现重命名功能
 		})
 
 		// 创建"删除当前音乐库"菜单项
-		deleteLibItem := application.NewMenuItem("删除当前音乐库")
+		deleteLibItem := application.NewMenuItem(t("library.deleteCurrent"))
 		deleteLibItem.OnClick(func(ctx *application.Context) {
-			log.Println("删除当前音乐库")
+			log.Println(t("library.deleteCurrent"))
 
 			if musicService == nil {
 				log.Println("❌ musicService 为 nil")
@@ -508,7 +518,7 @@ func main() {
 
 		// 如果没有音乐库，显示提示
 		if len(libItems) == 0 {
-			noLibItem := application.NewMenuItem("暂无音乐库")
+			noLibItem := application.NewMenuItem(t("library.noLibrary"))
 			noLibItem.SetEnabled(false)
 			libItems = append(libItems, noLibItem)
 		}
@@ -525,10 +535,10 @@ func main() {
 		}
 
 		// 更新音乐库子菜单
-		musicLibItem = application.NewSubmenu("音乐库", musicLibMenu)
+		musicLibItem = application.NewSubmenu(t("menu.musicLibrary"), musicLibMenu)
 
 		// 创建"正在播放"菜单项（初始显示"无"）
-		nowPlayingItem = application.NewMenuItem("正在播放：无")
+		nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
 		nowPlayingItem.SetEnabled(false) // 禁用点击
 
 		// 重新创建并设置托盘菜单
@@ -556,44 +566,44 @@ func main() {
 		// 重新设置托盘菜单
 		tray.SetMenu(menu)
 	}
-	favoriteItem = application.NewMenuItem("❤️ 喜爱音乐")
+	favoriteItem = application.NewMenuItem(t("menu.favoriteSongs"))
 	favoriteItem.SetAccelerator("CmdOrCtrl+H") // Cmd/Ctrl + H (Heart)
 	// OnClick 回调将在 favoritesWindow 创建后设置
 
 	// 创建下载音乐菜单项（带快捷键 Cmd+D）
-	downloadItem = application.NewMenuItem("下载音乐")
+	downloadItem = application.NewMenuItem(t("menu.downloadMusic"))
 	downloadItem.SetAccelerator("CmdOrCtrl+D")
 	downloadItem.SetEnabled(false)
 	downloadItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现下载音乐功能
-		log.Println("下载音乐")
+		log.Println(t("menu.downloadMusic"))
 	})
 
 	// 创建保持系统唤醒菜单项（带复选框）
-	wakeItem = application.NewMenuItemCheckbox("保持系统唤醒", true)
+	wakeItem = application.NewMenuItemCheckbox(t("menu.keepAwake"), true)
 	wakeItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现保持唤醒功能
-		log.Println("保持系统唤醒")
+		log.Println(t("menu.keepAwake"))
 	})
 
 	// 创建开机启动菜单项（带复选框）
-	launchItem = application.NewMenuItemCheckbox("开机启动", true)
+	launchItem = application.NewMenuItemCheckbox(t("menu.autoLaunch"), true)
 	launchItem.OnClick(func(ctx *application.Context) {
 		// TODO: 实现开机启动功能
-		log.Println("开机启动")
+		log.Println(t("menu.autoLaunch"))
 	})
 
 	// 创建设置菜单项（带快捷键 Cmd+S）
-	settingItem = application.NewMenuItem("设置")
+	settingItem = application.NewMenuItem(t("menu.settings"))
 	settingItem.SetAccelerator("CmdOrCtrl+S")
 	// OnClick 回调将在 settingsWindow 创建后设置
 
 	// 创建版本信息（禁用状态）
-	versionItem = application.NewMenuItem("Version 0.5.0")
+	versionItem = application.NewMenuItem(t("menu.version"))
 	versionItem.SetEnabled(false)
 
 	// 创建退出菜单项
-	quitItem = application.NewMenuItem("退出")
+	quitItem = application.NewMenuItem(t("menu.quit"))
 	quitItem.OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
@@ -611,7 +621,7 @@ func main() {
 		trackName, err := musicService.GetCurrentTrackName()
 		if err != nil {
 			log.Printf("⚠️ 获取歌曲名称失败：%v", err)
-			nowPlayingItem.SetLabel("未播放")
+			nowPlayingItem.SetLabel(t("status.notPlaying"))
 			nowPlayingItem.SetEnabled(false)
 			return
 		}
@@ -631,7 +641,7 @@ func main() {
 	}
 
 	// 创建正在播放的音乐名称菜单项（禁用状态，仅展示）
-	nowPlayingItem = application.NewMenuItem("未播放")
+	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
 	nowPlayingItem.SetEnabled(false)
 
 	// 监听当前歌曲变化事件
@@ -1023,6 +1033,20 @@ func main() {
 			log.Printf("切换下一曲失败：%v", err)
 		}
 	})
+	
+	// 监听语言切换事件
+	app.Event.On("changeLanguage", func(event *application.CustomEvent) {
+		if locale, ok := event.Data.(string); ok {
+			if err := translator.SetLocale(locale); err != nil {
+				log.Printf("切换语言失败: %v", err)
+				return
+			}
+			log.Printf("✓ 语言已切换为: %s", locale)
+			
+			// 触发菜单重建（需要重新构建托盘菜单）
+			// TODO: 实现动态更新菜单文本
+		}
+	})
 
 	err := app.Run()
 	if err != nil {
@@ -1033,6 +1057,12 @@ func main() {
 }
 
 func createMenu(app *application.App) (*application.Menu, *application.MenuItem, *application.MenuItem, *application.MenuItem) {
+	// 获取翻译器实例
+	translator := i18n.GetTranslator()
+	t := func(key string) string {
+		return translator.T(key)
+	}
+	
 	menu := app.NewMenu()
 
 	if runtime.GOOS == "darwin" {
@@ -1041,7 +1071,7 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	
 	// File menu
 	fileMenu := menu.AddSubmenu("File")
-	fileMenu.Add("打开目录").
+	fileMenu.Add(t("menu.browseSongs")).
 		SetAccelerator("Ctrl+O").OnClick(func(ctx *application.Context) {
 		OpenDir()
 	})
@@ -1061,7 +1091,7 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 			// Save document
 		})
 	fileMenu.AddSeparator()
-	fileMenu.Add("Exit").OnClick(func(ctx *application.Context) {
+	fileMenu.Add(t("menu.quit")).OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
 
@@ -1069,27 +1099,27 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	musicMenu := menu.AddSubmenu("Music")
 	
 	// 正在播放菜单项（禁用状态，仅展示）
-	nowPlayingMenuItem := musicMenu.Add("未播放")
+	nowPlayingMenuItem := musicMenu.Add(t("status.notPlaying"))
 	nowPlayingMenuItem.SetEnabled(false)
 	
 	musicMenu.AddSeparator()
 	
 	// 播放控制
-	menuPlayPauseItem := musicMenu.Add("Play/Pause")
+	menuPlayPauseItem := musicMenu.Add(t("menu.playPause"))
 	menuPlayPauseItem.SetAccelerator("CmdOrCtrl+Space")
 	menuPlayPauseItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 播放/暂停")
 		app.Event.Emit("menu:playPause", nil)
 	})
 	
-	menuPrevItem := musicMenu.Add("Previous Track")
+	menuPrevItem := musicMenu.Add(t("menu.previousTrack"))
 	menuPrevItem.SetAccelerator("CmdOrCtrl+Shift+[")
 	menuPrevItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 上一曲")
 		app.Event.Emit("menu:prevTrack", nil)
 	})
 	
-	menuNextItem := musicMenu.Add("Next Track")
+	menuNextItem := musicMenu.Add(t("menu.nextTrack"))
 	menuNextItem.SetAccelerator("CmdOrCtrl+Shift+]")
 	menuNextItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 下一曲")
@@ -1099,49 +1129,49 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	musicMenu.AddSeparator()
 	
 	// 窗口管理
-	menuBrowseItem := musicMenu.Add("浏览歌曲")
+	menuBrowseItem := musicMenu.Add(t("menu.browseSongs"))
 	menuBrowseItem.SetAccelerator("CmdOrCtrl+Shift+F")
 	
-	menuFavoriteItem := musicMenu.Add("❤️ 喜爱音乐")
+	menuFavoriteItem := musicMenu.Add(t("menu.favoriteSongs"))
 	menuFavoriteItem.SetAccelerator("CmdOrCtrl+Shift+H")
 	
-	menuMainWindowItem := musicMenu.Add("显示主窗口")
+	menuMainWindowItem := musicMenu.Add(t("menu.showMainWindow"))
 	menuMainWindowItem.OnClick(func(ctx *application.Context) {
-		log.Println("显示主窗口（从主菜单）")
+		log.Println(t("menu.showMainWindow"))
 		// 通过事件机制触发,在 main 函数中处理
 		app.Event.Emit("openWindow", map[string]interface{}{"type": "main"})
 	})
 	
-	menuSettingItem := musicMenu.Add("设置")
+	menuSettingItem := musicMenu.Add(t("menu.settings"))
 	menuSettingItem.SetAccelerator("CmdOrCtrl+Shift+S")
 	menuSettingItem.OnClick(func(ctx *application.Context) {
-		log.Println("打开设置窗口（从主菜单）")
+		log.Println(t("menu.settings"))
 		app.Event.Emit("openWindow", map[string]interface{}{"type": "settings"})
 	})
 	
 	musicMenu.AddSeparator()
 	
 	// 播放模式子菜单
-	playModeSubMenu := musicMenu.AddSubmenu("播放模式")
-	menuPlayModeOrder := playModeSubMenu.Add("  顺序播放")
+	playModeSubMenu := musicMenu.AddSubmenu(t("menu.playMode"))
+	menuPlayModeOrder := playModeSubMenu.Add("  " + t("playMode.order"))
 	menuPlayModeOrder.OnClick(func(ctx *application.Context) {
 		log.Println("切换到顺序播放")
 		app.Event.Emit("setPlayMode", "order")
 	})
 	
-	menuPlayModeLoop := playModeSubMenu.Add("✓ 循环播放")
+	menuPlayModeLoop := playModeSubMenu.Add("✓ " + t("playMode.loop"))
 	menuPlayModeLoop.OnClick(func(ctx *application.Context) {
 		log.Println("切换到循环播放")
 		app.Event.Emit("setPlayMode", "loop")
 	})
 	
-	menuPlayModeRandom := playModeSubMenu.Add("  随机播放")
+	menuPlayModeRandom := playModeSubMenu.Add("  " + t("playMode.random"))
 	menuPlayModeRandom.OnClick(func(ctx *application.Context) {
 		log.Println("切换到随机播放")
 		app.Event.Emit("setPlayMode", "random")
 	})
 	
-	menuPlayModeSingle := playModeSubMenu.Add("  单曲循环")
+	menuPlayModeSingle := playModeSubMenu.Add("  " + t("playMode.single"))
 	menuPlayModeSingle.OnClick(func(ctx *application.Context) {
 		log.Println("切换到单曲循环")
 		app.Event.Emit("setPlayMode", "single")
@@ -1151,28 +1181,28 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	// 这里只是创建占位符
 	
 	// 音乐库子菜单（简化版）
-	musicLibSubMenu := musicMenu.AddSubmenu("音乐库")
-	musicLibSubMenu.Add("刷新当前音乐库").SetAccelerator("CmdOrCtrl+Shift+R")
-	musicLibSubMenu.Add("添加新音乐库")
+	musicLibSubMenu := musicMenu.AddSubmenu(t("menu.musicLibrary"))
+	musicLibSubMenu.Add(t("library.refreshCurrent")).SetAccelerator("CmdOrCtrl+Shift+R")
+	musicLibSubMenu.Add(t("library.addNew"))
 	
 	musicMenu.AddSeparator()
 	
 	// 其他功能
-	menuDownloadItem := musicMenu.Add("下载音乐")
+	menuDownloadItem := musicMenu.Add(t("menu.downloadMusic"))
 	menuDownloadItem.SetAccelerator("CmdOrCtrl+Shift+D")
 	menuDownloadItem.SetEnabled(false)
 	
-	menuWakeItem := musicMenu.AddCheckbox("保持系统唤醒", true)
+	menuWakeItem := musicMenu.AddCheckbox(t("menu.keepAwake"), true)
 	menuWakeItem.OnClick(func(ctx *application.Context) {
-		log.Println("保持系统唤醒（从主菜单）")
+		log.Println(t("menu.keepAwake"))
 	})
 	
-	menuLaunchItem := musicMenu.AddCheckbox("开机启动", true)
+	menuLaunchItem := musicMenu.AddCheckbox(t("menu.autoLaunch"), true)
 	menuLaunchItem.OnClick(func(ctx *application.Context) {
-		log.Println("开机启动（从主菜单）")
+		log.Println(t("menu.autoLaunch"))
 	})
 	
-	menuVersionItem := musicMenu.Add("Version 0.5.0")
+	menuVersionItem := musicMenu.Add(t("menu.version"))
 	menuVersionItem.SetEnabled(false)
 
 	// Add development menu

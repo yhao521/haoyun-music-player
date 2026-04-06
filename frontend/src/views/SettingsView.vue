@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { t, setLocale, getLocale, type Locale } from "../i18n";
+
+// 当前语言
+const currentLanguage = ref<Locale>(getLocale());
 
 // 返回主界面
 const goBack = () => {
@@ -8,12 +12,26 @@ const goBack = () => {
 
 // 刷新设置（预留功能）
 const refreshSettings = () => {
-  console.log("刷新设置");
+  console.log(t("common.refresh"));
   // TODO: 实现刷新设置功能
+};
+
+// 切换语言
+const changeLanguage = (locale: Locale) => {
+  setLocale(locale);
+  currentLanguage.value = locale;
+  
+  // 通知后端切换语言
+  if (window.runtime && window.runtime.EventsEmit) {
+    window.runtime.EventsEmit("changeLanguage", locale);
+  }
+  
+  console.log(`✓ Language changed to: ${locale}`);
 };
 
 onMounted(() => {
   console.log("[SettingsView] 设置页面已加载");
+  console.log(`[SettingsView] Current language: ${currentLanguage.value}`);
 });
 </script>
 
@@ -21,15 +39,15 @@ onMounted(() => {
   <div class="settings-container">
     <!-- 顶部标题栏 -->
     <div class="header">
-      <!-- <button class="back-btn" @click="goBack" title="返回">
+      <!-- <button class="back-btn" @click="goBack" :title="t('common.back')">
         <span class="back-icon">←</span>
       </button> -->
       
       <div class="title-section">
-        <h1 class="title">⚙️ 设置</h1>
+        <h1 class="title">{{ t('settings.title') }}</h1>
       </div>
       
-      <button class="refresh-btn" @click="refreshSettings" title="刷新">
+      <button class="refresh-btn" @click="refreshSettings" :title="t('common.refresh')">
         <span class="refresh-icon">🔄</span>
       </button>
     </div>
@@ -37,81 +55,89 @@ onMounted(() => {
     <!-- 设置内容区域 -->
     <div class="settings-content">
       <div class="settings-section">
-        <h2 class="section-title">通用设置</h2>
+        <h2 class="section-title">{{ t('settings.general') }}</h2>
         
         <div class="setting-item">
           <label class="setting-label">
             <input type="checkbox" class="setting-checkbox" />
-            <span>开机自动启动</span>
+            <span>{{ t('settings.autoLaunch') }}</span>
           </label>
-          <p class="setting-description">应用程序将在系统启动时自动运行</p>
+          <p class="setting-description">{{ t('settings.autoLaunchDesc') }}</p>
         </div>
 
         <div class="setting-item">
           <label class="setting-label">
             <input type="checkbox" class="setting-checkbox" checked />
-            <span>保持系统唤醒</span>
+            <span>{{ t('settings.keepAwake') }}</span>
           </label>
-          <p class="setting-description">播放音乐时阻止系统进入睡眠模式</p>
+          <p class="setting-description">{{ t('settings.keepAwakeDesc') }}</p>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">主题模式</label>
+          <label class="setting-label">{{ t('settings.language') }}</label>
+          <select class="setting-select" v-model="currentLanguage" @change="changeLanguage(currentLanguage)">
+            <option value="zh-CN">{{ t('settings.chinese') }}</option>
+            <option value="en-US">{{ t('settings.english') }}</option>
+          </select>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">{{ t('settings.theme') }}</label>
           <select class="setting-select">
-            <option value="auto">跟随系统</option>
-            <option value="light">浅色模式</option>
-            <option value="dark">深色模式</option>
+            <option value="auto">{{ t('settings.followSystem') }}</option>
+            <option value="light">{{ t('settings.lightMode') }}</option>
+            <option value="dark">{{ t('settings.darkMode') }}</option>
           </select>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">播放设置</h2>
+        <h2 class="section-title">{{ t('settings.playback') }}</h2>
         
         <div class="setting-item">
-          <label class="setting-label">默认播放模式</label>
+          <label class="setting-label">{{ t('settings.defaultPlayMode') }}</label>
           <select class="setting-select">
-            <option value="loop">列表循环</option>
-            <option value="order">顺序播放</option>
-            <option value="random">随机播放</option>
-            <option value="single">单曲循环</option>
+            <option value="loop">{{ t('playMode.loop', '循环播放') }}</option>
+            <option value="order">{{ t('playMode.order', '顺序播放') }}</option>
+            <option value="random">{{ t('playMode.random', '随机播放') }}</option>
+            <option value="single">{{ t('playMode.single', '单曲循环') }}</option>
           </select>
         </div>
 
         <div class="setting-item">
           <label class="setting-label">
             <input type="checkbox" class="setting-checkbox" checked />
-            <span>显示歌词</span>
+            <span>{{ t('settings.showLyrics') }}</span>
           </label>
-          <p class="setting-description">在主界面显示同步歌词</p>
+          <p class="setting-description">{{ t('settings.showLyricsDesc') }}</p>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">音量</label>
+          <label class="setting-label">{{ t('settings.volume') }}</label>
           <input type="range" class="setting-slider" min="0" max="100" value="80" />
           <span class="slider-value">80%</span>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">媒体键设置</h2>
+        <h2 class="section-title">{{ t('settings.mediaKeys') }}</h2>
         
         <div class="setting-item">
           <label class="setting-label">
             <input type="checkbox" class="setting-checkbox" checked />
-            <span>启用媒体键控制</span>
+            <span>{{ t('settings.enableMediaKeys') }}</span>
           </label>
-          <p class="setting-description">允许使用键盘媒体键控制播放</p>
+          <p class="setting-description">{{ t('settings.enableMediaKeysDesc') }}</p>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">关于</h2>
+        <h2 class="section-title">{{ t('settings.about') }}</h2>
         
         <div class="about-info">
-          <p class="app-name">Haoyun Music Player</p>
-          <p class="app-version">版本 0.5.0</p>
-          <p class="app-desc">基于 Wails v3 + Vue 3 构建的跨平台桌面音乐播放器</p>
+          <p class="app-name">{{ t('settings.appName') }}</p>
+          <p class="app-version">{{ t('settings.appVersion') }}</p>
+          <p class="app-desc">{{ t('settings.appDesc') }}</p>
         </div>
       </div>
     </div>
