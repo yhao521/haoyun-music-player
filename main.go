@@ -585,10 +585,7 @@ func main() {
 	// 创建设置菜单项（带快捷键 Cmd+S）
 	settingItem = application.NewMenuItem("设置")
 	settingItem.SetAccelerator("CmdOrCtrl+S")
-	settingItem.OnClick(func(ctx *application.Context) {
-		// TODO: 实现设置功能
-		log.Println("设置")
-	})
+	// OnClick 回调将在 settingsWindow 创建后设置
 
 	// 创建版本信息（禁用状态）
 	versionItem = application.NewMenuItem("Version 0.5.0")
@@ -706,6 +703,23 @@ func main() {
 	favoritesWindow.Hide()
 	log.Println("✓ Favorites window created and hidden")
 
+	// 创建设置窗口（用于应用程序设置）
+	var settingsWindow *application.WebviewWindow
+	settingsWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "设置 - Haoyun Music Player",
+		Mac: application.MacWindow{
+			InvisibleTitleBarHeight: 50,
+			Backdrop:                application.MacBackdropTranslucent,
+			TitleBar:                application.MacTitleBarHiddenInset,
+		},
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "#/settings",
+		Width:            600,
+		Height:           500,
+	})
+	settingsWindow.Hide()
+	log.Println("✓ Settings window created and hidden")
+
 	// ==================== 注册所有窗口的关闭拦截钩子 ====================
 
 	// 辅助函数：检查是否还有其他可见窗口（用于日志记录）
@@ -713,13 +727,20 @@ func main() {
 		switch currentWindow {
 		case "main":
 			return (browseWindow != nil && browseWindow.IsVisible()) ||
-				(favoritesWindow != nil && favoritesWindow.IsVisible())
+				(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
+				(settingsWindow != nil && settingsWindow.IsVisible())
 		case "browse":
 			return (mainWindow != nil && mainWindow.IsVisible()) ||
-				(favoritesWindow != nil && favoritesWindow.IsVisible())
+				(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
+				(settingsWindow != nil && settingsWindow.IsVisible())
 		case "favorites":
 			return (mainWindow != nil && mainWindow.IsVisible()) ||
-				(browseWindow != nil && browseWindow.IsVisible())
+				(browseWindow != nil && browseWindow.IsVisible()) ||
+				(settingsWindow != nil && settingsWindow.IsVisible())
+		case "settings":
+			return (mainWindow != nil && mainWindow.IsVisible()) ||
+				(browseWindow != nil && browseWindow.IsVisible()) ||
+				(favoritesWindow != nil && favoritesWindow.IsVisible())
 		default:
 			return false
 		}
@@ -779,6 +800,24 @@ func main() {
 	})
 	log.Println("✅ 喜爱音乐窗口关闭拦截钩子注册成功")
 
+	// 拦截设置窗口关闭事件：始终隐藏，不真正关闭
+	log.Println("🔧 正在为设置窗口注册关闭拦截钩子...")
+	settingsWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("⚠️ [设置窗口] 关闭事件触发")
+
+		if hasOtherVisibleWindows("settings") {
+			log.Println("ℹ️ [设置窗口] 检测到其他可见窗口，但仍执行隐藏操作")
+		} else {
+			log.Println("ℹ️ [设置窗口] 这是最后一个可见窗口")
+		}
+
+		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
+		settingsWindow.Hide()
+		e.Cancel() // 取消关闭操作
+		log.Println("✅ [设置窗口] 已隐藏并取消关闭")
+	})
+	log.Println("✅ 设置窗口关闭拦截钩子注册成功")
+
 	// 设置喜爱音乐菜单项的点击事件（在 favoritesWindow 初始化之后）
 	favoriteItem.OnClick(func(ctx *application.Context) {
 		log.Println("打开喜爱音乐窗口")
@@ -810,6 +849,39 @@ func main() {
 		}
 
 		log.Println("=== 喜爱音乐窗口操作完成 ===")
+	})
+
+	// 设置设置菜单项的点击事件（在 settingsWindow 初始化之后）
+	settingItem.OnClick(func(ctx *application.Context) {
+		log.Println("打开设置窗口")
+
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ 打开设置窗口时发生 panic: %v", r)
+				debug.PrintStack()
+			}
+		}()
+
+		if settingsWindow == nil {
+			log.Println("❌ settingsWindow 为 nil")
+			return
+		}
+
+		isVisible := settingsWindow.IsVisible()
+		log.Printf("✓ settingsWindow IsVisible() = %v", isVisible)
+
+		if isVisible {
+			log.Println("准备调用 Hide()...")
+			settingsWindow.Hide()
+		} else {
+			log.Println("准备调用 Show()...")
+			settingsWindow.Show()
+			log.Println("准备调用 Focus()...")
+			settingsWindow.Focus()
+			log.Println("✓ Focus() 完成")
+		}
+
+		log.Println("=== 设置窗口操作完成 ===")
 	})
 
 	// 定时向 browseWindow 发送测试消息（用于调试）
