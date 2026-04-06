@@ -996,6 +996,33 @@ func main() {
 			log.Printf("✓ 切换到%s播放", mode)
 		}
 	})
+	
+	// 监听主菜单播放控制事件
+	app.Event.On("menu:playPause", func(event *application.CustomEvent) {
+		playlist, _ := musicService.GetPlaylist()
+		if len(playlist) == 0 {
+			currentLib := musicService.GetCurrentLibrary()
+			if currentLib != nil {
+				if err := musicService.LoadCurrentLibrary(); err != nil {
+					log.Printf("加载音乐库失败：%v", err)
+				}
+			}
+		} else {
+			musicService.TogglePlayPause()
+		}
+	})
+	
+	app.Event.On("menu:prevTrack", func(event *application.CustomEvent) {
+		if err := musicService.Previous(); err != nil {
+			log.Printf("切换上一曲失败：%v", err)
+		}
+	})
+	
+	app.Event.On("menu:nextTrack", func(event *application.CustomEvent) {
+		if err := musicService.Next(); err != nil {
+			log.Printf("切换下一曲失败：%v", err)
+		}
+	})
 
 	err := app.Run()
 	if err != nil {
@@ -1050,13 +1077,24 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	// 播放控制
 	menuPlayPauseItem := musicMenu.Add("Play/Pause")
 	menuPlayPauseItem.SetAccelerator("CmdOrCtrl+Space")
-	// OnClick 会在 main 函数中通过事件机制设置
+	menuPlayPauseItem.OnClick(func(ctx *application.Context) {
+		log.Println("主菜单: 播放/暂停")
+		app.Event.Emit("menu:playPause", nil)
+	})
 	
 	menuPrevItem := musicMenu.Add("Previous Track")
 	menuPrevItem.SetAccelerator("CmdOrCtrl+Shift+[")
+	menuPrevItem.OnClick(func(ctx *application.Context) {
+		log.Println("主菜单: 上一曲")
+		app.Event.Emit("menu:prevTrack", nil)
+	})
 	
 	menuNextItem := musicMenu.Add("Next Track")
 	menuNextItem.SetAccelerator("CmdOrCtrl+Shift+]")
+	menuNextItem.OnClick(func(ctx *application.Context) {
+		log.Println("主菜单: 下一曲")
+		app.Event.Emit("menu:nextTrack", nil)
+	})
 	
 	musicMenu.AddSeparator()
 	
