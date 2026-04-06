@@ -218,7 +218,7 @@ func main() {
 	browseItem.SetAccelerator("CmdOrCtrl+F")
 
 	// 创建播放模式子菜单（使用普通菜单项，通过标签显示当前模式）
-	var playModeOrder, playModeLoop, playModeRandom *application.MenuItem
+	var playModeOrder, playModeLoop, playModeRandom, playModeSingle *application.MenuItem
 
 	playModeOrder = application.NewMenuItem("  顺序播放")
 	playModeOrder.OnClick(func(ctx *application.Context) {
@@ -228,6 +228,7 @@ func main() {
 		playModeOrder.SetLabel("✓ 顺序播放")
 		playModeLoop.SetLabel("  循环播放")
 		playModeRandom.SetLabel("  随机播放")
+		playModeSingle.SetLabel("  单曲循环")
 	})
 
 	playModeLoop = application.NewMenuItem("✓ 循环播放")
@@ -238,6 +239,7 @@ func main() {
 		playModeOrder.SetLabel("  顺序播放")
 		playModeLoop.SetLabel("✓ 循环播放")
 		playModeRandom.SetLabel("  随机播放")
+		playModeSingle.SetLabel("  单曲循环")
 	})
 
 	playModeRandom = application.NewMenuItem("  随机播放")
@@ -248,12 +250,25 @@ func main() {
 		playModeOrder.SetLabel("  顺序播放")
 		playModeLoop.SetLabel("  循环播放")
 		playModeRandom.SetLabel("✓ 随机播放")
+		playModeSingle.SetLabel("  单曲循环")
+	})
+
+	playModeSingle = application.NewMenuItem("  单曲循环")
+	playModeSingle.OnClick(func(ctx *application.Context) {
+		musicService.SetPlayMode("random")
+		log.Println("✓ 切换到单曲循环")
+		// 更新菜单标签
+		playModeOrder.SetLabel("  顺序播放")
+		playModeLoop.SetLabel("  循环播放")
+		playModeRandom.SetLabel("  随机播放")
+		playModeSingle.SetLabel("✓ 单曲循环")
 	})
 
 	playModeMenu := application.NewMenuFromItems(
 		playModeOrder,
 		playModeLoop,
 		playModeRandom,
+		playModeSingle,
 	)
 	playModeItem = application.NewSubmenu("播放模式", playModeMenu)
 
@@ -640,7 +655,7 @@ func main() {
 	log.Println("✓ System tray menu created")
 
 	// ==================== 创建所有窗口 ====================
-	
+
 	// 创建主窗口（默认隐藏,通过托盘菜单打开）
 	mainWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "Haoyun Music Player",
@@ -692,19 +707,19 @@ func main() {
 	log.Println("✓ Favorites window created and hidden")
 
 	// ==================== 注册所有窗口的关闭拦截钩子 ====================
-	
+
 	// 辅助函数：检查是否还有其他可见窗口（用于日志记录）
 	hasOtherVisibleWindows := func(currentWindow string) bool {
 		switch currentWindow {
 		case "main":
-			return (browseWindow != nil && browseWindow.IsVisible()) || 
-			       (favoritesWindow != nil && favoritesWindow.IsVisible())
+			return (browseWindow != nil && browseWindow.IsVisible()) ||
+				(favoritesWindow != nil && favoritesWindow.IsVisible())
 		case "browse":
-			return (mainWindow != nil && mainWindow.IsVisible()) || 
-			       (favoritesWindow != nil && favoritesWindow.IsVisible())
+			return (mainWindow != nil && mainWindow.IsVisible()) ||
+				(favoritesWindow != nil && favoritesWindow.IsVisible())
 		case "favorites":
-			return (mainWindow != nil && mainWindow.IsVisible()) || 
-			       (browseWindow != nil && browseWindow.IsVisible())
+			return (mainWindow != nil && mainWindow.IsVisible()) ||
+				(browseWindow != nil && browseWindow.IsVisible())
 		default:
 			return false
 		}
@@ -714,13 +729,13 @@ func main() {
 	log.Println("🔧 正在为主窗口注册关闭拦截钩子...")
 	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		log.Println("⚠️ [主窗口] 关闭事件触发")
-		
+
 		if hasOtherVisibleWindows("main") {
 			log.Println("ℹ️ [主窗口] 检测到其他可见窗口，但仍执行隐藏操作")
 		} else {
 			log.Println("ℹ️ [主窗口] 这是最后一个可见窗口")
 		}
-		
+
 		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
 		mainWindow.Hide()
 		e.Cancel() // 取消关闭操作
@@ -732,13 +747,13 @@ func main() {
 	log.Println("🔧 正在为浏览窗口注册关闭拦截钩子...")
 	browseWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		log.Println("⚠️ [浏览窗口] 关闭事件触发")
-		
+
 		if hasOtherVisibleWindows("browse") {
 			log.Println("ℹ️ [浏览窗口] 检测到其他可见窗口，但仍执行隐藏操作")
 		} else {
 			log.Println("ℹ️ [浏览窗口] 这是最后一个可见窗口")
 		}
-		
+
 		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
 		browseWindow.Hide()
 		e.Cancel() // 取消关闭操作
@@ -750,13 +765,13 @@ func main() {
 	log.Println("🔧 正在为喜爱音乐窗口注册关闭拦截钩子...")
 	favoritesWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		log.Println("⚠️ [喜爱音乐窗口] 关闭事件触发")
-		
+
 		if hasOtherVisibleWindows("favorites") {
 			log.Println("ℹ️ [喜爱音乐窗口] 检测到其他可见窗口，但仍执行隐藏操作")
 		} else {
 			log.Println("ℹ️ [喜爱音乐窗口] 这是最后一个可见窗口")
 		}
-		
+
 		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
 		favoritesWindow.Hide()
 		e.Cancel() // 取消关闭操作
@@ -767,7 +782,7 @@ func main() {
 	// 设置喜爱音乐菜单项的点击事件（在 favoritesWindow 初始化之后）
 	favoriteItem.OnClick(func(ctx *application.Context) {
 		log.Println("打开喜爱音乐窗口")
-		
+
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("❌ 打开喜爱音乐窗口时发生 panic: %v", r)
@@ -782,7 +797,7 @@ func main() {
 
 		isVisible := favoritesWindow.IsVisible()
 		log.Printf("✓ favoritesWindow IsVisible() = %v", isVisible)
-		
+
 		if isVisible {
 			log.Println("准备调用 Hide()...")
 			favoritesWindow.Hide()
