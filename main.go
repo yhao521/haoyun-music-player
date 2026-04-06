@@ -639,7 +639,9 @@ func main() {
 
 	log.Println("✓ System tray menu created")
 
-	// 创建主窗口（默认隐藏，通过托盘菜单打开）
+	// ==================== 创建所有窗口 ====================
+	
+	// 创建主窗口（默认隐藏,通过托盘菜单打开）
 	mainWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "Haoyun Music Player",
 		Mac: application.MacWindow{
@@ -651,21 +653,9 @@ func main() {
 		URL:              "/",
 		Width:            400,
 		Height:           600,
-		// Visible 字段不存在，使用 Hide() 方法
 	})
-	// 拦截窗口关闭事件，改为隐藏窗口（Windows/Linux/macOS 通用）
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		log.Println("主窗口关闭事件被拦截，改为隐藏窗口")
-		mainWindow.Hide()
-		e.Cancel() // 取消关闭操作
-	})
-
-	// 初始隐藏窗口
-	// mainWindow.Hide()
-	// log.Println("✓ Main window created (Hide)")
-	mainWindow.Minimise()
 	mainWindow.Hide()
-	log.Println("✓ Main window created (Minimise)")
+	log.Println("✓ Main window created and hidden")
 
 	// 创建浏览歌曲窗口（用于展示音乐库和歌曲列表）
 	var browseWindow *application.WebviewWindow
@@ -681,17 +671,8 @@ func main() {
 		Width:            900,
 		Height:           700,
 	})
-
-	// 拦截浏览窗口关闭事件，改为隐藏窗口
-	browseWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		log.Println("浏览窗口关闭事件被拦截，改为隐藏窗口")
-		browseWindow.Hide()
-		e.Cancel() // 取消关闭操作
-	})
-
-	// 初始隐藏浏览窗口
 	browseWindow.Hide()
-	log.Println("✓ Browse window created (Minimise)")
+	log.Println("✓ Browse window created and hidden")
 
 	// 创建喜爱音乐窗口（用于展示按播放次数排序的歌曲列表）
 	var favoritesWindow *application.WebviewWindow
@@ -707,17 +688,81 @@ func main() {
 		Width:            900,
 		Height:           700,
 	})
+	favoritesWindow.Hide()
+	log.Println("✓ Favorites window created and hidden")
 
-	// 拦截喜爱音乐窗口关闭事件，改为隐藏窗口
+	// ==================== 注册所有窗口的关闭拦截钩子 ====================
+	
+	// 辅助函数：检查是否还有其他可见窗口（用于日志记录）
+	hasOtherVisibleWindows := func(currentWindow string) bool {
+		switch currentWindow {
+		case "main":
+			return (browseWindow != nil && browseWindow.IsVisible()) || 
+			       (favoritesWindow != nil && favoritesWindow.IsVisible())
+		case "browse":
+			return (mainWindow != nil && mainWindow.IsVisible()) || 
+			       (favoritesWindow != nil && favoritesWindow.IsVisible())
+		case "favorites":
+			return (mainWindow != nil && mainWindow.IsVisible()) || 
+			       (browseWindow != nil && browseWindow.IsVisible())
+		default:
+			return false
+		}
+	}
+
+	// 拦截主窗口关闭事件：始终隐藏，不真正关闭
+	log.Println("🔧 正在为主窗口注册关闭拦截钩子...")
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("⚠️ [主窗口] 关闭事件触发")
+		
+		if hasOtherVisibleWindows("main") {
+			log.Println("ℹ️ [主窗口] 检测到其他可见窗口，但仍执行隐藏操作")
+		} else {
+			log.Println("ℹ️ [主窗口] 这是最后一个可见窗口")
+		}
+		
+		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
+		mainWindow.Hide()
+		e.Cancel() // 取消关闭操作
+		log.Println("✅ [主窗口] 已隐藏并取消关闭")
+	})
+	log.Println("✅ 主窗口关闭拦截钩子注册成功")
+
+	// 拦截浏览窗口关闭事件：始终隐藏，不真正关闭
+	log.Println("🔧 正在为浏览窗口注册关闭拦截钩子...")
+	browseWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("⚠️ [浏览窗口] 关闭事件触发")
+		
+		if hasOtherVisibleWindows("browse") {
+			log.Println("ℹ️ [浏览窗口] 检测到其他可见窗口，但仍执行隐藏操作")
+		} else {
+			log.Println("ℹ️ [浏览窗口] 这是最后一个可见窗口")
+		}
+		
+		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
+		browseWindow.Hide()
+		e.Cancel() // 取消关闭操作
+		log.Println("✅ [浏览窗口] 已隐藏并取消关闭")
+	})
+	log.Println("✅ 浏览窗口关闭拦截钩子注册成功")
+
+	// 拦截喜爱音乐窗口关闭事件：始终隐藏，不真正关闭
+	log.Println("🔧 正在为喜爱音乐窗口注册关闭拦截钩子...")
 	favoritesWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		log.Println("喜爱音乐窗口关闭事件被拦截，改为隐藏窗口")
+		log.Println("⚠️ [喜爱音乐窗口] 关闭事件触发")
+		
+		if hasOtherVisibleWindows("favorites") {
+			log.Println("ℹ️ [喜爱音乐窗口] 检测到其他可见窗口，但仍执行隐藏操作")
+		} else {
+			log.Println("ℹ️ [喜爱音乐窗口] 这是最后一个可见窗口")
+		}
+		
+		// 统一行为：所有窗口关闭时都隐藏，不真正关闭
 		favoritesWindow.Hide()
 		e.Cancel() // 取消关闭操作
+		log.Println("✅ [喜爱音乐窗口] 已隐藏并取消关闭")
 	})
-
-	// 初始隐藏喜爱音乐窗口
-	favoritesWindow.Hide()
-	log.Println("✓ Favorites window created (Hidden)")
+	log.Println("✅ 喜爱音乐窗口关闭拦截钩子注册成功")
 
 	// 设置喜爱音乐菜单项的点击事件（在 favoritesWindow 初始化之后）
 	favoriteItem.OnClick(func(ctx *application.Context) {
