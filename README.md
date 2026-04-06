@@ -11,7 +11,7 @@
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
-[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md)
+[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md)
 
 </div>
 
@@ -21,6 +21,7 @@
 - ⚡ **高性能** - Go + Vue 的原生性能体验
 - 🔧 **可扩展** - 清晰的 MVC 架构，易于添加新功能
 - 📱 **跨平台** - 支持 macOS、Windows、Linux
+- 🌍 **多语言支持** - 内置中英文界面，支持实时切换（[详情](./I18N_QUICKSTART.md)）
 - 🎯 **类型安全** - 完整的 TypeScript 类型定义
 - 📋 **播放列表管理** - 完善的播放列表控制和播放模式（顺序/循环/随机/单曲）
 - 🎚️ **音量控制** - 精细的音量调节 (0-100%)

@@ -111,10 +111,15 @@ const current = getLocale()
    app.Event.On("changeLanguage", func(event *application.CustomEvent) {
      if locale, ok := event.Data.(string); ok {
        translator.SetLocale(locale) // 更新后端语言
-       // TODO: 重建菜单以应用新语言
+       rebuildTrayMenu() // 重建托盘菜单以应用新语言
      }
    })
    ```
+
+3. **菜单动态更新**:
+   - `rebuildTrayMenu()` 函数会更新所有托盘菜单项的文本
+   - 包括：播放控制、窗口管理、播放模式、音乐库等
+   - 正在播放的歌曲名称也会根据新语言更新
 
 ### 持久化存储
 
@@ -148,18 +153,18 @@ const current = getLocale()
 
 ## 注意事项
 
-### 1. 动态菜单更新
+### 1. ✅ 动态菜单更新已实现
 
-当前实现中，语言切换后**托盘菜单不会自动更新**。需要：
-- 方案 A: 重建整个托盘菜单（调用 `buildMusicLibMenu()`）
-- 方案 B: 逐个更新菜单项的 Label（推荐，性能更好）
+语言切换后，托盘菜单会**自动更新**所有文本：
+- 通过 `rebuildTrayMenu()` 函数实现
+- 更新所有菜单项的 Label
+- 重建音乐库子菜单
+- 更新正在播放状态
 
-TODO: 实现动态菜单文本更新
-
-### 2. 硬编码文本
+### 2. 部分文本未国际化
 
 以下位置仍有硬编码文本，建议后续国际化：
-- 日志消息（`log.Println`）
+- 日志消息（`log.Println`）- 保留中文便于调试
 - 错误提示
 - 其他 Vue 组件（BrowseView, FavoritesView, AppMain 等）
 
@@ -191,12 +196,16 @@ cd frontend && npm run build
 
 ## 未来改进
 
-1. ✨ 实现托盘菜单动态更新
+1. ✨ ~~实现托盘菜单动态更新~~ **已完成**
 2. ✨ 国际化其他 Vue 组件
+   - BrowseView.vue
+   - FavoritesView.vue
+   - AppMain.vue
 3. ✨ 添加更多语言（日语、韩语等）
 4. ✨ 后端语言偏好持久化到配置文件
 5. ✨ 自动检测系统语言作为默认值
 6. ✨ 提供翻译缺失的检测和警告
+7. ✨ 优化播放模式子菜单的动态更新（当前仅更新父菜单标签）
 
 ## 相关文件
 

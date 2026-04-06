@@ -639,6 +639,39 @@ func main() {
 		nowPlayingItem.SetEnabled(true)
 		log.Printf("✓ 菜单项已更新为：%s", newLabel)
 	}
+	
+	// 创建完整的托盘菜单重建函数（用于语言切换时更新所有菜单文本）
+	rebuildTrayMenu := func() {
+		log.Println("🔄 开始重建托盘菜单...")
+		
+		// 更新所有菜单项的标签
+		playPauseItem.SetLabel(t("menu.playPause"))
+		prevItem.SetLabel(t("menu.previousTrack"))
+		nextItem.SetLabel(t("menu.nextTrack"))
+		mainWindowItem.SetLabel(t("menu.showMainWindow"))
+		browseItem.SetLabel(t("menu.browseSongs"))
+		favoriteItem.SetLabel(t("menu.favoriteSongs"))
+		downloadItem.SetLabel(t("menu.downloadMusic"))
+		wakeItem.SetLabel(t("menu.keepAwake"))
+		launchItem.SetLabel(t("menu.autoLaunch"))
+		settingItem.SetLabel(t("menu.settings"))
+		versionItem.SetLabel(t("menu.version"))
+		quitItem.SetLabel(t("menu.quit"))
+		
+		// 更新播放模式菜单
+		playModeItem.SetLabel(t("menu.playMode"))
+		// 注意：播放模式子菜单项需要单独更新，这里简化处理
+		
+		// 更新音乐库菜单
+		musicLibItem.SetLabel(t("menu.musicLibrary"))
+		// 重建音乐库子菜单以更新内部项
+		buildMusicLibMenu()
+		
+		// 更新正在播放菜单项
+		updateNowPlayingItem()
+		
+		log.Println("✅ 托盘菜单重建完成")
+	}
 
 	// 创建正在播放的音乐名称菜单项（禁用状态，仅展示）
 	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
@@ -1043,8 +1076,8 @@ func main() {
 			}
 			log.Printf("✓ 语言已切换为: %s", locale)
 			
-			// 触发菜单重建（需要重新构建托盘菜单）
-			// TODO: 实现动态更新菜单文本
+			// 重建托盘菜单以应用新语言
+			rebuildTrayMenu()
 		}
 	})
 
