@@ -3,9 +3,9 @@ set -e
 
 # Build configuration
 APP_NAME="haoyun-music-player"
-BUNDLE_ID="com.example.haoyunmusicplayer"
-VERSION="0.1.0"
-BUILD_NUMBER="0.1.0"
+BUNDLE_ID="com.haoyun.musicplayer"
+VERSION="0.5.0"
+BUILD_NUMBER="0.5.0"
 BUILD_DIR="build/ios"
 TARGET="simulator"
 

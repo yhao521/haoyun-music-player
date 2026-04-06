@@ -6,12 +6,12 @@
 name: "haoyun-music-player"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+version: "0.5.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A haoyun-music-player application"
-vendor: "My Company"
+description: "基于 Wails v3 + Vue 3 的现代化菜单栏音乐播放器，支持 MP3/WAV/FLAC 格式播放、音乐库管理、播放列表控制等功能"
+vendor: "yhao521"
 homepage: "https://wails.io"
 license: "MIT"
 release: "1"

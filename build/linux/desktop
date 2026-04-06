@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=A haoyun-music-player application
+Name=好运音乐
+Comment=基于 Wails v3 + Vue 3 的现代化菜单栏音乐播放器，支持 MP3/WAV/FLAC 格式播放、音乐库管理、播放列表控制等功能
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/haoyun-music-player %u
 Terminal=false

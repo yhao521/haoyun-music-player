@@ -1,15 +1,15 @@
 {
 	"fixed": {
-		"file_version": "0.1.0"
+		"file_version": "0.5.0"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.1.0",
-			"CompanyName": "My Company",
-			"FileDescription": "A haoyun-music-player application",
-			"LegalCopyright": "© 2026, My Company",
-			"ProductName": "My Product",
-			"Comments": "This is a comment"
+			"ProductVersion": "0.5.0",
+			"CompanyName": "yhao521",
+			"FileDescription": "基于 Wails v3 + Vue 3 的现代化菜单栏音乐播放器，支持 MP3/WAV/FLAC 格式播放、音乐库管理、播放列表控制等功能",
+			"LegalCopyright": "(c) 2025, yhao521",
+			"ProductName": "好运音乐",
+			"Comments": "Haoyun Music Player - A modern menu bar music player"
 		}
 	}
 }
