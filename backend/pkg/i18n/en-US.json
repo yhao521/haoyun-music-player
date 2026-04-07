@@ -5,7 +5,7 @@
     "previousTrack": "Previous Track",
     "nextTrack": "Next Track",
     "browseSongs": "Browse Songs",
-    "favoriteSongs": "❤️ Favorite Songs",
+    "favoriteSongs": "Favorite Songs",
     "playMode": "Play Mode",
     "musicLibrary": "Music Library",
     "downloadMusic": "Download Music",
@@ -29,7 +29,8 @@
     "redo": "Redo",
     "cut": "Cut",
     "copy": "Copy",
-    "paste": "Paste"
+    "paste": "Paste",
+    "openRuntimeDir": "Open Runtime Directory"
   },
   "playMode": {
     "order": "Order Play",

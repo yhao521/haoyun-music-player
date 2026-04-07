@@ -5,7 +5,7 @@
     "previousTrack": "上一曲",
     "nextTrack": "下一曲",
     "browseSongs": "浏览歌曲",
-    "favoriteSongs": "❤️ 喜爱音乐",
+    "favoriteSongs": "喜爱音乐",
     "playMode": "播放模式",
     "musicLibrary": "音乐库",
     "downloadMusic": "下载音乐",
@@ -29,7 +29,8 @@
     "redo": "重做",
     "cut": "剪切",
     "copy": "复制",
-    "paste": "粘贴"
+    "paste": "粘贴",
+    "openRuntimeDir": "打开运行时目录"
   },
   "playMode": {
     "order": "顺序播放",

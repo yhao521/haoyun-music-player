@@ -1422,7 +1422,7 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 
 	// File menu
 	fileMenu := menu.AddSubmenu(t("menu.file"))
-	fileMenu.Add(t("menu.browseSongs")).
+	fileMenu.Add(t("menu.openRuntimeDir")).
 		SetAccelerator("Ctrl+O").OnClick(func(ctx *application.Context) {
 		OpenDir()
 	})
