@@ -11,7 +11,7 @@
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
-[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md)
+[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md) • [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md)
 
 </div>
 
@@ -339,6 +339,7 @@ haoyun-music-player/
 - [快速开始指南](./QUICKSTART.md) - 5 分钟上手
 - [键盘快捷键](./KEYBOARD_SHORTCUTS.md) - 完整快捷键列表
 - [故障排除](./TROUBLESHOOTING.md) - 常见问题解决
+- [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md) - GitHub Actions 快速指南 ⭐
 
 ### 开发文档
 
@@ -346,6 +347,9 @@ haoyun-music-player/
 - [API 指南](./API_GUIDE.md) - 后端 API 使用说明
 - [后端设计](./BACKEND_DESIGN.md) - 架构设计详解
 - [Wails 绑定](./WAILS_BINDINGS.md) - 前后端通信机制
+- [GitHub Actions 详细指南](./GITHUB_ACTIONS_RELEASE.md) - CI/CD 配置说明
+- [GitHub Actions 工作流程](./GITHUB_ACTIONS_WORKFLOW.md) - 可视化流程图
+- [部署检查清单](./GITHUB_ACTIONS_CHECKLIST.md) - 发布前必读
 
 ### 特性文档
 

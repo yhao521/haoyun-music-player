@@ -1,0 +1,103 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送 v 开头的标签时触发，如 v0.5.0
+  workflow_dispatch: # 允许手动触发
+
+permissions:
+  contents: write # 需要写入权限来创建 Release
+
+jobs:
+  build-and-release:
+    name: Build and Release on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        # macOS 使用 macos-latest (Apple Silicon)
+        # Windows 使用 windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史以计算版本号
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Verify Wails installation
+        run: wails3 doctor
+
+      - name: Update build assets
+        run: wails3 task common:update:build-assets
+        if: runner.os == 'macOS'
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install create-dmg
+          # 确保有 zip 命令
+          which zip || brew install zip
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Windows 自带 zip 和 PowerShell
+          Write-Host "Windows environment ready"
+
+      - name: Build and Package All Platforms
+        run: |
+          echo "Starting package-all task..."
+          task package-all
+        env:
+          CGO_ENABLED: 1
+
+      - name: List built artifacts
+        run: |
+          echo "=== Built Artifacts ==="
+          ls -lah bin/releases/ || dir bin\releases\
+        shell: bash
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: bin/releases/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts (manual trigger)
+        uses: actions/upload-artifact@v4
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        with:
+          name: ${{ matrix.os }}-artifacts
+          path: bin/releases/
+          retention-days: 30

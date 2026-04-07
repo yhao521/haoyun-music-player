@@ -72,25 +72,15 @@ tasks:
   #     - wails3 task darwin:package:universal #  universal
   #     # - wails3 task linux:package # 生成 .deb 或 .AppImage
 
-  package-all:
+  package-pre:
     summary: Package the application with version and timestamp
     cmds:
       - echo "开始打包应用..."
       - |
-        # 获取版本号
-        VERSION_3=$(git rev-list HEAD --no-merges  --count)
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-        # 创建打包目录
-        rm -rf ./bin/releases
         mkdir -p ./bin/releases
-
-        rm -f ./bin/{{._APP_NAME}}
-        ARCH=arm64
-        task darwin:package
-        # macOS 打包
         cd ./bin
 
+        cp ../"LICENSE" ./
 
         cat > install << EOF
         #!/bin/bash
@@ -101,9 +91,11 @@ tasks:
         fi
         EOF
 
+
+        _VERSION=$(git describe --tags --abbrev=0)
         # 创建说明文件
         cat > README.md << EOF
-        # {{._APP_NAME}} v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
+        # {{._APP_NAME}} ${_VERSION}
 
         ## 安装说明
 
@@ -139,9 +131,69 @@ tasks:
         如有问题请访问项目主页或提交 Issue。
         EOF
 
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_arm64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
-        echo "打包完成: releases/${PACKAGE_NAME}"
+        cd ..
+
+  package-post:
+    summary: Package the application with version and timestamp
+    cmds:
+      - echo "开始打包应用..."
+      - |
+        mkdir -p ./bin
+        cd ./bin
+        # 清理临时文件
+        rm -f README.md install
+        rm -rf "./releases/tmp_dmg"
+
+  package-all:
+    summary: Package the application with version and timestamp
+    cmds:
+      - echo "开始打包应用..."
+      - |
+        # 获取版本号
+        VERSION_3=$(git rev-list HEAD --no-merges  --count)
+        # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
+        _VERSION=$(git describe --tags --abbrev=0)
+
+        # 获取当前时间戳 %Y%m%d_%H%M%S
+        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        # 创建打包目录
+        rm -rf ./bin/releases
+        mkdir -p ./bin/releases
+        task package-pre
+
+        rm -f ./bin/{{._APP_NAME}}
+        ARCH=arm64
+        task darwin:package
+        # macOS 打包
+        cd ./bin
+
+        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_arm64.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_arm64.dmg"
+
+        # 创建临时目录用于 DMG 打包
+        mkdir -p "./releases/tmp_dmg"
+        cp -R "{{._APP_NAME}}.app" "./releases/tmp_dmg/"
+        cp "README.md" "./releases/tmp_dmg/"
+        cp "LICENSE" "./releases/tmp_dmg/"
+        cp "install" "./releases/tmp_dmg/"
+
+        # 创建 Applications 文件夹快捷方式（方便用户拖拽安装）
+        ln -s /Applications "./releases/tmp_dmg/Applications"
+
+        # # 打包 ZIP
+        # zip -r "./releases/${PACKAGE_NAME_ZIP}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
+        # echo "ZIP 打包完成: releases/${PACKAGE_NAME_ZIP}"
+
+        # 打包 DMG
+        hdiutil create -volname "{{._APP_NAME}}" \
+          -srcfolder "./releases/tmp_dmg" \
+          -ov -format UDZO \
+          "./releases/${PACKAGE_NAME_DMG}"
+        echo "DMG 打包完成: releases/${PACKAGE_NAME_DMG}"
+
+        # 清理临时文件
+        rm -rf "./releases/tmp_dmg"
+
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
@@ -149,21 +201,62 @@ tasks:
         task darwin:package
         # macOS 打包
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_amd64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
-        echo "打包完成: releases/${PACKAGE_NAME}"
+        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.dmg"
+
+        # 创建临时目录用于 DMG 打包
+        mkdir -p "./releases/tmp_dmg"
+        cp -R "{{._APP_NAME}}.app" "./releases/tmp_dmg/"
+        cp "README.md" "./releases/tmp_dmg/"
+        cp "LICENSE" "./releases/tmp_dmg/"
+        cp "install" "./releases/tmp_dmg/"
+
+        # 创建 Applications 文件夹快捷方式
+        ln -s /Applications "./releases/tmp_dmg/Applications"
+
+        # # 打包 ZIP
+        # zip -r "./releases/${PACKAGE_NAME_ZIP}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
+        # echo "ZIP 打包完成: releases/${PACKAGE_NAME_ZIP}"
+
+        # 打包 DMG
+        hdiutil create -volname "{{._APP_NAME}}" \
+          -srcfolder "./releases/tmp_dmg" \
+          -ov -format UDZO \
+          "./releases/${PACKAGE_NAME_DMG}"
+        echo "DMG 打包完成: releases/${PACKAGE_NAME_DMG}"
+
+        # 清理临时文件
+        rm -rf "./releases/tmp_dmg"
+
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
         task darwin:package:universal 
         # macOS 打包universal
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_universal.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
-        echo "打包完成: releases/${PACKAGE_NAME}"
+        PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.dmg"
 
-        # 清理临时文件
-        rm -f README.md install
+        # 创建临时目录用于 DMG 打包
+        mkdir -p "./releases/tmp_dmg"
+        cp -R "{{._APP_NAME}}.app" "./releases/tmp_dmg/"
+        cp "README.md" "./releases/tmp_dmg/"
+        cp "LICENSE" "./releases/tmp_dmg/"
+        cp "install" "./releases/tmp_dmg/"
+
+        # 创建 Applications 文件夹快捷方式
+        ln -s /Applications "./releases/tmp_dmg/Applications"
+
+        # 打包 ZIP
+        zip -r "./releases/${PACKAGE_NAME_ZIP}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
+        echo "ZIP 打包完成: releases/${PACKAGE_NAME_ZIP}"
+
+        # 打包 DMG
+        hdiutil create -volname "{{._APP_NAME}}" \
+          -srcfolder "./releases/tmp_dmg" \
+          -ov -format UDZO \
+          "./releases/${PACKAGE_NAME_DMG}"
+        echo "DMG 打包完成: releases/${PACKAGE_NAME_DMG}"
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
@@ -171,7 +264,7 @@ tasks:
         task windows:package
         # Windows 打包 arm64
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Windows_arm64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_arm64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
@@ -181,12 +274,12 @@ tasks:
         task windows:package
         # Windows 打包 arm64
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Windows_amd64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-amd64-installer.exe"
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         # Windows 打包 universal
-        PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Windows_universal.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
         echo "打包完成: releases/${PACKAGE_NAME}"
@@ -197,7 +290,7 @@ tasks:
         # task linux:package
         # # Linux 打包
         # cd ./bin
-        # PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Linux_arm64.zip"
+        # PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_arm64.zip"
         # zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
         # echo "打包完成: releases/${PACKAGE_NAME}"
 
@@ -206,6 +299,8 @@ tasks:
         # task linux:package
         # # Linux 打包
         # cd ./bin
-        # PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_Linux_amd64.zip"
+        # PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_amd64.zip"
         # zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
         # echo "打包完成: releases/${PACKAGE_NAME}"
+
+        task package-post
