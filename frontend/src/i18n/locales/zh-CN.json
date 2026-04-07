@@ -8,7 +8,7 @@
     "autoLaunch": "开机自动启动",
     "autoLaunchDesc": "应用程序将在系统启动时自动运行",
     "keepAwake": "保持系统唤醒",
-    "keepAwakeDesc": "播放音乐时阻止系统进入睡眠模式",
+    "keepAwakeDesc": "播放音乐时防止系统进入睡眠",
     "theme": "主题模式",
     "followSystem": "跟随系统",
     "lightMode": "浅色模式",
@@ -19,12 +19,14 @@
     "volume": "音量",
     "enableMediaKeys": "启用媒体键控制",
     "enableMediaKeysDesc": "允许使用键盘媒体键控制播放",
-    "appName": "Haoyun Music Player",
+    "appName": "好运音乐播放器",
     "appVersion": "版本 0.5.0",
     "appDesc": "基于 Wails v3 + Vue 3 构建的跨平台桌面音乐播放器",
     "language": "语言",
     "chinese": "简体中文",
-    "english": "English"
+    "english": "English",
+    "languageChangedTip": "语言已切换，部分界面需要重启应用后才能完全生效",
+    "restartNow": "立即重启"
   },
   "playMode": {
     "order": "顺序播放",

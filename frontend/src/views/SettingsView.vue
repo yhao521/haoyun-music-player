@@ -1,9 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { t, setLocale, getLocale, type Locale } from "../i18n";
+import { Events } from "@wailsio/runtime";
 
 // 当前语言
 const currentLanguage = ref<Locale>(getLocale());
+
+// 重启提示
+const showRestartTip = ref(false);
+const restartMessage = ref("");
+
+// 设置项状态
+const settings = ref({
+  autoLaunch: false,
+  keepAwake: true,
+  theme: "auto",
+  defaultPlayMode: "loop",
+  showLyrics: true,
+  defaultVolume: 80,
+  enableMediaKeys: true,
+});
 
 // 返回主界面
 const goBack = () => {
@@ -18,36 +34,164 @@ const refreshSettings = () => {
 
 // 切换语言
 const changeLanguage = (locale: Locale) => {
+  // 更新前端语言
   setLocale(locale);
   currentLanguage.value = locale;
-  
-  // 通知后端切换语言
-  if (window.runtime && window.runtime.EventsEmit) {
-    window.runtime.EventsEmit("changeLanguage", locale);
+
+  // 通知后端切换语言并保存配置
+  if (Events.Emit) {
+    Events.Emit("changeLanguage", locale);
   }
-  
+
   console.log(`✓ Language changed to: ${locale}`);
+
+  // 显示重启提示
+  showRestartTip.value = true;
+  restartMessage.value =
+    t("settings.languageChangedTip") ||
+    "Language changed. Some interfaces require app restart to take full effect.";
+
+  // 5秒后自动隐藏提示
+  setTimeout(() => {
+    showRestartTip.value = false;
+  }, 5000);
 };
+
+// 关闭重启提示
+const closeRestartTip = () => {
+  showRestartTip.value = false;
+};
+
+// 重启应用
+const restartApp = () => {
+  if (Events.Emit) {
+    Events.Emit("restartApp", {});
+  }
+};
+
+// 保存其他设置
+const saveSetting = (key: string, value: any) => {
+  if (Events.Emit) {
+    Events.Emit("updateSetting", { [key]: value });
+  }
+  console.log(`✓ Setting saved: ${key} = ${value}`);
+};
+
+// 针对每个字段的独立 watcher 以单独保存
+watch(
+  () => settings.value.autoLaunch,
+  (val) => saveSetting("autoLaunch", val),
+);
+watch(
+  () => settings.value.keepAwake,
+  (val) => saveSetting("keepAwake", val),
+);
+watch(
+  () => settings.value.theme,
+  (val) => saveSetting("theme", val),
+);
+watch(
+  () => settings.value.defaultPlayMode,
+  (val) => saveSetting("defaultPlayMode", val),
+);
+watch(
+  () => settings.value.showLyrics,
+  (val) => saveSetting("showLyrics", val),
+);
+watch(
+  () => settings.value.defaultVolume,
+  (val) => saveSetting("defaultVolume", val),
+);
+watch(
+  () => settings.value.enableMediaKeys,
+  (val) => saveSetting("enableMediaKeys", val),
+);
 
 onMounted(() => {
   console.log("[SettingsView] 设置页面已加载");
-  console.log(`[SettingsView] Current language: ${currentLanguage.value}`);
+
+  // 从后端加载配置
+  if (Events.Emit && Events.On) {
+    // 先设置监听器
+    Events.On("getSettings:response", (response: any) => {
+      console.log("从后端加载配置:", response);
+      if (response) {
+        // 应用加载的配置
+        settings.value = {
+          autoLaunch: response.autoLaunch ?? settings.value.autoLaunch,
+          keepAwake: response.keepAwake ?? settings.value.keepAwake,
+          theme: response.theme ?? settings.value.theme,
+          defaultPlayMode:
+            response.defaultPlayMode ?? settings.value.defaultPlayMode,
+          showLyrics: response.showLyrics ?? settings.value.showLyrics,
+          defaultVolume: response.defaultVolume ?? settings.value.defaultVolume,
+          enableMediaKeys:
+            response.enableMediaKeys ?? settings.value.enableMediaKeys,
+        };
+
+        // 应用语言设置
+        if (response.language) {
+          const locale = response.language as Locale;
+          setLocale(locale);
+          currentLanguage.value = locale;
+          console.log(`✓ 已应用语言设置: ${locale}`);
+        }
+      }
+    });
+
+    // 请求配置
+    Events.Emit("getSettings", {});
+  }
+
+  // 监听语言变化事件（后端发送的重启提示）
+  if (Events.On) {
+    Events.On("languageChanged", (data: any) => {
+      console.log("收到语言切换事件:", data);
+      if (data.needRestart) {
+        showRestartTip.value = true;
+        restartMessage.value = data.message || t("settings.languageChangedTip");
+
+        // 5秒后自动隐藏
+        setTimeout(() => {
+          showRestartTip.value = false;
+        }, 5000);
+      }
+    });
+  }
 });
 </script>
 
 <template>
   <div class="settings-container">
+    <!-- 重启提示 -->
+    <div v-if="showRestartTip" class="restart-tip">
+      <div class="tip-content">
+        <span class="tip-icon">ℹ️</span>
+        <span class="tip-text">{{ restartMessage }}</span>
+      </div>
+      <div class="tip-actions">
+        <button class="restart-btn" @click="restartApp">
+          {{ t("settings.restartNow") || "立即重启" }}
+        </button>
+        <button class="close-tip-btn" @click="closeRestartTip">✕</button>
+      </div>
+    </div>
+
     <!-- 顶部标题栏 -->
     <div class="header">
       <!-- <button class="back-btn" @click="goBack" :title="t('common.back')">
         <span class="back-icon">←</span>
       </button> -->
-      
+
       <div class="title-section">
-        <h1 class="title">{{ t('settings.title') }}</h1>
+        <h1 class="title">{{ t("settings.title") }}</h1>
       </div>
-      
-      <button class="refresh-btn" @click="refreshSettings" :title="t('common.refresh')">
+
+      <button
+        class="refresh-btn"
+        @click="refreshSettings"
+        :title="t('common.refresh')"
+      >
         <span class="refresh-icon">🔄</span>
       </button>
     </div>
@@ -55,89 +199,127 @@ onMounted(() => {
     <!-- 设置内容区域 -->
     <div class="settings-content">
       <div class="settings-section">
-        <h2 class="section-title">{{ t('settings.general') }}</h2>
-        
+        <h2 class="section-title">{{ t("settings.general") }}</h2>
+
         <div class="setting-item">
           <label class="setting-label">
-            <input type="checkbox" class="setting-checkbox" />
-            <span>{{ t('settings.autoLaunch') }}</span>
+            <input
+              type="checkbox"
+              class="setting-checkbox"
+              v-model="settings.autoLaunch"
+            />
+            <span>{{ t("settings.autoLaunch") }}</span>
           </label>
-          <p class="setting-description">{{ t('settings.autoLaunchDesc') }}</p>
+          <p class="setting-description">{{ t("settings.autoLaunchDesc") }}</p>
         </div>
 
         <div class="setting-item">
           <label class="setting-label">
-            <input type="checkbox" class="setting-checkbox" checked />
-            <span>{{ t('settings.keepAwake') }}</span>
+            <input
+              type="checkbox"
+              class="setting-checkbox"
+              v-model="settings.keepAwake"
+            />
+            <span>{{ t("settings.keepAwake") }}</span>
           </label>
-          <p class="setting-description">{{ t('settings.keepAwakeDesc') }}</p>
+          <p class="setting-description">{{ t("settings.keepAwakeDesc") }}</p>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">{{ t('settings.language') }}</label>
-          <select class="setting-select" v-model="currentLanguage" @change="changeLanguage(currentLanguage)">
-            <option value="zh-CN">{{ t('settings.chinese') }}</option>
-            <option value="en-US">{{ t('settings.english') }}</option>
+          <label class="setting-label">{{ t("settings.language") }}</label>
+          <select
+            class="setting-select"
+            :value="currentLanguage"
+            @change="
+              changeLanguage(
+                ($event.target as HTMLSelectElement).value as Locale,
+              )
+            "
+          >
+            <option value="zh-CN">{{ t("settings.chinese") }}</option>
+            <option value="en-US">{{ t("settings.english") }}</option>
           </select>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">{{ t('settings.theme') }}</label>
-          <select class="setting-select">
-            <option value="auto">{{ t('settings.followSystem') }}</option>
-            <option value="light">{{ t('settings.lightMode') }}</option>
-            <option value="dark">{{ t('settings.darkMode') }}</option>
+          <label class="setting-label">{{ t("settings.theme") }}</label>
+          <select class="setting-select" v-model="settings.theme">
+            <option value="auto">{{ t("settings.followSystem") }}</option>
+            <option value="light">{{ t("settings.lightMode") }}</option>
+            <option value="dark">{{ t("settings.darkMode") }}</option>
           </select>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">{{ t('settings.playback') }}</h2>
-        
+        <h2 class="section-title">{{ t("settings.playback") }}</h2>
+
         <div class="setting-item">
-          <label class="setting-label">{{ t('settings.defaultPlayMode') }}</label>
-          <select class="setting-select">
-            <option value="loop">{{ t('playMode.loop', '循环播放') }}</option>
-            <option value="order">{{ t('playMode.order', '顺序播放') }}</option>
-            <option value="random">{{ t('playMode.random', '随机播放') }}</option>
-            <option value="single">{{ t('playMode.single', '单曲循环') }}</option>
+          <label class="setting-label">{{
+            t("settings.defaultPlayMode")
+          }}</label>
+          <select class="setting-select" v-model="settings.defaultPlayMode">
+            <option value="loop">{{ t("playMode.loop", "循环播放") }}</option>
+            <option value="order">{{ t("playMode.order", "顺序播放") }}</option>
+            <option value="random">
+              {{ t("playMode.random", "随机播放") }}
+            </option>
+            <option value="single">
+              {{ t("playMode.single", "单曲循环") }}
+            </option>
           </select>
         </div>
 
         <div class="setting-item">
           <label class="setting-label">
-            <input type="checkbox" class="setting-checkbox" checked />
-            <span>{{ t('settings.showLyrics') }}</span>
+            <input
+              type="checkbox"
+              class="setting-checkbox"
+              v-model="settings.showLyrics"
+            />
+            <span>{{ t("settings.showLyrics") }}</span>
           </label>
-          <p class="setting-description">{{ t('settings.showLyricsDesc') }}</p>
+          <p class="setting-description">{{ t("settings.showLyricsDesc") }}</p>
         </div>
 
         <div class="setting-item">
-          <label class="setting-label">{{ t('settings.volume') }}</label>
-          <input type="range" class="setting-slider" min="0" max="100" value="80" />
-          <span class="slider-value">80%</span>
+          <label class="setting-label">{{ t("settings.volume") }}</label>
+          <input
+            type="range"
+            class="setting-slider"
+            min="0"
+            max="100"
+            v-model.number="settings.defaultVolume"
+          />
+          <span class="slider-value">{{ settings.defaultVolume }}%</span>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">{{ t('settings.mediaKeys') }}</h2>
-        
+        <h2 class="section-title">{{ t("settings.mediaKeys") }}</h2>
+
         <div class="setting-item">
           <label class="setting-label">
-            <input type="checkbox" class="setting-checkbox" checked />
-            <span>{{ t('settings.enableMediaKeys') }}</span>
+            <input
+              type="checkbox"
+              class="setting-checkbox"
+              v-model="settings.enableMediaKeys"
+            />
+            <span>{{ t("settings.enableMediaKeys") }}</span>
           </label>
-          <p class="setting-description">{{ t('settings.enableMediaKeysDesc') }}</p>
+          <p class="setting-description">
+            {{ t("settings.enableMediaKeysDesc") }}
+          </p>
         </div>
       </div>
 
       <div class="settings-section">
-        <h2 class="section-title">{{ t('settings.about') }}</h2>
-        
+        <h2 class="section-title">{{ t("settings.about") }}</h2>
+
         <div class="about-info">
-          <p class="app-name">{{ t('settings.appName') }}</p>
-          <p class="app-version">{{ t('settings.appVersion') }}</p>
-          <p class="app-desc">{{ t('settings.appDesc') }}</p>
+          <p class="app-name">{{ t("settings.appName") }}</p>
+          <p class="app-version">{{ t("settings.appVersion") }}</p>
+          <p class="app-desc">{{ t("settings.appDesc") }}</p>
         </div>
       </div>
     </div>
@@ -153,6 +335,98 @@ onMounted(() => {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: #ffffff;
   overflow: hidden;
+}
+
+/* 重启提示 */
+.restart-tip {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(79, 195, 247, 0.15);
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+  max-width: 400px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.tip-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.tip-icon {
+  font-size: 18px;
+}
+
+.tip-text {
+  font-size: 13px;
+  color: #ffffff;
+  line-height: 1.4;
+}
+
+.tip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.restart-btn {
+  background: rgba(79, 195, 247, 0.3);
+  border: 1px solid rgba(79, 195, 247, 0.5);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.restart-btn:hover {
+  background: rgba(79, 195, 247, 0.5);
+  border-color: rgba(79, 195, 247, 0.7);
+  transform: translateY(-1px);
+}
+
+.restart-btn:active {
+  transform: translateY(0);
+}
+
+.close-tip-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.close-tip-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 /* 顶部标题栏 */
