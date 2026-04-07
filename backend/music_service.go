@@ -95,6 +95,15 @@ func (m *MusicService) SetContext(ctx context.Context) {
 
 // Init 初始化服务
 func (m *MusicService) Init() error {
+	// 检查 FFmpeg 可用性
+	if ffmpegPath, err := findFFmpegPath(); err != nil {
+		log.Printf("⚠️ FFmpeg 未找到：%v", err)
+		log.Println("⚠️ 部分音频格式可能无法播放，请安装 FFmpeg")
+		log.Println("📖 查看安装指南：FFMPEG_GUIDE.md")
+	} else {
+		log.Printf("✓ FFmpeg 已就绪: %s", ffmpegPath)
+	}
+
 	// 初始化音乐库管理器
 	if err := m.libraryManager.Init(); err != nil {
 		return fmt.Errorf("初始化音乐库失败：%w", err)

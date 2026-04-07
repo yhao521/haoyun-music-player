@@ -26,7 +26,7 @@
 - 📋 **播放列表管理** - 完善的播放列表控制和播放模式（顺序/循环/随机/单曲）
 - 🎚️ **音量控制** - 精细的音量调节 (0-100%)
 - 💻 **菜单集成** - 系统托盘菜单快速访问
-- 🎵 **多格式支持** - 支持 MP3、WAV、FLAC 音频格式
+- 🎵 **广泛的格式支持** - 通过 FFmpeg 支持 MP3、WAV、FLAC、AAC、M4A、OGG、WMA、APE、Opus 等几乎所有音频格式（[详情](./FFMPEG_GUIDE.md)）
 - 📂 **音乐库管理** - 支持多个音乐库，自动扫描和索引
 - ⌨️ **全局快捷键** - 空格键播放/暂停，Cmd/Ctrl+[ 上一曲，Cmd/Ctrl+] 下一曲
 - 🔍 **歌曲搜索** - 浏览视图中支持按标题、艺术家、专辑搜索
@@ -112,6 +112,10 @@
 
 - **Go 1.25+** - [下载安装](https://golang.org/dl/)
 - **Node.js 18+** - [下载安装](https://nodejs.org/)
+- **FFmpeg** - 音频解码引擎（[安装指南](./FFMPEG_GUIDE.md)）
+  - macOS: `brew install ffmpeg`
+  - Ubuntu: `sudo apt-get install ffmpeg`
+  - Windows: `choco install ffmpeg`
 - **Wails v3 CLI**（可选）- `go install github.com/wailsapp/wails/v3/cmd/wails3@latest`
 - **编译器** - macOS: Xcode Command Line Tools, Windows: GCC/MinGW, Linux: build-essential
 
@@ -175,48 +179,28 @@ haoyun-music-player/
 ├── main.go                      # Go 主入口，应用初始化
 ├── backend/                     # 后端代码
 │   ├── music_service.go         # 统一音乐服务（MVC Model 层）
-│   ├── audioplayer.go           # 音频播放器（Oto + 解码器）
+│   ├── audioplayer.go           # 音频播放器（支持 FFmpeg 解码）
 │   ├── libraryservice.go        # 音乐库管理服务
 │   ├── musicsmanager.go         # 播放列表管理器
-│   ├── com.go                   # 通用工具函数
-│   └── pkg/                     # 工具包
+│   ├── historymanager.go        # 播放历史管理
+│   ├── lyricmanager.go          # 歌词管理
+│   ├── covermanager.go          # 专辑封面管理
+│   └── pkg/                     # 公共工具包
+│       ├── config/              # 配置管理
+│       ├── i18n/                # 国际化支持
 │       ├── file/                # 文件操作工具
-│       └── utils/               # 实用工具
+│       └── utils/               # 通用工具函数
 ├── frontend/                    # 前端代码
 │   ├── src/
-│   │   ├── App.vue             # 根组件（路由控制）
-│   │   ├── components/
-│   │   │   └── AppMain.vue     # 主播放器组件
-│   │   ├── views/
-│   │   │   └── BrowseView.vue  # 浏览音乐库视图
-│   │   ├── main.ts             # Vue 入口
-│   │   └── vite-env.d.ts       # TypeScript 定义
-│   ├── public/
-│   │   ├── style.css           # 全局样式
-│   │   └── wails.png           # 应用图标
-│   ├── bindings/               # Wails 自动生成的绑定
-│   ├── package.json            # 前端依赖
-│   ├── vite.config.ts          # Vite 配置
-│   └── tsconfig.json           # TypeScript 配置
-├── build/
-│   └── config.yml              # Wails 构建配置
-├── Taskfile.yml                # 任务自动化配置
-├── go.mod                      # Go 模块配置
-├── README.md                   # 项目说明（本文件）
-├── QUICKSTART.md               # 快速开始指南
-├── IMPLEMENTATION.md           # 实现文档
-├── API_GUIDE.md                # API 使用指南
-├── KEYBOARD_SHORTCUTS.md       # 键盘快捷键说明
-├── MEDIA_KEYS_GUIDE.md         # 媒体键支持说明
-├── MUSIC_INFO_DISPLAY.md       # 音乐信息显示说明
-├── NOW_PLAYING_FEATURE.md      # 正在播放功能说明
-├── SPEAKER_FIX.md              # 扬声器修复说明
-├── TRAY_FIX.md                 # 托盘修复说明
-├── TRAY_UPDATE.md              # 托盘更新说明
-├── TROUBLESHOOTING.md          # 故障排除指南
-├── WAILS_BINDINGS.md           # Wails 绑定说明
-├── start.sh                    # Unix 启动脚本
-└── start.bat                   # Windows 启动脚本
+│   │   ├── components/          # Vue 组件
+│   │   ├── views/               # 页面视图
+│   │   ├── i18n/                # 前端国际化
+│   │   └── main.ts              # 前端入口
+│   └── public/                  # 静态资源
+├── FFMPEG_GUIDE.md              # FFmpeg 安装和使用指南
+├── test_ffmpeg.sh               # macOS/Linux FFmpeg 测试脚本
+├── test_ffmpeg.bat              # Windows FFmpeg 测试脚本
+└── ...                          # 其他文档和配置文件
 ```
 
 ## 📖 功能清单
@@ -226,6 +210,7 @@ haoyun-music-player/
 #### 核心功能
 - [x] 基础 UI 界面（主播放器 + 浏览视图）
 - [x] 真实音频播放核心（MP3/WAV/FLAC）
+- [x] **FFmpeg 集成** - 支持 AAC、M4A、OGG、WMA、APE、Opus 等格式（[详情](./FFMPEG_GUIDE.md)）
 - [x] 播放/暂停控制（含断点续播）
 - [x] 上一首/下一首切换
 - [x] 进度条显示和拖拽跳转
@@ -356,8 +341,33 @@ haoyun-music-player/
 - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
 - [托盘修复说明](./TRAY_FIX.md)
 - [扬声器修复](./SPEAKER_FIX.md)
+- [FFmpeg 音频解码](./FFMPEG_GUIDE.md) - 广泛的音频格式支持
 - [新功能实现](./NEW_FEATURES.md) - 播放历史、歌词、专辑封面
 - [Bug 修复记录](./BUGFIX_MENU_CRASH.md) - 菜单空指针错误修复
+
+## 🧪 FFmpeg 测试
+
+本项目集成了 FFmpeg 以支持更多音频格式。您可以使用以下命令测试 FFmpeg 是否正常工作：
+
+### macOS/Linux
+```
+# 运行测试脚本
+./test_ffmpeg.sh
+```
+
+### Windows
+```
+# 运行测试脚本
+.\test_ffmpeg.bat
+```
+
+测试脚本会：
+1. ✅ 检查 FFmpeg 是否已安装
+2. ✅ 扫描当前目录下的音频文件
+3. ✅ 尝试解码每个文件并显示信息
+4. ✅ 验证采样率、声道数、时长等参数
+
+详细安装和使用说明请查看 [FFMPEG_GUIDE.md](./FFMPEG_GUIDE.md)。
 
 ## 🤝 贡献
 
@@ -420,13 +430,20 @@ const tracks = ref<TrackInfo[]>([])
    - 框架处于 Alpha 版本，API 可能变动
    - 部分功能可能需要 workaround
 
-2. **音频格式限制**
-   - 目前仅支持 MP3、WAV、FLAC
-   - AAC、OGG Vorbis 等格式暂不支持
+2. **音频格式支持**
+   - ✅ MP3、WAV、FLAC 使用原生解码器（高性能）
+   - ✅ AAC、M4A、OGG、WMA、APE、Opus 等通过 FFmpeg 支持
+   - ⚠️ 需要安装 FFmpeg 才能播放非原生格式
+   - 📖 查看 [FFMPEG_GUIDE.md](./FFMPEG_GUIDE.md) 了解详细信息
 
 3. **macOS 权限**
    - 首次运行可能需要授权访问音乐文件夹
    - 系统偏好设置 > 安全性与隐私 > 完全磁盘访问权限
+
+4. **内存使用**
+   - FFmpeg 解码会将整个音频文件加载到内存
+   - 大文件（>100MB）可能占用较多 RAM
+   - 建议使用原生支持的格式（MP3/WAV/FLAC）以获得最佳性能
 
 ## 📄 许可证
 

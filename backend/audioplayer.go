@@ -1,12 +1,15 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +24,199 @@ import (
 // contains 检查字符串是否包含子串（辅助函数）
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+// FindFFmpegPath 查找 FFmpeg 可执行文件路径（公开版本）
+func FindFFmpegPath() (string, error) {
+	return findFFmpegPath()
+}
+
+// findFFmpegPath 查找 FFmpeg 可执行文件路径（内部使用）
+func findFFmpegPath() (string, error) {
+	// 首先尝试从环境变量获取
+	if ffmpegPath := os.Getenv("FFMPEG_PATH"); ffmpegPath != "" {
+		if _, err := os.Stat(ffmpegPath); err == nil {
+			return ffmpegPath, nil
+		}
+	}
+
+	// 在系统 PATH 中查找
+	ffmpegNames := []string{"ffmpeg"}
+	if runtime.GOOS == "windows" {
+		ffmpegNames = append(ffmpegNames, "ffmpeg.exe")
+	}
+
+	for _, name := range ffmpegNames {
+		path, err := exec.LookPath(name)
+		if err == nil {
+			return path, nil
+		}
+	}
+
+	// 尝试常见安装位置
+	commonPaths := []string{
+		"/usr/bin/ffmpeg",
+		"/usr/local/bin/ffmpeg",
+		"/opt/homebrew/bin/ffmpeg", // macOS Apple Silicon
+		"C:\\ffmpeg\\bin\\ffmpeg.exe",
+		"C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe",
+	}
+
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("未找到 FFmpeg，请安装 FFmpeg 或设置 FFMPEG_PATH 环境变量")
+}
+
+// FFmpegStreamer 基于 FFmpeg 的流式读取器
+type FFmpegStreamer struct {
+	pcmData    []byte     // PCM 数据
+	pos        int        // 当前位置
+	sampleRate int        // 采样率
+	channels   int        // 声道数
+	duration   int        // 总时长（秒）
+	mu         sync.Mutex // 并发保护
+	closed     bool       // 是否已关闭
+}
+
+// NewFFmpegStreamer 创建 FFmpeg 流式读取器
+func NewFFmpegStreamer(filePath string) (*FFmpegStreamer, error) {
+	ffmpegPath, err := findFFmpegPath()
+	if err != nil {
+		return nil, fmt.Errorf("FFmpeg 未找到：%w", err)
+	}
+
+	// 第一步：获取音频信息（采样率、声道数、时长）
+	infoCmd := exec.Command(ffmpegPath, "-i", filePath, "-f", "null", "-")
+	var stderr bytes.Buffer
+	infoCmd.Stderr = &stderr
+	infoCmd.Run() // 忽略错误，我们只需要 stderr 中的信息
+
+	// 解析音频信息
+	sampleRate := 44100 // 默认值
+	channels := 2       // 默认立体声
+	duration := 0
+
+	// 简单的信息解析（可以从 ffprobe 获取更准确的信息）
+	infoOutput := stderr.String()
+	log.Printf("[FFmpeg] 音频信息:\n%s", infoOutput)
+
+	// 第二步：使用 FFmpeg 转换为 PCM 数据
+	// 输出格式：16-bit LE PCM，44100Hz，立体声
+	cmd := exec.Command(ffmpegPath,
+		"-i", filePath,           // 输入文件
+		"-f", "s16le",            // 输出格式：16-bit signed little-endian
+		"-acodec", "pcm_s16le",   // 音频编解码器
+		"-ar", "44100",           // 采样率 44100Hz
+		"-ac", "2",               // 双声道
+		"-vn",                    // 禁用视频
+		"-loglevel", "error",     // 只显示错误
+		"pipe:1",                 // 输出到 stdout
+	)
+
+	var stdout bytes.Buffer
+	var cmdStderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &cmdStderr
+
+	if err := cmd.Run(); err != nil {
+		log.Printf("[FFmpeg] 转换错误: %v", err)
+		log.Printf("[FFmpeg] stderr: %s", cmdStderr.String())
+		return nil, fmt.Errorf("FFmpeg 转换失败：%w", err)
+	}
+
+	pcmData := stdout.Bytes()
+	if len(pcmData) == 0 {
+		return nil, fmt.Errorf("FFmpeg 未生成任何音频数据")
+	}
+
+	// 计算时长
+	bytesPerSecond := sampleRate * channels * 2 // 16-bit = 2 bytes
+	duration = len(pcmData) / bytesPerSecond
+
+	streamer := &FFmpegStreamer{
+		pcmData:    pcmData,
+		pos:        0,
+		sampleRate: sampleRate,
+		channels:   channels,
+		duration:   duration,
+		closed:     false,
+	}
+
+	log.Printf("[FFmpeg] 成功加载音频: %d 字节, %d 秒, %dHz, %d 声道",
+		len(pcmData), duration, sampleRate, channels)
+
+	return streamer, nil
+}
+
+// Read 实现 io.Reader 接口
+func (f *FFmpegStreamer) Read(data []byte) (n int, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.closed || f.pos >= len(f.pcmData) {
+		return 0, io.EOF
+	}
+
+	n = copy(data, f.pcmData[f.pos:])
+	f.pos += n
+
+	if f.pos >= len(f.pcmData) {
+		return n, io.EOF
+	}
+
+	return n, nil
+}
+
+// Len 返回总时长 (秒)
+func (f *FFmpegStreamer) Len() int {
+	return f.duration
+}
+
+// Position 返回当前位置 (秒)
+func (f *FFmpegStreamer) Position() int {
+	if f.sampleRate == 0 || f.channels == 0 {
+		return 0
+	}
+	bytesPerSecond := f.sampleRate * f.channels * 2
+	if bytesPerSecond == 0 {
+		return 0
+	}
+	return f.pos / bytesPerSecond
+}
+
+// Seek 跳转到指定位置 (秒)
+func (f *FFmpegStreamer) Seek(position int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if position < 0 {
+		position = 0
+	}
+
+	bytesPerSecond := f.sampleRate * f.channels * 2
+	f.pos = position * bytesPerSecond
+
+	if f.pos > len(f.pcmData) {
+		f.pos = len(f.pcmData)
+	}
+
+	return nil
+}
+
+// Close 关闭流
+func (f *FFmpegStreamer) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if !f.closed {
+		f.pcmData = nil
+		f.closed = true
+	}
+	return nil
 }
 
 // MP3Streamer 基于 go-mp3 的流式读取器，实现 io.Reader 接口供 oto 使用
@@ -260,106 +456,136 @@ type AudioReader interface {
 	Seek(position int) error
 }
 
+// LoadAudioFileForTest 加载音频文件用于测试（公开版本）
+func (ap *AudioPlayer) LoadAudioFileForTest(path string) (AudioReader, int, int, error) {
+	return ap.loadAudioFile(path)
+}
+
 // loadAudioFile 加载音频文件
 func (ap *AudioPlayer) loadAudioFile(path string) (AudioReader, int, int, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("打开文件失败：%w", err)
+	ext := filepath.Ext(strings.ToLower(path))
+
+	// 定义支持的格式列表
+	supportedFormats := map[string]bool{
+		".mp3":  true,
+		".wav":  true,
+		".flac": true,
+		".aac":  true,
+		".m4a":  true,
+		".ogg":  true,
+		".wma":  true,
+		".ape":  true,
+		".opus": true,
+		".aiff": true,
+		".alac": true,
 	}
 
-	ext := filepath.Ext(path)
-
-	switch ext {
-	case ".mp3":
-		// 使用 go-mp3 解码 MP3 文件 (流式解码)
-		streamer, err := NewMP3Streamer(file)
-		if err != nil {
-			file.Close()
-			log.Printf("⚠️ go-mp3 解码失败：%v", err)
-			
-			// 提供更友好的错误提示
-			errMsg := err.Error()
-			if contains(errMsg, "layer3") || contains(errMsg, "want 1; got") {
-				return nil, 0, 0, fmt.Errorf(
-					"MP3 格式不兼容：该文件使用了非标准的 MP3 编码格式（Layer I/II）。\n" +
-					"当前播放器仅支持标准的 MP3 Layer III 格式。\n" +
-					"建议：请使用其他工具将该文件转换为标准 MP3 格式，或使用 WAV/FLAC 格式。",
-				)
-			}
-			return nil, 0, 0, fmt.Errorf("MP3 解码失败：%w", err)
-		}
-		return streamer, streamer.sampleRate, streamer.channels, nil
-
-	case ".wav":
-		// 使用 go-audio/wav 解码 WAV 文件
-		decoder := wav.NewDecoder(file)
-
-		// 读取所有 PCM 数据
-		pcmBuffer, err := decoder.FullPCMBuffer()
-		if err != nil {
-			file.Close()
-			return nil, 0, 0, fmt.Errorf("WAV 解码失败：%w", err)
-		}
-
-		// 将 int 数组转换为 byte 数组 (16-bit PCM)
-		pcmData := make([]byte, len(pcmBuffer.Data)*2)
-		for i, sample := range pcmBuffer.Data {
-			binary.LittleEndian.PutUint16(pcmData[i*2:i*2+2], uint16(sample))
-		}
-
-		// 创建流式读取器
-		streamer := &PcmStreamer{
-			pcmData:    pcmData,
-			sampleRate: int(decoder.SampleRate),
-			channels:   int(decoder.NumChans),
-		}
-		return streamer, streamer.sampleRate, streamer.channels, nil
-
-	case ".flac":
-		// 使用 mewkiz/flac 解码 FLAC 文件
-		stream, err := flac.New(file)
-		if err != nil {
-			file.Close()
-			return nil, 0, 0, fmt.Errorf("FLAC 解码失败：%w", err)
-		}
-
-		// 获取音频信息
-		sampleRate := int(stream.Info.SampleRate)
-		channels := int(stream.Info.NChannels)
-
-		// 读取所有 PCM 数据 (使用 frame 包)
-		var pcmData []byte
-		for {
-			frame, err := stream.ParseNext()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, 0, 0, fmt.Errorf("FLAC 解析失败：%w", err)
-			}
-
-			// 将帧数据转换为字节
-			for _, subFrame := range frame.Subframes {
-				for _, sample := range subFrame.Samples {
-					buf := make([]byte, 2)
-					binary.LittleEndian.PutUint16(buf, uint16(sample))
-					pcmData = append(pcmData, buf...)
-				}
-			}
-		}
-		stream.Close()
-
-		streamer := &PcmStreamer{
-			pcmData:    pcmData,
-			sampleRate: sampleRate,
-			channels:   channels,
-		}
-		return streamer, streamer.sampleRate, streamer.channels, nil
-
-	default:
-		file.Close()
+	// 检查是否为已知格式
+	if !supportedFormats[ext] {
 		return nil, 0, 0, fmt.Errorf("不支持的音频格式：%s", ext)
 	}
+
+	// 优先使用原生解码器（性能更好）
+	switch ext {
+	case ".mp3":
+		// 尝试使用 go-mp3 解码
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("打开文件失败：%w", err)
+		}
+		
+		streamer, err := NewMP3Streamer(file)
+		if err == nil {
+			log.Printf("[loadAudioFile] 使用原生 MP3 解码器")
+			return streamer, streamer.sampleRate, streamer.channels, nil
+		}
+		
+		// 如果原生解码失败，关闭文件并降级到 FFmpeg
+		file.Close()
+		log.Printf("[loadAudioFile] 原生 MP3 解码失败，降级到 FFmpeg: %v", err)
+		fallthrough
+
+	case ".wav":
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("打开文件失败：%w", err)
+		}
+		
+		decoder := wav.NewDecoder(file)
+		pcmBuffer, err := decoder.FullPCMBuffer()
+		if err == nil {
+			pcmData := make([]byte, len(pcmBuffer.Data)*2)
+			for i, sample := range pcmBuffer.Data {
+				binary.LittleEndian.PutUint16(pcmData[i*2:i*2+2], uint16(sample))
+			}
+			
+			streamer := &PcmStreamer{
+				pcmData:    pcmData,
+				sampleRate: int(decoder.SampleRate),
+				channels:   int(decoder.NumChans),
+			}
+			log.Printf("[loadAudioFile] 使用原生 WAV 解码器")
+			return streamer, streamer.sampleRate, streamer.channels, nil
+		}
+		
+		file.Close()
+		log.Printf("[loadAudioFile] 原生 WAV 解码失败，降级到 FFmpeg: %v", err)
+		fallthrough
+
+	case ".flac":
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, 0, 0, fmt.Errorf("打开文件失败：%w", err)
+		}
+		
+		stream, err := flac.New(file)
+		if err == nil {
+			sampleRate := int(stream.Info.SampleRate)
+			channels := int(stream.Info.NChannels)
+			
+			var pcmData []byte
+			for {
+				frame, err := stream.ParseNext()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					break
+				}
+				
+				for _, subFrame := range frame.Subframes {
+					for _, sample := range subFrame.Samples {
+						buf := make([]byte, 2)
+						binary.LittleEndian.PutUint16(buf, uint16(sample))
+						pcmData = append(pcmData, buf...)
+					}
+				}
+			}
+			stream.Close()
+			
+			if len(pcmData) > 0 {
+				streamer := &PcmStreamer{
+					pcmData:    pcmData,
+					sampleRate: sampleRate,
+					channels:   channels,
+				}
+				log.Printf("[loadAudioFile] 使用原生 FLAC 解码器")
+				return streamer, streamer.sampleRate, streamer.channels, nil
+			}
+		}
+		
+		file.Close()
+		log.Printf("[loadAudioFile] 原生 FLAC 解码失败，降级到 FFmpeg: %v", err)
+	}
+
+	// 所有原生解码器都失败或是不支持的格式，使用 FFmpeg
+	log.Printf("[loadAudioFile] 使用 FFmpeg 解码器处理格式: %s", ext)
+	ffmpegStreamer, err := NewFFmpegStreamer(path)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("FFmpeg 解码失败：%w", err)
+	}
+	
+	return ffmpegStreamer, ffmpegStreamer.sampleRate, ffmpegStreamer.channels, nil
 }
 
 // closeOto 关闭 oto 播放器 (保留 Context)
@@ -374,7 +600,7 @@ func (ap *AudioPlayer) closeOto() {
 
 // initOto 初始化或复用 oto 音频上下文
 func (ap *AudioPlayer) initOto(sampleRate, channelCount int) error {
-	// 如果已经创建过 Context，直接复用（oto v3 的 Context 只能创建一次）
+	// 如果已经创建过 Context，直接复用（oto v3 限制：只能创建一次）
 	if ap.ctxInitialized {
 		return nil
 	}
