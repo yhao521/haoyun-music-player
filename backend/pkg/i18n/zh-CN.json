@@ -14,7 +14,22 @@
     "settings": "设置",
     "version": "版本 0.5.0",
     "quit": "退出",
-    "showMainWindow": "显示主窗口"
+    "showMainWindow": "显示主窗口",
+    "file": "文件",
+    "music": "音乐",
+    "new": "新建",
+    "open": "打开",
+    "save": "保存",
+    "development": "开发",
+    "edit": "编辑",
+    "playback": "播放",
+    "view": "视图",
+    "help": "帮助",
+    "undo": "撤销",
+    "redo": "重做",
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴"
   },
   "playMode": {
     "order": "顺序播放",
@@ -32,5 +47,20 @@
   "status": {
     "notPlaying": "未播放",
     "loading": "加载中..."
+  },
+  "dev": {
+    "reloadApp": "重新加载应用",
+    "openDevTools": "打开开发者工具",
+    "showEnvironment": "显示环境信息"
+  },
+  "view": {
+    "darkMode": "深色模式",
+    "listView": "列表视图",
+    "gridView": "网格视图",
+    "detailView": "详细视图"
+  },
+  "help": {
+    "documentation": "文档",
+    "about": "关于"
   }
 }

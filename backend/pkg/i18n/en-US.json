@@ -14,7 +14,22 @@
     "settings": "Settings",
     "version": "Version 0.5.0",
     "quit": "Quit",
-    "showMainWindow": "Show Main Window"
+    "showMainWindow": "Show Main Window",
+    "file": "File",
+    "music": "Music",
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "development": "Development",
+    "edit": "Edit",
+    "playback": "Playback",
+    "view": "View",
+    "help": "Help",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste"
   },
   "playMode": {
     "order": "Order Play",
@@ -32,5 +47,20 @@
   "status": {
     "notPlaying": "Not Playing",
     "loading": "Loading..."
+  },
+  "dev": {
+    "reloadApp": "Reload Application",
+    "openDevTools": "Open DevTools",
+    "showEnvironment": "Show Environment"
+  },
+  "view": {
+    "darkMode": "Dark Mode",
+    "listView": "List View",
+    "gridView": "Grid View",
+    "detailView": "Detail View"
+  },
+  "help": {
+    "documentation": "Documentation",
+    "about": "About"
   }
 }

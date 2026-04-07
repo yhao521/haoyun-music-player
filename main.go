@@ -1196,22 +1196,22 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	}
 
 	// File menu
-	fileMenu := menu.AddSubmenu("File")
+	fileMenu := menu.AddSubmenu(t("menu.file"))
 	fileMenu.Add(t("menu.browseSongs")).
 		SetAccelerator("Ctrl+O").OnClick(func(ctx *application.Context) {
 		OpenDir()
 	})
-	fileMenu.Add("New").
+	fileMenu.Add(t("menu.new")).
 		SetAccelerator("Ctrl+N").
 		OnClick(func(ctx *application.Context) {
 			// Create new document
 		})
-	fileMenu.Add("Open").
+	fileMenu.Add(t("menu.open")).
 		SetAccelerator("Ctrl+O").
 		OnClick(func(ctx *application.Context) {
 			// Open file dialog
 		})
-	fileMenu.Add("Save").
+	fileMenu.Add(t("menu.save")).
 		SetAccelerator("Ctrl+S").
 		OnClick(func(ctx *application.Context) {
 			// Save document
@@ -1222,7 +1222,7 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	})
 
 	// Music menu (从托盘菜单复制的功能)
-	musicMenu := menu.AddSubmenu("Music")
+	musicMenu := menu.AddSubmenu(t("menu.music"))
 
 	// 正在播放菜单项（禁用状态，仅展示）
 	nowPlayingMenuItem := musicMenu.Add(t("status.notPlaying"))
@@ -1332,9 +1332,9 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	menuVersionItem.SetEnabled(false)
 
 	// Add development menu
-	devMenu := menu.AddSubmenu("Development")
+	devMenu := menu.AddSubmenu(t("menu.development"))
 	//重载app
-	devMenu.Add("Reload Application").OnClick(func(ctx *application.Context) {
+	devMenu.Add(t("dev.reloadApp")).OnClick(func(ctx *application.Context) {
 		// Reload the application
 		window := app.Window.Current()
 		if window != nil {
@@ -1342,44 +1342,44 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 		}
 	})
 	//打开控制台
-	devMenu.Add("Open DevTools").OnClick(func(ctx *application.Context) {
+	devMenu.Add(t("dev.openDevTools")).OnClick(func(ctx *application.Context) {
 		window := app.Window.Current()
 		if window != nil {
 			window.OpenDevTools()
 		}
 	})
 
-	devMenu.Add("Show Environment").OnClick(func(ctx *application.Context) {
+	devMenu.Add(t("dev.showEnvironment")).OnClick(func(ctx *application.Context) {
 		// showEnvironmentDialog(app)
 	})
 
 	// Edit menu
-	editMenu := menu.AddSubmenu("Edit")
-	editMenu.Add("Undo").SetAccelerator("Ctrl+Z")
-	editMenu.Add("Redo").SetAccelerator("Ctrl+Y")
+	editMenu := menu.AddSubmenu(t("menu.edit"))
+	editMenu.Add(t("menu.undo")).SetAccelerator("Ctrl+Z")
+	editMenu.Add(t("menu.redo")).SetAccelerator("Ctrl+Y")
 	editMenu.AddSeparator()
-	editMenu.Add("Cut").SetAccelerator("Ctrl+X")
-	editMenu.Add("Copy").SetAccelerator("Ctrl+C")
-	editMenu.Add("Paste").SetAccelerator("Ctrl+V")
+	editMenu.Add(t("menu.cut")).SetAccelerator("Ctrl+X")
+	editMenu.Add(t("menu.copy")).SetAccelerator("Ctrl+C")
+	editMenu.Add(t("menu.paste")).SetAccelerator("Ctrl+V")
 
 	// Playback menu (播放控制菜单 - 快捷键必须在这里才能生效)
-	playbackMenu := menu.AddSubmenu("Playback")
+	playbackMenu := menu.AddSubmenu(t("menu.playback"))
 
-	playPauseMenuItem := playbackMenu.Add("Play/Pause")
+	playPauseMenuItem := playbackMenu.Add(t("menu.playPause"))
 	playPauseMenuItem.SetAccelerator("Space")
 	// OnClick 会在 main 函数中设置
 
-	prevMenuItem := playbackMenu.Add("Previous Track")
+	prevMenuItem := playbackMenu.Add(t("menu.previousTrack"))
 	prevMenuItem.SetAccelerator("CmdOrCtrl+[")
 	// OnClick 会在 main 函数中设置
 
-	nextMenuItem := playbackMenu.Add("Next Track")
+	nextMenuItem := playbackMenu.Add(t("menu.nextTrack"))
 	nextMenuItem.SetAccelerator("CmdOrCtrl+]")
 	// OnClick 会在 main 函数中设置
 
 	// View menu
-	viewMenu := menu.AddSubmenu("View")
-	darkMode := viewMenu.AddCheckbox("Dark Mode", false)
+	viewMenu := menu.AddSubmenu(t("menu.view"))
+	darkMode := viewMenu.AddCheckbox(t("view.darkMode"), false)
 	darkMode.OnClick(func(ctx *application.Context) {
 		// Toggle dark mode
 		isChecked := darkMode.Checked()
@@ -1387,16 +1387,16 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	})
 	viewMenu.AddSeparator()
 	// 必须保存 radio items 的引用，避免 Wails 处理 radio groups 时出现空指针错误
-	_ = viewMenu.AddRadio("List View", true)
-	_ = viewMenu.AddRadio("Grid View", false)
-	_ = viewMenu.AddRadio("Detail View", false)
+	_ = viewMenu.AddRadio(t("view.listView"), true)
+	_ = viewMenu.AddRadio(t("view.gridView"), false)
+	_ = viewMenu.AddRadio(t("view.detailView"), false)
 
 	// Help menu
-	helpMenu := menu.AddSubmenu("Help")
-	helpMenu.Add("Documentation").OnClick(func(ctx *application.Context) {
+	helpMenu := menu.AddSubmenu(t("menu.help"))
+	helpMenu.Add(t("help.documentation")).OnClick(func(ctx *application.Context) {
 		// Open docs
 	})
-	helpMenu.Add("About").OnClick(func(ctx *application.Context) {
+	helpMenu.Add(t("help.about")).OnClick(func(ctx *application.Context) {
 		// Show about dialog
 	})
 
