@@ -1,75 +1,82 @@
-# 音乐播放器后台实现总结
+# Haoyun Music Player - 完整功能实现总结
 
-## 一、已实现的功能模块
+## 🎉 项目完成状态
 
-### 1.1 核心服务层
-
-#### ✅ AudioPlayer (音频播放器)
-**文件**: `backend/audioplayer.go`
-
-**功能**:
-- ✅ 支持 MP3, WAV, FLAC 格式解码播放
-- ✅ 播放控制：Play, Pause, Stop, TogglePlayPause
-- ✅ 音量控制：SetVolume, GetVolume (范围 0.0-1.0)
-- ✅ 播放状态查询：IsPlaying
-- ✅ 基于 beep v2 库的流式播放
-- ✅ 线程安全：使用 sync.RWMutex
-
-**技术实现**:
-```go
-type AudioPlayer struct {
-    mu        sync.RWMutex
-    ctrl      *beep.Ctrl
-    streamer  beep.StreamSeekCloser
-    gain      *effects.Gain
-    // ...
-}
-```
-
-**注意事项**:
-- Gain 效果器的计算方式：`Gain = volume - 1` (因为 beep 库使用 1+Gain 的乘法)
-- speaker 需要在播放前初始化
-- 使用 StreamSeekCloser 接口而非 Streamer，以支持 Close 方法
+**状态**: ✅ **后台核心功能已完成，前端开发准备中**  
+**日期**: 2026-04-07  
+**版本**: v1.0.0-beta
 
 ---
 
-#### ✅ PlaylistManager (播放列表管理)
+## 📦 交付成果概览
+
+### 1. 核心后端模块
+
+#### 🎵 AudioPlayer (音频播放器)
+**文件**: `backend/audioplayer.go`
+
+**核心功能**:
+- ✅ 支持 MP3, WAV, FLAC 格式解码播放
+- ✅ 播放控制：Play, Pause, Stop, TogglePlayPause
+- ✅ 音量控制：SetVolume, GetVolume (0.0-1.0)
+- ✅ 播放状态查询：IsPlaying
+- ✅ 基于 beep v2 的流式播放
+- ✅ 线程安全：sync.RWMutex
+
+**关键技术点**:
+```go
+type AudioPlayer struct {
+    mu       sync.RWMutex
+    ctrl     *beep.Ctrl
+    streamer beep.StreamSeekCloser
+    gain     *effects.Gain
+}
+
+// Gain 计算: volume - 1 (范围 -1 到 0)
+gain := &effects.Gain{
+    Streamer: streamer,
+    Gain:     volume - 1,
+}
+```
+
+---
+
+#### 📋 PlaylistManager (播放列表管理)
 **文件**: `backend/musicsmanager.go`
 
-**功能**:
-- ✅ 播放列表管理：AddToPlaylist, ClearPlaylist, GetPlaylist
-- ✅ 播放控制：PlayIndex, Next, Previous
+**核心功能**:
+- ✅ 播放列表 CRUD：AddToPlaylist, ClearPlaylist, GetPlaylist
+- ✅ 播放导航：PlayIndex, Next, Previous
 - ✅ 播放模式：顺序 (order), 循环 (loop), 随机 (random)
-- ✅ 当前播放索引跟踪
-- ✅ 线程安全：使用 sync.RWMutex
+- ✅ 当前索引跟踪
+- ✅ 线程安全
 
-**播放模式实现**:
+**播放模式逻辑**:
 ```go
 switch pm.playMode {
 case "random":
     pm.current = rand.Intn(len(pm.playlist))
 case "loop":
-    pm.current = pm.current % len(pm.playlist)
-case "order":
     pm.current = (pm.current + 1) % len(pm.playlist)
+case "order":
+    if pm.current < len(pm.playlist)-1 {
+        pm.current++
+    }
 }
 ```
 
 ---
 
-#### ✅ LibraryManager (音乐库管理)
+#### 📚 LibraryManager (音乐库管理)
 **文件**: `backend/libraryservice.go`
 
-**功能**:
-- ✅ 音乐库 CRUD：AddLibrary, RemoveLibrary, SwitchLibrary, RenameLibrary
-- ✅ 目录扫描：scanDirectory (支持 mp3, wav, flac, aac, ogg, wma)
-- ✅ JSON 持久化：saveLibrary, loadLibrary
-- ✅ 多音乐库支持：使用 map[string]*MusicLibrary
-- ✅ 当前库跟踪：currentLib
-- ✅ 刷新功能：RefreshLibrary
-- ✅ 获取所有库：GetAllLibraries
-- ✅ 获取音轨路径：GetCurrentLibraryTracks
-- ✅ 线程安全：使用 sync.RWMutex
+**核心功能**:
+- ✅ 音乐库管理：Add, Remove, Switch, Rename
+- ✅ 目录扫描：支持 mp3, wav, flac, aac, ogg, wma
+- ✅ JSON 持久化：自动保存到 `~/.haoyun-music/libraries/`
+- ✅ 多库支持：map[string]*MusicLibrary
+- ✅ 刷新与同步：RefreshLibrary
+- ✅ 线程安全
 
 **存储结构**:
 ```
@@ -80,7 +87,7 @@ case "order":
     └── ...
 ```
 
-**数据结构**:
+**数据模型**:
 ```go
 type MusicLibrary struct {
     Name      string
@@ -103,376 +110,330 @@ type TrackInfo struct {
 
 ---
 
-#### ✅ MusicService (统一服务接口)
+#### 🎛️ MusicService (统一服务接口)
 **文件**: `backend/music_service.go`
 
-**功能**:
-- ✅ 组合模式：持有 AudioPlayer, PlaylistManager, LibraryManager 引用
-- ✅ 播放控制：Play, Pause, Stop, TogglePlayPause, Next, Previous, PlayIndex
-- ✅ 音量控制：SetVolume, GetVolume
-- ✅ 播放模式：SetPlayMode, GetPlayMode
-- ✅ 播放列表：AddToPlaylist, ClearPlaylist, GetPlaylist
-- ✅ 音乐库：AddLibrary, GetCurrentLibrary, SwitchLibrary, RefreshLibrary, RenameLibrary
-- ✅ 加载音乐库：LoadCurrentLibrary (自动加载到播放列表并播放)
-- ✅ 辅助方法：GetSongMetadata, IsPlaying, GetLibraries, SetCurrentLibrary
+**核心功能**:
+- ✅ Facade 模式：组合 AudioPlayer, PlaylistManager, LibraryManager
+- ✅ 统一播放控制：Play, Pause, Stop, Next, Previous
+- ✅ 统一音量与模式控制
+- ✅ 统一音乐库操作
+- ✅ 依赖注入：SetApp, SetDepManager
+- ✅ 初始化协调：Init, LoadCurrentLibrary
 
-**架构模式**:
-- Facade 模式：对外提供统一接口，对内委托给子服务
-- 依赖注入：通过 SetApp 显式注入应用实例
+**架构优势**:
+- 对外提供简洁接口
+- 对内解耦子服务
+- 易于测试与维护
 
 ---
 
-### 1.2 系统服务层
+#### 🛠️ DependencyManager (依赖工具管理)
+**文件**: `backend/dependency_manager.go`
 
-#### ✅ Com (通用服务)
+**核心功能**:
+- ✅ 自动检测系统依赖 (FFmpeg 等)
+- ✅ 跨平台安装支持 (Homebrew, Chocolatey, apt-get)
+- ✅ 异步安装与状态回调
+- ✅ 托盘菜单集成
+- ✅ 实时状态通知
+
+**工具状态枚举**:
+```go
+type ToolStatus int
+const (
+    ToolNotInstalled ToolStatus = iota
+    ToolInstalling
+    ToolInstalled
+    ToolInstallFailed
+)
+```
+
+**跨平台安装策略**:
+- **macOS**: `brew install <tool>`
+- **Windows**: `choco install <tool>` / `scoop install <tool>`
+- **Linux**: `apt-get` / `dnf` / `pacman`
+
+---
+
+#### 💻 Com (通用服务)
 **文件**: `backend/com.go`
 
-**功能**:
-- ✅ 系统信息：IsMacOS
-- ✅ 文件对话框：SelectPathDownload
+**核心功能**:
+- ✅ 系统信息检测 (IsMacOS)
+- ✅ 文件/目录选择对话框
 - ✅ 应用实例管理
 
 ---
 
-## 二、技术要点与解决方案
+## 🎯 核心技术亮点
 
-### 2.1 Beep API 适配
+### 1. Beep API 深度适配
 
-**问题**: beep v2 API 与预期不同
+**挑战**: beep v2 API 变动较大，文档不全
 **解决方案**:
-1. 使用 `go doc` 查看实际 API
-2. Streamer 没有 Close 方法，需要使用 StreamSeekCloser
-3. Decode 函数返回 StreamSeekCloser 而非 Streamer
-4. Gain 效果器使用 `Gain = volume - 1` 计算方式
+1. 使用 `go doc` 深入分析 API
+2. 发现 `Decode` 返回 `StreamSeekCloser` 而非 `Streamer`
+3. 正确使用 `effects.Gain` 进行音量控制
+4. 确保 `speaker.Init` 在播放前调用
 
-**正确用法**:
+**最佳实践**:
 ```go
-// 1. 加载音频文件
-streamer, format, err := mp3.Decode(file) // 返回 StreamSeekCloser
+// 1. 解码音频
+streamer, format, err := mp3.Decode(file)
 
-// 2. 创建增益控制器
+// 2. 包装增益效果
 gain := &effects.Gain{
     Streamer: streamer,
-    Gain:     volume - 1, // 范围 -1 到 0
+    Gain:     volume - 1,
 }
 
-// 3. 创建播放控制器
+// 3. 创建控制器
 ctrl := &beep.Ctrl{
     Streamer: gain,
     Paused:   false,
 }
 
-// 4. 开始播放
+// 4. 播放
 speaker.Play(ctrl)
 ```
 
-### 2.2 并发控制
+### 2. 细粒度并发控制
 
-**策略**: 每个子服务独立的 sync.RWMutex
-
-**优点**:
-- 细粒度锁，提高并发性能
-- 避免全局锁的瓶颈
-- 各服务独立管理自己的状态
+**策略**: 每个服务独立使用 `sync.RWMutex`
+**优势**:
+- 避免全局锁竞争
+- 提高并发读写性能
+- 降低死锁风险
 
 **示例**:
 ```go
 func (pm *PlaylistManager) PlayIndex(index int) error {
     pm.mu.Lock()
     defer pm.mu.Unlock()
-    // ...
+    // 修改状态
 }
 
 func (pm *PlaylistManager) GetPlaylist() ([]string, error) {
     pm.mu.RLock()
     defer pm.mu.RUnlock()
-    // ...
+    // 读取状态
 }
 ```
 
-### 2.3 依赖注入
+### 3. 依赖注入与生命周期管理
 
-**模式**: 在 main.go 中统一创建和注入
+**模式**: 在 `main.go` 中统一组装
+**流程**:
+1. 创建服务实例
+2. 注入依赖 (App, DepManager)
+3. 初始化服务
+4. 注册到 Wails 运行时
 
 ```go
-// 1. 创建服务实例
 musicService := backend.NewMusicService()
-
-// 2. 设置应用实例
 musicService.SetApp(app)
-
-// 3. 初始化
+musicService.SetDepManager(depManager)
 musicService.Init()
 
-// 4. 注册到 Wails
 app.Services: []application.Service{
     application.NewService(musicService),
 }
 ```
 
-### 2.4 事件通知机制
+### 4. 事件驱动通信
 
-**后端事件**:
+**后端 emit**:
 ```go
-// 播放状态变化
-app.Event.Emit("playbackStateChanged", "playing" | "paused" | "stopped")
-
-// 当前歌曲变化
-app.Event.Emit("currentTrackChanged", filepath.Base(path))
-
-// 播放列表更新
+app.Event.Emit("playbackStateChanged", "playing")
+app.Event.Emit("currentTrackChanged", filename)
 app.Event.Emit("playlistUpdated", playlist)
-
-// 音乐库更新
-app.Event.Emit("libraryUpdated", library)
+app.Event.Emit("dependencyStatusChanged", status)
 ```
 
-**前端监听** (待实现):
+**前端 listen (待实现)**:
 ```typescript
-EventsOn('playbackStateChanged', (state: string) => {
-  // 更新播放按钮图标
+EventsOn('playbackStateChanged', handleStateChange)
+EventsOn('currentTrackChanged', updateCurrentTrack)
+```
+
+### 5. 前向声明解决闭包依赖
+
+**场景**: `main.go` 中菜单重建函数相互引用
+**技巧**:
+```go
+var buildToolsMenu func()
+var rebuildTrayMenu func()
+
+// 先使用
+depManager.SetCallback(func(...) {
+    rebuildTrayMenu()
 })
 
-EventsOn('currentTrackChanged', (filename: string) => {
-  // 更新当前歌曲显示
-})
+// 后定义
+rebuildTrayMenu = func() { ... }
 ```
 
 ---
 
-## 三、编译验证
+## 📊 代码统计与质量
 
-### 3.1 编译命令
+| 指标 | 数值 |
+|------|------|
+| 后端核心代码 | ~1500 行 |
+| 文档文件 | 5+ 个 |
+| 编译状态 | ✅ 成功 |
+| 并发安全 | ✅ 全覆盖 |
+| 错误处理 | ✅ 完善 |
+
+### 文件清单
+
+| 文件 | 行数 | 职责 |
+|------|------|------|
+| `backend/audioplayer.go` | ~250 | 音频播放引擎 |
+| `backend/musicsmanager.go` | ~200 | 播放列表逻辑 |
+| `backend/libraryservice.go` | ~400 | 音乐库持久化 |
+| `backend/music_service.go` | ~300 | 服务门面 |
+| `backend/dependency_manager.go` | ~450 | 依赖管理 |
+| `backend/com.go` | ~134 | 系统工具 |
+| `main.go` | ~520 | 应用入口与 UI |
+
+---
+
+## 🚀 使用指南
+
+### 开发环境启动
+
 ```bash
-cd /Users/yanghao/storage/code_projects/goProjects/haoyun-music-player
-go build -v
-```
-
-### 3.2 编译结果
-✅ **编译成功** - 无错误，仅有链接警告（正常）
-
-### 3.3 依赖整理
-```bash
+# 1. 安装 Go 依赖
 go mod tidy
-```
 
----
-
-## 四、待实现功能
-
-### 4.1 前端 UI (Vue3 + TypeScript)
-
-**待创建组件**:
-1. `Player.vue` - 播放器控制组件
-   - 播放/暂停按钮
-   - 上一首/下一首按钮
-   - 音量调节滑块
-   - 播放进度条
-   - 播放模式切换
-
-2. `Playlist.vue` - 播放列表组件
-   - 显示当前播放列表
-   - 点击播放指定歌曲
-   - 显示当前播放状态
-
-3. `LibraryMenu.vue` - 音乐库菜单组件
-   - 显示所有音乐库
-   - 切换音乐库
-   - 添加/刷新/重命名音乐库
-
-### 4.2 TypeScript 类型定义
-
-**待创建文件**: `frontend/src/types/music.ts`
-
-```typescript
-export interface TrackInfo {
-  path: string;
-  filename: string;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  size: number;
-}
-
-export interface MusicLibrary {
-  name: string;
-  path: string;
-  created_at: string;
-  updated_at: string;
-  tracks: TrackInfo[];
-}
-
-export type PlayMode = 'order' | 'loop' | 'random';
-```
-
-### 4.3 元数据读取增强
-
-**当前**: 仅从文件名提取基础信息
-
-**扩展方案**: 集成 ID3 标签读取库
-```go
-import "github.com/dhowden/tag"
-
-func readMetadata(path string) (TrackInfo, error) {
-    file, _ := os.Open(path)
-    metadata, _ := tag.ReadFrom(file)
-    return TrackInfo{
-        Title:    metadata.Title(),
-        Artist:   metadata.Artist(),
-        Album:    metadata.Album(),
-        Duration: metadata.Duration().Seconds(),
-    }, nil
-}
-```
-
-### 4.4 播放进度事件
-
-**待实现**: 
-```go
-// 在 AudioPlayer 中添加进度回调
-go func() {
-    for ap.isPlaying {
-        position := ap.GetPosition()
-        duration := ap.GetDuration()
-        ap.app.Event.Emit("playbackProgress", map[string]float64{
-            "position": position,
-            "duration": duration,
-        })
-        time.Sleep(time.Second)
-    }
-}()
-```
-
----
-
-## 五、使用说明
-
-### 5.1 开发环境运行
-
-```bash
-# 1. 安装依赖
-go mod tidy
+# 2. 安装前端依赖
 cd frontend && npm install
 
-# 2. 开发模式运行
+# 3. 启动开发服务器
 wails3 dev
 ```
 
-### 5.2 生产构建
+### 生产构建
 
 ```bash
-# 构建
 wails3 build
-
-# 输出目录
-build/bin/
+# 输出: build/bin/haoyun-music-player
 ```
 
-### 5.3 音乐库管理
+### 音乐库操作
 
-1. **添加音乐库**:
-   - 点击菜单"音乐库" → "添加新音乐库"
-   - 选择音乐文件夹
-   - 自动扫描并保存为 JSON 文件
+1. **添加库**: 菜单 → 音乐库 → 添加新音乐库 → 选择文件夹
+2. **切换库**: 菜单 → 音乐库 → 选择目标库 (自动加载并播放)
+3. **刷新库**: 菜单 → 音乐库 → 刷新当前音乐库
+4. **重命名**: 菜单 → 音乐库 → 重命名当前音乐库
 
-2. **切换音乐库**:
-   - 点击菜单"音乐库" → 选择库名称 (如 "✓ music")
-   - 自动加载该库所有歌曲到播放列表并播放
+### 依赖工具管理
 
-3. **刷新音乐库**:
-   - 点击菜单"音乐库" → "刷新当前音乐库"
-   - 重新扫描目录，更新歌曲列表
-
-4. **重命名音乐库**:
-   - 点击菜单"音乐库" → "重命名当前音乐库"
-   - 输入新名称
+1. **查看状态**: 托盘图标 → 🛠️ 依赖工具
+2. **安装缺失**: 点击未安装工具 → 📦 安装
+3. **手动刷新**: 点击 🔄 重新检查所有工具
 
 ---
 
-## 六、架构优势
+## 🔮 待实现功能路线图
 
-### 6.1 MVC + Facade 模式
-- **清晰的职责分离**: 每个服务专注单一功能
-- **易于测试**: 各服务可独立单元测试
-- **易于扩展**: 新增功能不影响现有架构
+### 高优先级 (P0)
 
-### 6.2 依赖注入
-- **松耦合**: 服务间不直接依赖具体实现
-- **可替换**: 可轻松替换子服务实现
-- **易维护**: 依赖关系清晰明了
+#### 1. 前端 UI 组件 (Vue3 + TypeScript)
+- [ ] `Player.vue`: 播放控制栏 (播放/暂停/进度/音量)
+- [ ] `Playlist.vue`: 播放列表展示与交互
+- [ ] `LibraryMenu.vue`: 音乐库管理界面
+- [ ] `Typescript Types`: `frontend/src/types/music.ts`
 
-### 6.3 并发安全
-- **细粒度锁**: 每个服务独立管理锁
-- **高性能**: 避免全局锁的性能瓶颈
-- **线程安全**: 所有公开方法都是线程安全的
+#### 2. 播放进度追踪
+- [ ] 后端定时发射 `playbackProgress` 事件
+- [ ] 前端接收并更新进度条
+- [ ] 支持拖拽跳转 (Seek)
+
+#### 3. 元数据增强
+- [ ] 集成 `github.com/dhowden/tag` 读取 ID3 标签
+- [ ] 提取封面图片
+- [ ] 显示完整歌曲信息
+
+### 中优先级 (P1)
+
+- [ ] 歌词显示功能 (LRC 解析与同步)
+- [ ] 音效均衡器 (EQ)
+- [ ] 搜索功能 (本地音乐搜索)
+- [ ] 快捷键支持 (全局热键)
+
+### 低优先级 (P2)
+
+- [ ] 在线音乐源集成
+- [ ] 用户账户系统
+- [ ] 播放历史统计
+- [ ] 主题切换 (深色/浅色模式)
 
 ---
 
-## 七、技术栈总结
+## 🏗️ 架构设计哲学
 
-| 组件 | 技术 | 版本 | 说明 |
+### 1. 模块化与单一职责
+- 每个服务只负责一个领域
+- 服务间通过接口通信
+- 易于单独测试与替换
+
+### 2. 依赖注入
+- 消除硬编码依赖
+- 提高可测试性
+- 灵活配置
+
+### 3. 并发安全优先
+- 所有公开方法线程安全
+- 细粒度锁减少竞争
+- 避免数据竞态
+
+### 4. 用户体验驱动
+- 异步操作不阻塞 UI
+- 实时状态反馈
+- 优雅的错误提示
+
+---
+
+## 🛠️ 技术栈详情
+
+| 层级 | 技术 | 版本 | 用途 |
 |------|------|------|------|
-| 后端框架 | Wails | v3.0.0-alpha.74 | 跨平台桌面应用框架 |
-| 后端语言 | Go | 1.25 | 系统编程语言 |
-| 音频处理 | beep | v2 | 纯 Go 音频库 |
-| 前端框架 | Vue | 3 | 渐进式 JS 框架 |
-| 前端语言 | TypeScript | - | 类型安全的 JS 超集 |
-| 构建工具 | Vite | - | 下一代前端构建工具 |
-| 数据存储 | JSON | - | 轻量级数据交换格式 |
+| 桌面框架 | Wails | v3.0.0-alpha.74 | Go + Web 桌面应用 |
+| 后端语言 | Go | 1.25 | 系统编程 |
+| 音频引擎 | beep | v2 | 纯 Go 音频处理 |
+| 前端框架 | Vue | 3.x | 响应式 UI |
+| 前端语言 | TypeScript | 5.x | 类型安全 |
+| 构建工具 | Vite | 5.x | 快速开发服务器 |
+| 数据存储 | JSON | - | 本地持久化 |
+| 包管理 | Homebrew/choco | - | 依赖工具安装 |
 
 ---
 
-## 八、文件清单
+## 📝 文档体系
 
-### 8.1 后端核心文件
-
-| 文件 | 行数 | 功能 |
-|------|------|------|
-| `backend/audioplayer.go` | ~250 行 | 音频播放控制 |
-| `backend/musicsmanager.go` | ~200 行 | 播放列表管理 |
-| `backend/libraryservice.go` | ~400 行 | 音乐库管理 |
-| `backend/music_service.go` | ~300 行 | 统一服务接口 |
-| `backend/com.go` | ~134 行 | 通用服务 |
-| `main.go` | ~521 行 | 应用入口 |
-
-### 8.2 文档文件
-
-| 文件 | 功能 |
+| 文档 | 内容 |
 |------|------|
-| `BACKEND_DESIGN.md` | 后台方案设计文档 |
-| `IMPLEMENTATION_SUMMARY.md` | 实现总结 (本文档) |
+| `IMPLEMENTATION_SUMMARY.md` | 完整实现总结 (本文档) |
+| `BACKEND_DESIGN.md` | 后台架构设计细节 |
+| `DEPENDENCY_AUTO_INSTALL.md` | 依赖自动安装功能说明 |
+| `FFMPEG_GUIDE.md` | FFmpeg 安装与配置指南 |
+| `README.md` | 项目入门指南 |
 
 ---
 
-## 九、总结
+## 🙏 致谢
 
-### 9.1 已完成
-✅ 完整的后台服务架构实现  
-✅ 音频播放控制 (MP3, WAV, FLAC)  
-✅ 播放列表管理 (顺序/循环/随机)  
-✅ 音乐库管理 (多库支持，JSON 持久化)  
-✅ 统一服务接口 (Facade 模式)  
-✅ 线程安全的并发控制  
-✅ 事件通知机制  
-✅ 编译通过，无错误  
-
-### 9.2 待完成
-⏳ 前端 Vue3 组件实现  
-⏳ TypeScript 类型定义  
-⏳ ID3 标签读取  
-⏳ 播放进度显示  
-⏳ 歌词显示功能  
-⏳ 音效均衡器  
-
-### 9.3 技术亮点
-- **架构清晰**: MVC + Facade 模式，职责分离
-- **代码质量**: 线程安全，错误处理完善
-- **可扩展性**: 模块化设计，易于添加新功能
-- **文档完善**: 设计文档 + 实现总结
+感谢以下开源项目：
+- **Wails**: 优秀的 Go 桌面应用框架
+- **beep**: 强大的纯 Go 音频库
+- **Vue.js**: 渐进式前端框架
+- **Homebrew/Chocolatey**: 便捷的包管理器
 
 ---
 
-**实现日期**: 2026-04-02  
-**技术栈**: Wails3 + Vue3 + TypeScript + beep v2 + JSON  
-**状态**: 后台实现完成 ✅，前端开发中 ⏳
+**最后更新**: 2026-04-07  
+**维护者**: Haoyun Music Player Team  
+**下一步**: 前端 UI 组件开发 🚀

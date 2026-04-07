@@ -63,6 +63,10 @@ func main() {
 		return translator.T(key)
 	}
 
+	// 创建依赖管理器
+	depManager := backend.NewDependencyManager()
+	log.Println("✓ 依赖管理器已初始化")
+
 	// 创建统一的音乐服务（MVC Model 层）
 	musicService := backend.NewMusicService()
 
@@ -71,6 +75,7 @@ func main() {
 		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
 			application.NewService(musicService),
+			application.NewService(depManager), // 注册依赖管理器服务
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -82,10 +87,50 @@ func main() {
 
 	musicService.SetApp(app)
 
+	// 设置依赖管理器的回调，用于向前端发送状态更新
+	// 依赖管理器的回调将在 rebuildTrayMenu 定义后设置
+	// （因为回调中引用了 rebuildTrayMenu）
+
 	// 初始化音乐服务
 	if err := musicService.Init(); err != nil {
 		log.Printf("初始化音乐服务失败：%v", err)
 	}
+
+	// 初始构建工具菜单之前，先同步检测一次工具状态
+	log.Println("🔍 初始检测依赖工具...")
+	depManager.CheckAllTools()
+	
+	// 异步定期检查和更新工具状态
+	go func() {
+		time.Sleep(1 * time.Second) // 等待应用完全启动
+		
+		log.Println("🔄 后台重新检查依赖工具...")
+		depManager.CheckAllTools()
+		
+		// 打印状态摘要
+		summary := depManager.GetInstallSummary()
+		log.Println(summary)
+		
+		// 如果有缺失的工具，通知前端
+		if depManager.NeedInstall() {
+			missingTools := depManager.GetMissingTools()
+			var toolNames []string
+			for _, tool := range missingTools {
+				toolNames = append(toolNames, tool.Name)
+			}
+			
+			app.Event.Emit("missingDependencies", map[string]interface{}{
+				"tools": toolNames,
+				"message": fmt.Sprintf("检测到 %d 个依赖工具缺失，建议安装以获得完整功能", len(toolNames)),
+			})
+		}
+		
+		// 重建菜单以显示最新状态
+		// 注意：rebuildTrayMenu 需要在定义之后才能调用，所以这里稍后处理或确保顺序
+		// 由于 rebuildTrayMenu 定义在下方，我们暂时在这里只发送事件，
+		// 或者依靠下方的 depManager.SetCallback 来触发菜单重建。
+		// 为了简单起见，我们依赖回调机制或稍后的重建逻辑。
+	}()
 
 	// 声明窗口变量（先初始化为 nil）
 	var mainWindow *application.WebviewWindow
@@ -131,10 +176,14 @@ func main() {
 	// 先声明所有菜单项变量（以便在闭包中使用）
 	var playPauseItem, prevItem, nextItem, mainWindowItem, browseItem *application.MenuItem
 	var downloadItem, wakeItem, launchItem, settingItem, versionItem, quitItem *application.MenuItem
-	var playModeItem, musicLibItem, favoriteItem *application.MenuItem
+	var playModeItem, musicLibItem, favoriteItem, toolsMenuItem *application.MenuItem
 	var nowPlayingItem *application.MenuItem // 新增：正在播放的音乐名称
 	var musicLibMenu *application.Menu
 	var menu *application.Menu
+	
+	// 前向声明函数变量（解决闭包引用问题）
+	var buildToolsMenu func()
+	var rebuildTrayMenu func()
 
 	// 创建基本播放控制菜单项（带快捷键）
 	playPauseItem = application.NewMenuItem(t("menu.playPause"))
@@ -544,35 +593,6 @@ func main() {
 
 		// 更新音乐库子菜单
 		musicLibItem = application.NewSubmenu(t("menu.musicLibrary"), musicLibMenu)
-
-		// 创建"正在播放"菜单项（初始显示"无"）
-		nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
-		nowPlayingItem.SetEnabled(false) // 禁用点击
-
-		// 重新创建并设置托盘菜单
-		menu = application.NewMenuFromItems(
-			nowPlayingItem, // 添加正在播放菜单项
-			application.NewMenuItemSeparator(),
-			playPauseItem,
-			prevItem,
-			nextItem,
-			application.NewMenuItemSeparator(),
-			browseItem,
-			favoriteItem, // 添加喜爱音乐菜单
-			playModeItem,
-			musicLibItem,
-			downloadItem,
-			wakeItem,
-			launchItem,
-			settingItem,
-			mainWindowItem,
-			application.NewMenuItemSeparator(),
-			versionItem,
-			quitItem,
-		)
-
-		// 重新设置托盘菜单
-		tray.SetMenu(menu)
 	}
 	favoriteItem = application.NewMenuItem(t("menu.favoriteSongs"))
 	favoriteItem.SetAccelerator("CmdOrCtrl+H") // Cmd/Ctrl + H (Heart)
@@ -616,8 +636,157 @@ func main() {
 		app.Quit()
 	})
 
-	// 初始构建音乐库菜单（已包含菜单创建和设置）
+	// 初始构建音乐库菜单
 	buildMusicLibMenu()
+
+	// 构建依赖工具菜单
+	buildToolsMenu = func() {
+		log.Println("🔧 构建依赖工具菜单...")
+		
+		// 获取所有工具状态
+		tools := depManager.GetAllTools()
+		
+		var toolItems []*application.MenuItem
+		
+		// 为每个工具创建菜单项
+		for _, tool := range tools {
+			statusIcon := "❌"
+			switch tool.Status {
+			case backend.ToolInstalled:
+				statusIcon = "✅"
+			case backend.ToolInstalling:
+				statusIcon = "🔧"
+			case backend.ToolInstallFailed:
+				statusIcon = "⚠️"
+			}
+			
+			// 创建工具菜单项
+			label := fmt.Sprintf("%s %s", statusIcon, tool.Name)
+			if tool.Version != "" && tool.Status == backend.ToolInstalled {
+				// 只显示版本的前20个字符
+				shortVersion := tool.Version
+				if len(shortVersion) > 20 {
+					shortVersion = shortVersion[:20] + "..."
+				}
+				label = fmt.Sprintf("%s (%s)", label, shortVersion)
+			}
+			
+			toolItem := application.NewMenuItem(label)
+			
+			// 如果未安装或安装失败，添加安装选项
+			if tool.Status == backend.ToolNotInstalled || tool.Status == backend.ToolInstallFailed {
+				installSubItem := application.NewMenuItem("📦 安装 " + tool.Name)
+				installSubItem.OnClick(func(ctx *application.Context) {
+					log.Printf("📦 用户请求安装 %s", tool.Name)
+					
+					// 显示通知
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   "正在安装",
+						"message": fmt.Sprintf("正在后台安装 %s，请稍候...", tool.Name),
+						"type":    "info",
+					})
+					
+					// 开始安装
+					if err := depManager.InstallTool(tool.Command); err != nil {
+						log.Printf("❌ 启动安装失败: %v", err)
+						app.Event.Emit("showNotification", map[string]interface{}{
+							"title":   "安装失败",
+							"message": fmt.Sprintf("无法启动安装: %v", err),
+							"type":    "error",
+						})
+					}
+				})
+				
+				// 如果有安装提示，也显示
+				if tool.InstallHint != "" {
+					hintItem := application.NewMenuItem("ℹ️ " + tool.InstallHint)
+					hintItem.SetEnabled(false)
+					toolItem = application.NewSubmenu(label, application.NewMenuFromItems(installSubItem, hintItem))
+				} else {
+					toolItem = application.NewSubmenu(label, application.NewMenuFromItems(installSubItem))
+				}
+			} else if tool.Status == backend.ToolInstalling {
+				// 安装中，显示状态
+				installingItem := application.NewMenuItem("⏳ 安装中...")
+				installingItem.SetEnabled(false)
+				toolItem = application.NewSubmenu(label, application.NewMenuFromItems(installingItem))
+			}
+			
+			toolItems = append(toolItems, toolItem)
+		}
+		
+		// 添加分隔符和"检查更新"选项
+		toolItems = append(toolItems, application.NewMenuItemSeparator())
+		
+		checkUpdatesItem := application.NewMenuItem("🔄 重新检查所有工具")
+		checkUpdatesItem.OnClick(func(ctx *application.Context) {
+			log.Println("🔄 用户请求重新检查所有工具")
+			
+			app.Event.Emit("showNotification", map[string]interface{}{
+				"title":   "检查中",
+				"message": "正在检查所有依赖工具...",
+				"type":    "info",
+			})
+			
+			go func() {
+				depManager.CheckAllTools()
+				
+				summary := depManager.GetInstallSummary()
+				log.Println(summary)
+				
+				// 重建菜单
+				buildToolsMenu()
+				
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   "检查完成",
+					"message": "依赖工具状态已更新",
+					"type":    "success",
+				})
+			}()
+		})
+		toolItems = append(toolItems, checkUpdatesItem)
+		
+		// 创建工具子菜单
+		if len(toolItems) > 0 {
+			toolsMenu := application.NewMenuFromItems(toolItems[0], toolItems[1:]...)
+			toolsMenuItem = application.NewSubmenu("🛠️ 依赖工具", toolsMenu)
+		} else {
+			toolsMenuItem = application.NewSubmenu("🛠️ 依赖工具", application.NewMenu())
+		}
+		
+		log.Println("✅ 依赖工具菜单构建完成")
+	}
+	
+	// 初始构建工具菜单 (此时 CheckAllTools 已同步执行过)
+	buildToolsMenu()
+
+	// 创建"正在播放"菜单项（初始显示"无"）
+	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
+	nowPlayingItem.SetEnabled(false) // 禁用点击
+
+	// 重新创建并设置初始托盘菜单
+	menu = application.NewMenuFromItems(
+		nowPlayingItem,
+		application.NewMenuItemSeparator(),
+		playPauseItem,
+		prevItem,
+		nextItem,
+		application.NewMenuItemSeparator(),
+		browseItem,
+		favoriteItem,
+		playModeItem,
+		musicLibItem,
+		toolsMenuItem, // 添加依赖工具菜单
+		downloadItem,
+		wakeItem,
+		launchItem,
+		settingItem,
+		mainWindowItem,
+		application.NewMenuItemSeparator(),
+		versionItem,
+		quitItem,
+	)
+	tray.SetMenu(menu)
 
 	// 初始化正在播放的音乐名称菜单项
 	updateNowPlayingItem := func() {
@@ -655,7 +824,7 @@ func main() {
 	}
 
 	// 创建完整的托盘菜单重建函数（用于语言切换时更新所有菜单文本）
-	rebuildTrayMenu := func() {
+	rebuildTrayMenu = func() {
 		log.Println("🔄 开始重建托盘菜单...")
 
 		// 更新所有菜单项的标签
@@ -681,11 +850,61 @@ func main() {
 		// 重建音乐库子菜单以更新内部项
 		buildMusicLibMenu()
 
+		// 重建依赖工具菜单
+		buildToolsMenu()
+
 		// 更新正在播放菜单项
 		updateNowPlayingItem()
 
+		// 重新构建整个托盘菜单（关键：必须重新设置菜单才能生效）
+		menu = application.NewMenuFromItems(
+			nowPlayingItem,
+			application.NewMenuItemSeparator(),
+			playPauseItem,
+			prevItem,
+			nextItem,
+			application.NewMenuItemSeparator(),
+			browseItem,
+			favoriteItem,
+			playModeItem,
+			musicLibItem,
+			toolsMenuItem, // 使用更新后的 toolsMenuItem
+			downloadItem,
+			wakeItem,
+			launchItem,
+			settingItem,
+			mainWindowItem,
+			application.NewMenuItemSeparator(),
+			versionItem,
+			quitItem,
+		)
+		
+		// 重新设置托盘菜单
+		tray.SetMenu(menu)
+
 		log.Println("✅ 托盘菜单重建完成")
 	}
+	
+	// 现在设置依赖管理器的回调（rebuildTrayMenu 已定义）
+	depManager.SetCallback(func(toolName string, status backend.ToolStatus, message string) {
+		log.Printf("🔧 工具状态变化: %s - %s (%s)", toolName, status, message)
+		
+		// 发送事件到前端
+		app.Event.Emit("dependencyStatusChanged", map[string]interface{}{
+			"tool":    toolName,
+			"status":  status,
+			"message": message,
+		})
+		
+		// 如果安装完成，重建托盘菜单
+		if status == backend.ToolInstalled || status == backend.ToolInstallFailed {
+			go func() {
+				// 延迟一点时间确保状态已更新
+				time.Sleep(500 * time.Millisecond)
+				rebuildTrayMenu()
+			}()
+		}
+	})
 
 	// 创建正在播放的音乐名称菜单项（禁用状态，仅展示）
 	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
