@@ -465,7 +465,7 @@ const tracks = ref<TrackInfo[]>([])
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](./LICENSE) 文件
+Apache 2.0 License - 详见 [LICENSE](./LICENSE) 文件
 
 ## 🙏 致谢
 

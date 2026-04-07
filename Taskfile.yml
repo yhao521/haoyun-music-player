@@ -90,8 +90,56 @@ tasks:
         task darwin:package
         # macOS 打包
         cd ./bin
+
+
+        cat > install << 'EOF'
+        # 清除 macOS 隔离属性（避免 Gatekeeper 警告）
+        if [ -d "{{._APP_NAME}}.app" ]; then
+            echo "清除隔离属性..."
+            xattr -r -d com.apple.quarantine /Applications/"{{._APP_NAME}}.app" 2>/dev/null || true
+        fi
+        EOF
+
+        # 创建说明文件
+        cat > README.md << 'EOF'
+        # {{._APP_NAME}} v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
+
+        ## 安装说明
+
+        1. 解压此压缩包
+        2. 将 `{{._APP_NAME}}.app` 拖拽到 Applications 文件夹
+        3. 首次运行时，如果提示"无法验证开发者"，请：
+          - 右键点击应用 → 打开
+          - 或者在系统偏好设置 → 安全性与隐私中允许运行
+
+        ## 系统要求
+
+        - macOS 10.15 或更高版本
+        - Apple Silicon (ARM64) 或 Intel (AMD64) 处理器
+
+        ## 功能特性
+
+        - 🎵 本地音乐播放
+        - 📝 歌词显示
+        - 🎨 专辑封面展示
+        - ⌨️ 键盘快捷键支持
+        - 🔊 媒体键控制
+
+        ## 常见问题
+
+        **Q: 应用无法打开？**
+        A: 请在终端执行：`xattr -rd com.apple.quarantine /Applications/{{._APP_NAME}}.app`
+
+        **Q: 音频格式不支持？**
+        A: 请确保已安装 FFmpeg：`brew install ffmpeg`
+
+        ## 技术支持
+
+        如有问题请访问项目主页或提交 Issue。
+        EOF
+
         PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_arm64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
@@ -101,7 +149,7 @@ tasks:
         # macOS 打包
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_amd64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
@@ -110,8 +158,11 @@ tasks:
         # macOS 打包universal
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}_${TIMESTAMP}_macOS_universal.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}.app" "README.md" "LICENSE" "install"
         echo "打包完成: releases/${PACKAGE_NAME}"
+
+        # 清理临时文件
+        rm -f README.md
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
@@ -149,7 +200,7 @@ tasks:
         # zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
         # echo "打包完成: releases/${PACKAGE_NAME}"
 
-        # rm -f ./bin/{{._APP_NAME}}
+        rm -f ./bin/{{._APP_NAME}}
         ARCH=amd64
         # task linux:package
         # # Linux 打包
