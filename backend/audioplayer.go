@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,11 @@ import (
 	"github.com/mewkiz/flac"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+// contains 检查字符串是否包含子串（辅助函数）
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
+}
 
 // MP3Streamer 基于 go-mp3 的流式读取器，实现 io.Reader 接口供 oto 使用
 type MP3Streamer struct {
@@ -269,7 +275,18 @@ func (ap *AudioPlayer) loadAudioFile(path string) (AudioReader, int, int, error)
 		streamer, err := NewMP3Streamer(file)
 		if err != nil {
 			file.Close()
-			return nil, 0, 0, err
+			log.Printf("⚠️ go-mp3 解码失败：%v", err)
+			
+			// 提供更友好的错误提示
+			errMsg := err.Error()
+			if contains(errMsg, "layer3") || contains(errMsg, "want 1; got") {
+				return nil, 0, 0, fmt.Errorf(
+					"MP3 格式不兼容：该文件使用了非标准的 MP3 编码格式（Layer I/II）。\n" +
+					"当前播放器仅支持标准的 MP3 Layer III 格式。\n" +
+					"建议：请使用其他工具将该文件转换为标准 MP3 格式，或使用 WAV/FLAC 格式。",
+				)
+			}
+			return nil, 0, 0, fmt.Errorf("MP3 解码失败：%w", err)
 		}
 		return streamer, streamer.sampleRate, streamer.channels, nil
 
@@ -776,9 +793,14 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 			log.Println("[TogglePlayPause] 已调用 player.Pause()")
 		}
 
-		// 2. 保存当前播放位置（用于断点续播）
-		ap.pausePosition = ap.streamer.Position()
-		log.Printf("[TogglePlayPause] 已保存播放位置：%d 秒", ap.pausePosition)
+		// 2. 保存当前播放位置（用于断点续播）- 添加空指针检查
+		if ap.streamer != nil {
+			ap.pausePosition = ap.streamer.Position()
+			log.Printf("[TogglePlayPause] 已保存播放位置：%d 秒", ap.pausePosition)
+		} else {
+			log.Println("[TogglePlayPause] streamer 为 nil，无法保存播放位置")
+			ap.pausePosition = 0
+		}
 
 		// 3. 关闭打开的 file 句柄（streamer）
 		if ap.streamer != nil {
