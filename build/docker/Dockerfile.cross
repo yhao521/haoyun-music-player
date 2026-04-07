@@ -15,7 +15,9 @@
 
 FROM golang:1.25-bookworm
 
-ARG TARGETARCH
+# Configure apt mirrors for faster downloads in China
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
 # Install base tools, GCC, and GTK/WebKit dev packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,22 +26,96 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-4-dev libwebkitgtk-6.0-dev \
     gcc-x86-64-linux-gnu gcc-aarch64-linux-gnu \
     libc6-dev-amd64-cross libc6-dev-arm64-cross \
+    libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Zig - automatically selects correct binary for host architecture
+# https://ziglang.org/download/community-mirrors.txt
 ARG ZIG_VERSION=0.14.0
 RUN ZIG_ARCH=$(case "${TARGETARCH}" in arm64) echo "aarch64" ;; *) echo "x86_64" ;; esac) && \
-    curl -L "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" \
-    | tar -xJ -C /opt \
-    && ln -s /opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig
+    ZIG_FILE="zig-linux-${ZIG_ARCH}-${ZIG_VERSION}.tar.xz" && \
+    # Download community mirrors list and try each mirror
+    MIRROR_LIST_URL="https://ziglang.org/download/community-mirrors.txt" && \
+    OFFICIAL_URL="https://ziglang.org/download/${ZIG_VERSION}/${ZIG_FILE}" && \
+    echo "Downloading Zig ${ZIG_VERSION} for ${ZIG_ARCH}..." && \
+    # Fetch mirror list and build download URLs
+    if curl -fL --connect-timeout 10 --max-time 30 "$MIRROR_LIST_URL" -o /tmp/mirrors.txt 2>/dev/null; then \
+        echo "Successfully downloaded mirror list"; \
+        DOWNLOADED=false; \
+        while IFS= read -r mirror_url; do \
+            # Skip empty lines and comments
+            [ -z "$mirror_url" ] && continue; \
+            case "$mirror_url" in \#*) continue ;; esac; \
+            # Build full download URL
+            DOWNLOAD_URL="${mirror_url}${ZIG_VERSION}/${ZIG_FILE}"; \
+            echo "Trying mirror: $DOWNLOAD_URL"; \
+            if curl -fL --connect-timeout 5 --max-time 60 "$DOWNLOAD_URL" -o /tmp/zig.tar.xz 2>/dev/null; then \
+                echo "Successfully downloaded from: $DOWNLOAD_URL"; \
+                DOWNLOADED=true; \
+                break; \
+            else \
+                echo "Failed to download from: $DOWNLOAD_URL"; \
+                rm -f /tmp/zig.tar.xz; \
+            fi; \
+        done < /tmp/mirrors.txt; \
+        if [ "$DOWNLOADED" = false ]; then \
+            echo "All mirrors failed, trying official source..."; \
+            curl -fL --connect-timeout 15 --max-time 300 "$OFFICIAL_URL" -o /tmp/zig.tar.xz; \
+        fi; \
+    else \
+        echo "Failed to download mirror list, using official source directly..."; \
+        curl -fL --connect-timeout 15 --max-time 300 "$OFFICIAL_URL" -o /tmp/zig.tar.xz; \
+    fi && \
+    tar -xJ -f /tmp/zig.tar.xz -C /opt && \
+    ln -s /opt/zig-linux-${ZIG_ARCH}-${ZIG_VERSION}/zig /usr/local/bin/zig && \
+    rm -f /tmp/zig.tar.xz /tmp/mirrors.txt
 
 # Download macOS SDK (required for darwin targets)
 ARG MACOS_SDK_VERSION=14.5
-RUN curl -L "https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION}/MacOSX${MACOS_SDK_VERSION}.sdk.tar.xz" \
-    | tar -xJ -C /opt \
-    && mv /opt/MacOSX${MACOS_SDK_VERSION}.sdk /opt/macos-sdk
-
+RUN MACOS_SDK_FILE="MacOSX${MACOS_SDK_VERSION}.sdk.tar.xz" && \
+    DOWNLOADED=false && \
+    # Try multiple mirrors and sources for macOS SDK
+    echo "Trying to download macOS SDK ${MACOS_SDK_VERSION}..." && \
+    # Method 1: Try gh-proxy mirrors first (faster in China)
+    if curl -fL --connect-timeout 10 --max-time 120 \
+        "https://gh-proxy.com/https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION}/${MACOS_SDK_FILE}" \
+        -o /tmp/macos-sdk.tar.xz 2>/dev/null; then \
+        DOWNLOADED=true && \
+        echo "Successfully downloaded from gh-proxy.com"; \
+    # Method 2: Try alternative proxy
+    elif curl -fL --connect-timeout 10 --max-time 120 \
+        "https://mirror.ghproxy.com/https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION}/${MACOS_SDK_FILE}" \
+        -o /tmp/macos-sdk.tar.xz 2>/dev/null; then \
+        DOWNLOADED=true && \
+        echo "Successfully downloaded from mirror.ghproxy.com"; \
+    # Method 3: Direct GitHub with longer timeout
+    elif curl -fL --retry 3 --retry-delay 5 --connect-timeout 15 --max-time 600 \
+        "https://github.com/joseluisq/macosx-sdks/releases/download/${MACOS_SDK_VERSION}/${MACOS_SDK_FILE}" \
+        -o /tmp/macos-sdk.tar.xz 2>/dev/null; then \
+        DOWNLOADED=true && \
+        echo "Successfully downloaded from GitHub"; \
+    fi && \
+    if [ "$DOWNLOADED" = false ]; then \
+        echo "ERROR: Failed to download macOS SDK from all sources" && \
+        echo "Please check your network connection or try building without darwin support" && \
+        exit 1; \
+    fi && \
+    # Verify the downloaded file is valid xz archive
+    FILE_SIZE=$(stat -c%s /tmp/macos-sdk.tar.xz 2>/dev/null || stat -f%z /tmp/macos-sdk.tar.xz) && \
+    echo "Downloaded file size: ${FILE_SIZE} bytes" && \
+    if [ "$FILE_SIZE" -lt 1000000 ]; then \
+        echo "ERROR: Downloaded file is too small (${FILE_SIZE} bytes), likely an error page" && \
+        cat /tmp/macos-sdk.tar.xz && \
+        exit 1; \
+    fi && \
+    tar -xJ -f /tmp/macos-sdk.tar.xz -C /opt && \
+    mv /opt/MacOSX${MACOS_SDK_VERSION}.sdk /opt/macos-sdk && \
+    rm -f /tmp/macos-sdk.tar.xz
 ENV MACOS_SDK_PATH=/opt/macos-sdk
+
+# Configure Go module proxy for faster downloads in China
+ENV GOPROXY=https://goproxy.cn,https://proxy.golang.org,direct
+ENV GONOSUMDB=*
 
 # Create Zig CC wrappers for cross-compilation targets
 # All platforms use Zig for consistent cross-compilation
@@ -227,6 +303,8 @@ export CGO_ENABLED=1
 
 # Build frontend if exists and not already built (host may have built it)
 if [ -d "frontend" ] && [ -f "frontend/package.json" ] && [ ! -d "frontend/dist" ]; then
+    # Configure npm mirror for faster downloads in China
+    npm config set registry https://registry.npmmirror.com
     (cd frontend && npm install --silent && npm run build --silent)
 fi
 
