@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { t } from "../i18n";
 import type { HistoryRecord } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/models";
 import {
   GetFavoriteTracks,
@@ -40,7 +41,7 @@ const loadFavorites = async () => {
     console.log("加载喜爱音乐成功:", favorites.value.length, "首");
   } catch (err) {
     console.error("加载喜爱音乐失败:", err);
-    error.value = "加载失败，请稍后重试";
+    error.value = t("favorites.loadFailed");
   } finally {
     isLoading.value = false;
   }
@@ -61,7 +62,7 @@ const playTrack = async (track: HistoryRecord) => {
     console.log("开始播放:", track.title);
   } catch (err) {
     console.error("播放失败:", err);
-    error.value = "播放失败，请重试";
+    error.value = t("favorites.playFailed");
   }
 };
 
@@ -86,17 +87,17 @@ onMounted(() => {
     <!-- 头部导航 -->
     <div class="header">
       <div class="header-content">
-        <h1>喜爱音乐</h1>
-        <span class="track-count">{{ favorites.length }} 首歌曲</span>
+        <h1>{{ t("favorites.title") }}</h1>
+        <span class="track-count">{{ favorites.length }} {{ t("favorites.songs") }}</span>
       </div>
       <button
         class="refresh-btn"
         @click="refreshList"
         :disabled="isLoading"
-        title="刷新列表"
+        :title="t('favorites.refreshList')"
       >
         <span class="refresh-icon" :class="{ rotating: isLoading }">🔄</span>
-        <span class="refresh-text">{{ isLoading ? "刷新中..." : "刷新" }}</span>
+        <span class="refresh-text">{{ isLoading ? t("favorites.refreshing") : t("common.refresh") }}</span>
       </button>
     </div>
 
@@ -108,14 +109,14 @@ onMounted(() => {
     <!-- 加载状态 -->
     <div v-if="isLoading" class="loading-state">
       <div class="spinner"></div>
-      <p>加载中...</p>
+      <p>{{ t("common.loading") }}</p>
     </div>
 
     <!-- 空状态 -->
     <div v-else-if="favorites.length === 0" class="empty-state">
       <div class="empty-icon">🎵</div>
-      <h2>暂无喜爱音乐</h2>
-      <p>多听几首歌，它们就会出现在这里哦~</p>
+      <h2>{{ t("favorites.noFavorites") }}</h2>
+      <p>{{ t("favorites.listenMoreHint") }}</p>
     </div>
 
     <!-- 歌曲列表 -->
@@ -123,13 +124,13 @@ onMounted(() => {
       <table class="tracks-table">
         <thead>
           <tr>
-            <th class="col-rank">#</th>
-            <th class="col-title">歌曲</th>
-            <th class="col-artist">艺术家</th>
-            <th class="col-album">专辑</th>
-            <th class="col-count">次数</th>
-            <th class="col-duration">时长</th>
-            <th class="col-size">大小</th>
+            <th class="col-rank">{{ t("favorites.rank") }}</th>
+            <th class="col-title">{{ t("favorites.song") }}</th>
+            <th class="col-artist">{{ t("favorites.artist") }}</th>
+            <th class="col-album">{{ t("favorites.album") }}</th>
+            <th class="col-count">{{ t("favorites.count") }}</th>
+            <th class="col-duration">{{ t("favorites.duration") }}</th>
+            <th class="col-size">{{ t("favorites.size") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -141,10 +142,10 @@ onMounted(() => {
           >
             <td class="col-rank">{{ index + 1 }}</td>
             <td class="col-title">
-              <div class="track-name">{{ track.title || "未知歌曲" }}</div>
+              <div class="track-name">{{ track.title || t("favorites.unknownSong") }}</div>
             </td>
-            <td class="col-artist">{{ track.artist || "未知艺术家" }}</td>
-            <td class="col-album">{{ track.album || "未知专辑" }}</td>
+            <td class="col-artist">{{ track.artist || t("favorites.unknownArtist") }}</td>
+            <td class="col-album">{{ track.album || t("favorites.unknownAlbum") }}</td>
             <td class="col-count">
               <span class="play-count-badge">{{ track.play_count }}</span>
             </td>

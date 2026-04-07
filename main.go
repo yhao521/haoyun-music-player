@@ -636,13 +636,19 @@ func main() {
 
 		log.Printf("✓ 更新正在播放：%s", trackName)
 
-		// 截断过长的文件名（最多显示 30 个字符）
+		// 安全截断过长的文件名（使用 rune 避免截断多字节字符）
 		displayName := trackName
-		if len(displayName) > 30 {
-			displayName = displayName[:27] + "..."
+		runes := []rune(displayName)
+		if len(runes) > 30 {
+			displayName = string(runes[:27]) + "..."
 		}
 
+		// 确保标签不为空
 		newLabel := fmt.Sprintf("🎵 %s", displayName)
+		if newLabel == "" || newLabel == "🎵 " {
+			newLabel = t("status.notPlaying")
+		}
+		
 		nowPlayingItem.SetLabel(newLabel)
 		nowPlayingItem.SetEnabled(true)
 		log.Printf("✓ 菜单项已更新为：%s", newLabel)

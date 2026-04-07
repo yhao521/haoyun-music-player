@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { Events } from "@wailsio/runtime";
+import { t } from "../i18n";
 import {
   AddToPlaylist,
   // LoadFile,
@@ -103,10 +104,10 @@ const playModeIcons = {
 
 // 播放模式中文名称
 const playModeNames = {
-  order: "顺序播放",
-  loop: "循环播放",
-  single: "单曲循环",
-  random: "随机播放",
+  order: () => t("playMode.order"),
+  loop: () => t("playMode.loop"),
+  single: () => t("playMode.single"),
+  random: () => t("playMode.random"),
 };
 
 // 格式化时间
@@ -269,7 +270,7 @@ const displayTrackTitle = (track: TrackInfo | string | null): string => {
     }
   }
 
-  return "未播放音乐";
+  return t("main.notPlaying");
 };
 
 // 获取艺术家信息
@@ -278,12 +279,12 @@ const displayArtist = (track: TrackInfo | string | null): string => {
     if (
       track.artist &&
       track.artist.trim() !== "" &&
-      track.artist !== "未知艺术家"
+      track.artist !== t("main.unknownArtist")
     ) {
       return track.artist;
     }
   }
-  return "未知艺术家";
+  return t("main.unknownArtist");
 };
 
 // 获取专辑信息
@@ -292,12 +293,12 @@ const displayAlbum = (track: TrackInfo | string | null): string => {
     if (
       track.album &&
       track.album.trim() !== "" &&
-      track.album !== "未知专辑"
+      track.album !== t("main.unknownAlbum")
     ) {
       return track.album;
     }
   }
-  return "未知专辑";
+  return t("main.unknownAlbum");
 };
 
 // 判断是否为当前播放的歌曲
@@ -417,7 +418,7 @@ onUnmounted(() => {
   <div class="player-container">
     <!-- 头部 -->
     <div class="header">
-      <h1>🎵 Haoyun Music</h1>
+      <h1>{{ t("main.title") }}</h1>
     </div>
 
     <!-- 专辑封面区域 -->
@@ -449,7 +450,7 @@ onUnmounted(() => {
 
     <!-- 播放控制 -->
     <div class="controls">
-      <button class="control-btn" @click="previous" title="上一首">⏮</button>
+      <button class="control-btn" @click="previous" :title="t('main.previousTrack')">⏮</button>
       <button
         class="control-btn play-btn"
         @click="togglePlayPause"
@@ -457,13 +458,13 @@ onUnmounted(() => {
       >
         {{ isPlaying ? "⏸" : "▶️" }}
       </button>
-      <button class="control-btn" @click="next" title="下一首">⏭</button>
+      <button class="control-btn" @click="next" :title="t('main.nextTrack')">⏭</button>
       
       <!-- 播放模式按钮 -->
       <button
         class="control-btn mode-btn"
         @click="togglePlayMode"
-        :title="`当前：${playModeNames[playMode as keyof typeof playModeNames]}，点击切换`"
+        :title="`${t('main.currentMode')}${playModeNames[playMode as keyof typeof playModeNames]()}${t('main.clickToSwitch')}`"
       >
         {{ playModeIcons[playMode as keyof typeof playModeIcons] }}
       </button>
@@ -498,21 +499,21 @@ onUnmounted(() => {
       @mouseleave="isHoveringPlaylist = false"
     >
       <div class="playlist-header" @click="togglePlaylist">
-        <h3>播放列表 ({{ playlist.length }})</h3>
+        <h3>{{ t("main.playlist") }} ({{ playlist.length }})</h3>
         <div class="header-actions">
           <!-- 定位到当前歌曲按钮 -->
           <button
             v-if="isHoveringPlaylist && currentTrack"
             class="locate-btn"
             @click.stop="scrollToCurrentTrack"
-            title="定位到当前播放的歌曲"
+            :title="t('main.locateCurrent')"
           >
             📍
           </button>
           <!-- 折叠/展开按钮 -->
           <button
             class="collapse-btn"
-            :title="playlistCollapsed ? '展开播放列表' : '折叠播放列表'"
+            :title="playlistCollapsed ? t('main.expandPlaylist') : t('main.collapsePlaylist')"
           >
             {{ playlistCollapsed ? "▼" : "▲" }}
           </button>

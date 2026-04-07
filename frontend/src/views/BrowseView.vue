@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { t } from "../i18n";
 import type { MusicLibrary, TrackInfo } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/models";
 import {
   GetLibraries,
@@ -191,14 +192,14 @@ onUnmounted(() => {
   <div class="browse-container">
     <!-- 头部 -->
     <div class="header">
-      <h1>🎵 浏览音乐库</h1>
+      <h1>{{ t("browse.title") }}</h1>
     </div>
 
     <!-- 控制栏 -->
     <div class="controls-bar">
       <!-- 音乐库选择器 -->
       <div class="library-selector">
-        <label>音乐库:</label>
+        <label>{{ t("browse.library") }}:</label>
         <select :value="selectedLibrary" @change="handleLibraryChange">
           <option
             v-for="lib in libraries"
@@ -208,7 +209,7 @@ onUnmounted(() => {
             {{ lib }}
           </option>
           <option v-if="libraries.length === 0" disabled>
-            暂无音乐库
+            {{ t("common.noData") }}
           </option>
         </select>
       </div>
@@ -218,7 +219,7 @@ onUnmounted(() => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="搜索歌曲、艺术家、专辑..."
+          :placeholder="t('browse.searchPlaceholder')"
           class="search-input"
         />
         <span class="search-icon">🔍</span>
@@ -231,34 +232,34 @@ onUnmounted(() => {
         📁 {{ currentLibrary.name }}
       </span>
       <span class="stat-item">
-        🎵 {{ tracks.length }} 首歌曲
+        🎵 {{ tracks.length }} {{ t("browse.songs") }}
       </span>
       <span class="stat-item">
-        ⏱️ 总时长：{{ formatDuration(totalDuration) }}
+        ⏱️ {{ t("browse.totalDuration") }}：{{ formatDuration(totalDuration) }}
       </span>
       <span class="stat-item">
-        💾 总大小：{{ formatFileSize(totalSize) }}
+        💾 {{ t("browse.totalSize") }}：{{ formatFileSize(totalSize) }}
       </span>
       <span class="stat-item">
-        📂 路径：{{ currentLibrary.path }}
+        📂 {{ t("browse.path") }}：{{ currentLibrary.path }}
       </span>
     </div>
 
     <!-- 加载提示 -->
     <div class="loading" v-if="isLoading">
       <div class="spinner"></div>
-      <p>正在加载音乐库...</p>
+      <p>{{ t("browse.loadingLibrary") }}</p>
     </div>
 
     <!-- 歌曲列表 -->
     <div class="tracks-container" v-else>
       <div class="tracks-header">
         <div class="track-number">#</div>
-        <div class="track-title">标题</div>
-        <div class="track-artist">艺术家</div>
-        <div class="track-album">专辑</div>
-        <div class="track-duration">时长</div>
-        <div class="track-size">大小</div>
+        <div class="track-title">{{ t("favorites.song") }}</div>
+        <div class="track-artist">{{ t("favorites.artist") }}</div>
+        <div class="track-album">{{ t("favorites.album") }}</div>
+        <div class="track-duration">{{ t("favorites.duration") }}</div>
+        <div class="track-size">{{ t("favorites.size") }}</div>
       </div>
 
       <div
@@ -267,14 +268,14 @@ onUnmounted(() => {
         class="track-item"
         :class="{ 'even': index % 2 === 1 }"
         @dblclick="() => handleDoubleClick((currentPage - 1) * pageSize + index)"
-        title="双击播放"
+        :title="t('browse.doubleClickToPlay')"
       >
         <div class="track-number">{{ (currentPage - 1) * pageSize + index + 1 }}</div>
         <div class="track-title" :title="track.title">
           {{ track.title || track.filename }}
         </div>
-        <div class="track-artist">{{ track.artist || "未知" }}</div>
-        <div class="track-album">{{ track.album || "未知" }}</div>
+        <div class="track-artist">{{ track.artist || t("browse.unknown") }}</div>
+        <div class="track-album">{{ track.album || t("browse.unknown") }}</div>
         <div class="track-duration">{{ formatDuration(track.duration) }}</div>
         <div class="track-size">{{ formatFileSize(track.size) }}</div>
       </div>
@@ -283,12 +284,12 @@ onUnmounted(() => {
       <div class="empty-state" v-if="filteredTracks.length === 0">
         <div class="empty-icon">🎵</div>
         <p v-if="tracks.length === 0">
-          该音乐库中没有歌曲<br/>
-          <small>请通过系统托盘菜单添加音乐库</small>
+          {{ t("browse.noTracksInLibrary") }}<br/>
+          <small>{{ t("browse.addLibraryHint") }}</small>
         </p>
         <p v-else>
-          没有找到匹配的歌曲<br/>
-          <small>尝试其他搜索关键词</small>
+          {{ t("browse.noMatchedTracks") }}<br/>
+          <small>{{ t("browse.tryOtherKeywords") }}</small>
         </p>
       </div>
     </div>
@@ -296,7 +297,7 @@ onUnmounted(() => {
     <!-- 分页控件 -->
     <div class="pagination-container" v-if="totalPages > 1">
       <div class="pagination-info">
-        显示第 {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, filteredTracks.length) }} 首，共 {{ filteredTracks.length }} 首
+        {{ t("browse.displayRange") }} {{ (currentPage - 1) * pageSize + 1 }} {{ t("browse.to") }} {{ Math.min(currentPage * pageSize, filteredTracks.length) }} {{ t("browse.total") }} {{ filteredTracks.length }} {{ t("browse.songs") }}
       </div>
       
       <div class="pagination-controls">
@@ -304,7 +305,7 @@ onUnmounted(() => {
           class="page-btn" 
           @click="firstPage" 
           :disabled="currentPage === 1"
-          title="首页"
+          :title="t('browse.firstPage')"
         >
           ⏮
         </button>
@@ -312,7 +313,7 @@ onUnmounted(() => {
           class="page-btn" 
           @click="prevPage" 
           :disabled="currentPage === 1"
-          title="上一页"
+          :title="t('browse.prevPage')"
         >
           ◀
         </button>
@@ -333,7 +334,7 @@ onUnmounted(() => {
           class="page-btn" 
           @click="nextPage" 
           :disabled="currentPage === totalPages"
-          title="下一页"
+          :title="t('browse.nextPage')"
         >
           ▶
         </button>
@@ -341,26 +342,26 @@ onUnmounted(() => {
           class="page-btn" 
           @click="lastPage" 
           :disabled="currentPage === totalPages"
-          title="末页"
+          :title="t('browse.lastPage')"
         >
           ⏭
         </button>
       </div>
       
       <div class="page-size-selector">
-        <label>每页显示：</label>
+        <label>{{ t("browse.perPage") }}：</label>
         <select v-model="pageSize" @change="currentPage = 1">
-          <option :value="20">20 首</option>
-          <option :value="50">50 首</option>
-          <option :value="100">100 首</option>
-          <option :value="200">200 首</option>
+          <option :value="20">20 {{ t("browse.songs") }}</option>
+          <option :value="50">50 {{ t("browse.songs") }}</option>
+          <option :value="100">100 {{ t("browse.songs") }}</option>
+          <option :value="200">200 {{ t("browse.songs") }}</option>
         </select>
       </div>
     </div>
 
     <!-- 底部操作提示 -->
     <div class="footer-hint">
-      <p>💡 双击歌曲即可播放 | 使用搜索框快速查找歌曲</p>
+      <p>💡 {{ t("browse.doubleClickToPlay") }} | {{ t("browse.useSearchHint") }}</p>
     </div>
   </div>
 </template>
