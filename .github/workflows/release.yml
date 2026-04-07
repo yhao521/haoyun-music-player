@@ -3,7 +3,7 @@ name: Release Build
 on:
   push:
     tags:
-      - 'v*' # 当推送 v 开头的标签时触发，如 v0.5.0
+      - "v*" # 当推送 v 开头的标签时触发，如 v0.5.0
   workflow_dispatch: # 允许手动触发
 
 permissions:
@@ -13,14 +13,14 @@ jobs:
   build-and-release:
     name: Build and Release on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
         # macOS 使用 macos-latest (Apple Silicon)
         # Windows 使用 windows-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,14 +30,14 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
           cache: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Task
