@@ -1,25 +1,58 @@
 #!/bin/bash
 
 # Haoyun Music Player - 发版脚本
-# 用法: ./tag.sh v0.6.0
+# 用法: 
+#   ./tag.sh              # 自动小版本号+1
+#   ./tag.sh v0.6.0       # 指定版本号
 
 set -e  # 遇到错误立即退出
 
+# 确保在项目根目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# 检查 build/config.yml 是否存在
+if [ ! -f "build/config.yml" ]; then
+    echo "❌ 错误: 找不到 build/config.yml 文件"
+    echo "当前目录: $(pwd)"
+    exit 1
+fi
+
 version=$1
 
+# 如果没有提供版本号，自动获取当前版本并小版本号+1
 if [ -z "$version" ]; then
-    echo "❌ 错误: 请提供版本号"
-    echo "用法: ./tag.sh v0.6.0"
-    exit 1
+    echo "📖 从 build/config.yml 读取当前版本..."
+    
+    # 从 config.yml 中提取当前版本号
+    current_version=$(grep -E '^\s*version:\s*"[0-9]+\.[0-9]+\.[0-9]+"' build/config.yml | head -1 | sed 's/.*version: *"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/')
+    
+    if [ -z "$current_version" ]; then
+        echo "❌ 错误: 无法从 build/config.yml 中解析版本号"
+        exit 1
+    fi
+    
+    echo "✅ 当前版本: $current_version"
+    
+    # 解析版本号的各个部分
+    IFS='.' read -r major minor patch <<< "$current_version"
+    
+    # 小版本号 +1
+    new_patch=$((patch + 1))
+    new_version="${major}.${minor}.${new_patch}"
+    version="v${new_version}"
+    
+    echo "🔢 新版本号: $version (小版本号自动+1)"
+else
+    # 验证提供的版本号格式
+    if [[ ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "❌ 错误: 版本号格式不正确，应该是 v0.0.0 格式"
+        echo "例如: v0.6.0, v1.0.0"
+        exit 1
+    fi
 fi
 
-# 检查版本号格式 (应该以 v 开头)
-if [[ ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "❌ 错误: 版本号格式不正确，应该是 v0.0.0 格式"
-    echo "例如: v0.6.0, v1.0.0"
-    exit 1
-fi
-
+echo ""
 echo "🚀 开始发布版本: $version"
 
 # 提取纯数字版本号 (去掉 v 前缀)
@@ -56,6 +89,4 @@ echo "   - GitHub Actions 将自动触发构建流程"
 echo "   - 可以在 https://github.com/yhao521/haoyun-music-player/releases 查看发布状态"
 echo ""
 echo "如需撤销本次操作，可执行:"
-echo "   git tag -d ${version}"
-echo "   git push --delete origin ${version}"
-echo "   git reset --hard HEAD~1"
+echo "   git tag -d ${version} &&  git push --delete origin ${version} && git reset --hard HEAD~1"
