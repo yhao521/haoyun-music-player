@@ -92,7 +92,8 @@ tasks:
         cd ./bin
 
 
-        cat > install << 'EOF'
+        cat > install << EOF
+        #!/bin/bash
         # 清除 macOS 隔离属性（避免 Gatekeeper 警告）
         if [ -d "{{._APP_NAME}}.app" ]; then
             echo "清除隔离属性..."
@@ -101,7 +102,7 @@ tasks:
         EOF
 
         # 创建说明文件
-        cat > README.md << 'EOF'
+        cat > README.md << EOF
         # {{._APP_NAME}} v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
 
         ## 安装说明
@@ -128,10 +129,10 @@ tasks:
         ## 常见问题
 
         **Q: 应用无法打开？**
-        A: 请在终端执行：`xattr -rd com.apple.quarantine /Applications/{{._APP_NAME}}.app`
+        A: 请在终端执行：\`xattr -rd com.apple.quarantine /Applications/{{._APP_NAME}}.app\`
 
         **Q: 音频格式不支持？**
-        A: 请确保已安装 FFmpeg：`brew install ffmpeg`
+        A: 请确保已安装 FFmpeg：\`brew install ffmpeg\`
 
         ## 技术支持
 
@@ -162,7 +163,7 @@ tasks:
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         # 清理临时文件
-        rm -f README.md
+        rm -f README.md install
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
