@@ -36,6 +36,7 @@
 ## 🖼️ 界面预览
 
 ### 主播放器界面
+
 ```
 ┌─────────────────────────────────┐
 │  🎵 Haoyun Music Player         │
@@ -64,6 +65,7 @@
 ```
 
 ### 浏览音乐库界面
+
 ```
 ┌──────────────────────────────────────────────────┐
 │  🎵 浏览音乐库                                    │
@@ -87,6 +89,7 @@
 ## 🛠️ 技术栈
 
 ### 后端
+
 - **Go 1.25+** - 核心业务逻辑
 - **Wails v3 (Alpha)** - 桌面应用框架
 - **Oto v3** - 跨平台音频播放引擎
@@ -95,12 +98,14 @@
 - **mewkiz/flac** - FLAC 音频解码器
 
 ### 前端
+
 - **Vue 3** - 渐进式 JavaScript 框架
 - **TypeScript** - 类型安全的 JavaScript 超集
 - **Vite** - 下一代前端构建工具
 - **@wailsio/runtime** - Wails 运行时
 
 ### 音频架构
+
 - **Oto Context 单例模式** - 整个应用生命周期只创建一次
 - **流式解码** - MP3 采用流式读取，内存效率高
 - **PCM 缓存** - WAV/FLAC 全量解码后缓存
@@ -208,6 +213,7 @@ haoyun-music-player/
 ### ✅ 已实现
 
 #### 核心功能
+
 - [x] 基础 UI 界面（主播放器 + 浏览视图）
 - [x] 真实音频播放核心（MP3/WAV/FLAC）
 - [x] **FFmpeg 集成** - 支持 AAC、M4A、OGG、WMA、APE、Opus 等格式（[详情](./FFMPEG_GUIDE.md)）
@@ -222,6 +228,7 @@ haoyun-music-player/
 - [x] 状态同步机制
 
 #### 音乐库管理
+
 - [x] 多音乐库支持
 - [x] 后台异步扫描
 - [x] 音乐库切换
@@ -230,6 +237,7 @@ haoyun-music-player/
 - [x] 自动加载当前音乐库到播放列表
 
 #### 系统集成
+
 - [x] 系统托盘图标
 - [x] 托盘菜单控制
 - [x] 正在播放显示（托盘菜单）
@@ -239,6 +247,7 @@ haoyun-music-player/
 - [x] 菜单栏播放控制
 
 #### 浏览视图
+
 - [x] 音乐库列表展示
 - [x] 歌曲列表表格显示
 - [x] 实时搜索过滤（标题/艺术家/专辑）
@@ -248,6 +257,7 @@ haoyun-music-player/
 - [x] 响应式布局
 
 #### 增强功能
+
 - [x] 播放历史记录保存（含播放次数统计）
 - [x] 歌词显示支持（LRC 文件，自动扫描关联）
 - [x] 专辑封面提取框架（待完善 MP3/FLAC 解析）
@@ -325,17 +335,20 @@ haoyun-music-player/
 ## 📚 文档
 
 ### 用户文档
+
 - [快速开始指南](./QUICKSTART.md) - 5 分钟上手
 - [键盘快捷键](./KEYBOARD_SHORTCUTS.md) - 完整快捷键列表
 - [故障排除](./TROUBLESHOOTING.md) - 常见问题解决
 
 ### 开发文档
+
 - [实现文档](./IMPLEMENTATION.md) - 功能实现细节
 - [API 指南](./API_GUIDE.md) - 后端 API 使用说明
 - [后端设计](./BACKEND_DESIGN.md) - 架构设计详解
 - [Wails 绑定](./WAILS_BINDINGS.md) - 前后端通信机制
 
 ### 特性文档
+
 - [音乐信息显示](./MUSIC_INFO_DISPLAY.md)
 - [正在播放功能](./NOW_PLAYING_FEATURE.md)
 - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
@@ -350,18 +363,21 @@ haoyun-music-player/
 本项目集成了 FFmpeg 以支持更多音频格式。您可以使用以下命令测试 FFmpeg 是否正常工作：
 
 ### macOS/Linux
+
 ```
 # 运行测试脚本
 ./test_ffmpeg.sh
 ```
 
 ### Windows
+
 ```
 # 运行测试脚本
 .\test_ffmpeg.bat
 ```
 
 测试脚本会：
+
 1. ✅ 检查 FFmpeg 是否已安装
 2. ✅ 扫描当前目录下的音频文件
 3. ✅ 尝试解码每个文件并显示信息
@@ -393,6 +409,7 @@ haoyun-music-player/
 ### 代码规范
 
 #### Go 后端
+
 ```
 // 使用有意义的变量名
 audioPlayer := NewAudioPlayer()
@@ -409,6 +426,7 @@ defer ap.mu.Unlock()
 ```
 
 #### Vue 前端
+
 ```
 // 使用 Composition API
 import { ref, computed } from "vue"
@@ -464,7 +482,7 @@ MIT License - 详见 [LICENSE](./LICENSE) 文件
 
 ## 📬 联系方式
 
-- 👤 **作者**: Yang Hao (yhao521)
+- 👤 **作者**: \*\* (yhao521)
 - 📧 **Email**: your.email@example.com
 - 💬 **Issues**: [GitHub Issues](https://github.com/yhao521/haoyun-music-player/issues)
 - 📖 **文档**: [完整文档列表](#-文档)
@@ -473,7 +491,7 @@ MIT License - 详见 [LICENSE](./LICENSE) 文件
 
 <div align="center">
 
-**Made with ❤️ by Yang Hao**
+**Made with ❤️ by YHao521**
 
 🎵 Enjoy Your Music!
 
