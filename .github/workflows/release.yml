@@ -238,77 +238,67 @@ jobs:
           echo ""
           echo "=== Configuring PKG_CONFIG_PATH ==="
           
-          # First, check what was actually installed
-          echo "Checking installed webkit packages..."
-          dpkg -l | grep -i webkit || true
-          echo ""
-          
-          # Find all webkit .pc files on the system
-          echo "Searching for webkit .pc files..."
+          # Find all GTK and WebKit .pc files on the system
+          echo "Searching for GTK and WebKit .pc files..."
+          GTK_PC_FILES=$(find /usr -name "gtk+-3.0.pc" 2>/dev/null)
           WEBKIT_PC_FILES=$(find /usr -name "webkit*.pc" 2>/dev/null)
-          if [ -n "$WEBKIT_PC_FILES" ]; then
-            echo "Found webkit .pc files:"
-            echo "$WEBKIT_PC_FILES"
-            echo ""
+          
+          if [ -n "$GTK_PC_FILES" ]; then
+            echo "Found GTK .pc files:"
+            echo "$GTK_PC_FILES"
           else
-            echo "WARNING: No webkit .pc files found on system!"
-            echo ""
+            echo "WARNING: No gtk+-3.0.pc file found!"
           fi
           
-          # Check which webkit version is available
-          WEBKIT_VERSION=""
-          if pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
-            WEBKIT_VERSION="4.1"
-            echo "✓ webkit2gtk-4.1 is available via pkg-config"
-          elif pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
-            WEBKIT_VERSION="4.0"
-            echo "✓ webkit2gtk-4.0 is available via pkg-config"
+          if [ -n "$WEBKIT_PC_FILES" ]; then
+            echo "Found WebKit .pc files:"
+            echo "$WEBKIT_PC_FILES"
           else
-            echo "✗ Neither webkit2gtk-4.1 nor webkit2gtk-4.0 found via pkg-config"
-            
-            # Try to find the .pc file manually and add its directory to PATH
-            if [ -n "$WEBKIT_PC_FILES" ]; then
-              echo "Attempting to fix by adding directories to PKG_CONFIG_PATH..."
-              WEBKIT_PC_DIR=$(dirname $(echo "$WEBKIT_PC_FILES" | head -1))
-              echo "Adding directory: $WEBKIT_PC_DIR"
-              
-              # Determine which version based on filename
-              if echo "$WEBKIT_PC_FILES" | grep -q "webkit2gtk-4.1"; then
-                WEBKIT_VERSION="4.1"
-                echo "Detected webkit2gtk-4.1 from .pc file"
-              elif echo "$WEBKIT_PC_FILES" | grep -q "webkit2gtk-4.0"; then
-                WEBKIT_VERSION="4.0"
-                echo "Detected webkit2gtk-4.0 from .pc file"
-              fi
-            fi
+            echo "WARNING: No webkit .pc files found!"
           fi
           echo ""
           
+          # Build comprehensive PKG_CONFIG_PATH
           PKG_CONFIG_DIRS=""
           
           # Check common pkgconfig directories
           for dir in "/usr/lib/x86_64-linux-gnu/pkgconfig" "/usr/share/pkgconfig" "/usr/lib/pkgconfig" "/usr/local/lib/pkgconfig"; do
             if [ -d "$dir" ]; then
-              echo "Found pkgconfig directory: $dir"
-              # List webkit files in this directory
-              ls "$dir"/webkit*.pc 2>/dev/null && echo "  → Contains webkit .pc files" || true
-              if [ -n "$PKG_CONFIG_DIRS" ]; then
-                PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
-              else
-                PKG_CONFIG_DIRS="$dir"
+              # Check if this directory contains GTK or WebKit .pc files
+              HAS_REQUIRED_FILES=false
+              if ls "$dir"/gtk+-3.0.pc 1>/dev/null 2>&1 || ls "$dir"/webkit*.pc 1>/dev/null 2>&1; then
+                HAS_REQUIRED_FILES=true
+              fi
+              
+              if [ "$HAS_REQUIRED_FILES" = true ]; then
+                echo "✓ Found required .pc files in: $dir"
+                if [ -n "$PKG_CONFIG_DIRS" ]; then
+                  PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
+                else
+                  PKG_CONFIG_DIRS="$dir"
+                fi
               fi
             fi
           done
           
-          # If we found a specific webkit directory, ensure it's included
-          if [ -n "$WEBKIT_PC_FILES" ] && [ -z "$WEBKIT_VERSION" ]; then
-            WEBKIT_PC_DIR=$(dirname $(echo "$WEBKIT_PC_FILES" | head -1))
-            if [[ ":$PKG_CONFIG_DIRS:" != *":$WEBKIT_PC_DIR:"* ]]; then
-              echo "Adding webkit directory to PKG_CONFIG_PATH: $WEBKIT_PC_DIR"
-              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$WEBKIT_PC_DIR"
+          # Add any additional directories where .pc files were found
+          if [ -n "$GTK_PC_FILES" ]; then
+            GTK_DIR=$(dirname "$(echo "$GTK_PC_FILES" | head -1)")
+            if [[ ":$PKG_CONFIG_DIRS:" != *":$GTK_DIR:"* ]]; then
+              echo "Adding GTK directory: $GTK_DIR"
+              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$GTK_DIR"
             fi
           fi
           
+          if [ -n "$WEBKIT_PC_FILES" ]; then
+            WEBKIT_DIR=$(dirname "$(echo "$WEBKIT_PC_FILES" | head -1)")
+            if [[ ":$PKG_CONFIG_DIRS:" != *":$WEBKIT_DIR:"* ]]; then
+              echo "Adding WebKit directory: $WEBKIT_DIR"
+              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$WEBKIT_DIR"
+            fi
+          fi
+          
+          # Export to GITHUB_ENV for all subsequent steps
           export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS:$PKG_CONFIG_PATH"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo ""
@@ -320,66 +310,54 @@ jobs:
           echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
           echo ""
           
-          # List available .pc files for debugging
-          echo "Available GTK/WebKit .pc files:"
-          find /usr -name "*.pc" 2>/dev/null | grep -E "(gtk|webkit)" | head -20 || true
-          echo ""
-          
           # Check GTK3
           echo "=== Checking GTK3 ==="
-          if pkg-config --modversion gtk+-3.0; then
-            echo "✓ GTK3 found"
+          if GTK_VERSION=$(pkg-config --modversion gtk+-3.0 2>&1); then
+            echo "✓ GTK3 found (version: $GTK_VERSION)"
           else
             echo "✗ ERROR: gtk+-3.0 not found!"
-            echo "Searching for gtk .pc files..."
-            find /usr -name "gtk*.pc" 2>/dev/null || true
+            echo "Error details: $GTK_VERSION"
             echo ""
-            echo "pkg-config search path:"
-            pkg-config --variable pc_path pkg-config 2>/dev/null || true
+            echo "Debugging information:"
+            echo "1. Available .pc files in PKG_CONFIG_PATH:"
+            for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                echo "   Directory: $dir"
+                ls -la "$dir"/*.pc 2>/dev/null | grep -E "(gtk|webkit)" || echo "     (no relevant .pc files)"
+              fi
+            done
+            echo ""
+            echo "2. pkg-config default search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
             exit 1
           fi
           echo ""
           
           # Check WebKit2GTK
           echo "=== Checking WebKit2GTK ==="
-          
-          # Try both versions with detailed error reporting
           WEBKIT_FOUND=false
           
-          if pkg-config --modversion webkit2gtk-4.1 2>&1; then
-            WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1)
+          if WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1 2>&1); then
             echo "✓ WebKit2GTK 4.1 found (version: $WEBKIT_VERSION)"
             WEBKIT_FOUND=true
-          elif pkg-config --modversion webkit2gtk-4.0 2>&1; then
-            WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0)
+          elif WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0 2>&1); then
             echo "✓ WebKit2GTK 4.0 found (version: $WEBKIT_VERSION)"
             WEBKIT_FOUND=true
           else
             echo "✗ ERROR: Neither webkit2gtk-4.1 nor webkit2gtk-4.0 found!"
+            echo "Error details: $WEBKIT_VERSION"
             echo ""
             echo "Debugging information:"
-            echo "1. Installed webkit packages:"
-            dpkg -l | grep -i webkit || echo "   (none found)"
-            echo ""
-            echo "2. Available webkit .pc files on system:"
-            find /usr -name "webkit*.pc" 2>/dev/null || echo "   (none found)"
-            echo ""
-            echo "3. Current PKG_CONFIG_PATH:"
-            echo "   $PKG_CONFIG_PATH"
-            echo ""
-            echo "4. pkg-config default search path:"
-            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
-            echo ""
-            echo "5. Contents of pkgconfig directories:"
+            echo "1. Available .pc files in PKG_CONFIG_PATH:"
             for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
               if [ -d "$dir" ]; then
                 echo "   Directory: $dir"
-                ls -la "$dir"/webkit*.pc 2>/dev/null || echo "     (no webkit .pc files)"
+                ls -la "$dir"/*.pc 2>/dev/null | grep -E "(gtk|webkit)" || echo "     (no relevant .pc files)"
               fi
             done
             echo ""
-            echo "SUGGESTION: If .pc files exist but pkg-config can't find them,"
-            echo "you may need to reinstall the package or check file permissions."
+            echo "2. pkg-config default search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
             exit 1
           fi
           echo ""
@@ -480,13 +458,13 @@ jobs:
           echo "✓ All dependencies verified successfully"
           echo ""
           
-          # Run the packaging task
+          # Export PKG_CONFIG_PATH to ensure it's available for the task command
+          export PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
+          echo "Exporting PKG_CONFIG_PATH for task execution: $PKG_CONFIG_PATH"
+          
+          # Run the packaging task with explicit environment variables
           echo "=== Starting packaging ==="
-          task package-linux
-        env:
-          CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig
-
+          env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" CGO_ENABLED=1 task package-linux
       - name: List built artifacts
         run: |
           echo "=== Built Artifacts ==="
