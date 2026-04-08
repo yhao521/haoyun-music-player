@@ -75,12 +75,53 @@ echo "✅ 构建资源已同步"
 echo "📦 提交版本更新..."
 git add build/config.yml build/
 git commit -m "chore: bump version to $version_number"
-git push
+
+# 推送代码到远程仓库
+echo "🚀 推送代码到远程仓库..."
+if ! git push; then
+    echo ""
+    echo "❌ 代码推送失败！"
+    echo ""
+    echo "可能的原因："
+    echo "   1. 网络连接问题"
+    echo "   2. 远程仓库有未合并的更改"
+    echo "   3. 权限不足"
+    echo ""
+    echo "💡 解决步骤："
+    echo "   1. 检查网络连接和 Git 配置"
+    echo "   2. 如果有冲突，先拉取并合并：git pull --rebase origin main"
+    echo "   3. 重新执行此脚本：./tag.sh ${version}"
+    echo ""
+    echo "或者手动执行："
+    echo "   git push && git tag ${version} && git push origin ${version}"
+    exit 1
+fi
 
 # 创建并推送 tag
 echo "🏷️  创建 Git tag: $version"
 git tag ${version}
-git push origin ${version}
+
+echo "🚀 推送 tag 到远程仓库..."
+if ! git push origin ${version}; then
+    echo ""
+    echo "❌ Tag 推送失败！"
+    echo ""
+    echo "可能的原因："
+    echo "   1. 网络连接问题"
+    echo "   2. Tag 已存在"
+    echo "   3. 权限不足"
+    echo ""
+    echo "💡 解决步骤："
+    echo "   1. 检查网络连接"
+    echo "   2. 如果 tag 已存在且需要覆盖："
+    echo "      git tag -d ${version} && git tag ${version} && git push --force origin ${version}"
+    echo "   3. 或者删除远程 tag 后重新推送："
+    echo "      git push --delete origin ${version} && git push origin ${version}"
+    echo ""
+    echo "⚠️  注意：代码已成功推送，但 tag 未推送"
+    echo "   可以稍后手动推送：git push origin ${version}"
+    exit 1
+fi
 
 echo ""
 echo "🎉 版本 $version 发布成功！"
@@ -90,4 +131,4 @@ echo "   - GitHub Actions 将自动触发构建流程"
 echo "   - 可以在 https://github.com/yhao521/haoyun-music-player/releases 查看发布状态"
 echo ""
 echo "如需撤销本次操作，可执行:"
-echo "   git tag -d ${version} &&  git push --delete origin ${version} && git reset --hard HEAD~1"
+echo "   git tag -d ${version} && git push --delete origin ${version} && git reset --hard HEAD~1"
