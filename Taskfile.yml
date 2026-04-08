@@ -304,7 +304,6 @@ tasks:
     cmds:
       - echo "开始打包应用..."
       - |
-        cp ../"LICENSE" ./
         # 获取版本号
         VERSION_3=$(git rev-list HEAD --no-merges  --count)
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
@@ -322,7 +321,7 @@ tasks:
         task windows:package
         # Windows 打包 arm64
         cd ./bin
-
+        cp ../"LICENSE" ./
         # 创建说明文件
         cat > README.md << EOF
         # {{._APP_NAME}} ${_VERSION}
@@ -387,7 +386,6 @@ tasks:
     cmds:
       - echo "开始打包应用..."
       - |
-        cp ../"LICENSE" ./
         # 获取版本号
         VERSION_3=$(git rev-list HEAD --no-merges  --count)
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
@@ -405,7 +403,7 @@ tasks:
         task linux:package
         # Linux 打包
         cd ./bin
-
+        cp ../"LICENSE" ./
         # 创建说明文件
         cat > README.md << EOF
         # {{._APP_NAME}} ${_VERSION}
