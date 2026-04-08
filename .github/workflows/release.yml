@@ -112,12 +112,12 @@ jobs:
           }
           
           # Export NSIS directory to GITHUB_ENV for all subsequent steps
-          Write-Host "Exporting NSIS_PATH to environment..."
-          echo "NSIS_PATH=$nsisDir" >> $env:GITHUB_ENV
-          echo "MAKENSIS=$nsisDir\makensis.exe" >> $env:GITHUB_ENV
+          Write-Host "Exporting environment variables..."
+          Add-Content -Path $env:GITHUB_ENV -Value "NSIS_PATH=$nsisDir"
+          Add-Content -Path $env:GITHUB_ENV -Value "MAKENSIS=$nsisDir\makensis.exe"
           
-          # Also add to PATH for current and future steps
-          echo "$nsisDir" >> $env:GITHUB_PATH
+          # Add to PATH for all future steps
+          Add-Content -Path $env:GITHUB_PATH -Value "$nsisDir"
           
           Write-Host "NSIS installed successfully at: $nsisDir"
           & "$nsisDir\makensis.exe" /VERSION
@@ -177,10 +177,23 @@ jobs:
 
       - name: Build and Package (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          echo "Starting package-windows task..."
-          echo "NSIS_PATH is: $env:NSIS_PATH"
-          echo "PATH includes: $env:Path"
+          Write-Host "Starting package-windows task..."
+          Write-Host "NSIS_PATH is: $env:NSIS_PATH"
+          Write-Host "PATH includes: $env:Path"
+          
+          # Verify makensis is accessible
+          $makensisCmd = Get-Command makensis -ErrorAction SilentlyContinue
+          if ($makensisCmd) {
+            Write-Host "SUCCESS: makensis found at: $($makensisCmd.Source)"
+            & makensis /VERSION
+          } else {
+            Write-Host "WARNING: makensis not found in PATH"
+            Write-Host "Available NSIS paths:"
+            Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+          }
+          
           task package-windows
         env:
           CGO_ENABLED: 1
