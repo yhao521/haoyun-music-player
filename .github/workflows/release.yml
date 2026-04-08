@@ -72,34 +72,93 @@ jobs:
           Write-Host "Installing NSIS..."
           choco install nsis --no-progress -y
           
-          # Refresh environment variables to make makensis available
-          refreshenv
+          # Refresh environment variables using multiple methods
+          Write-Host "Refreshing environment variables..."
+          
+          # Method 1: Try refreshenv (Chocolatey helper)
+          if (Get-Command refreshenv -ErrorAction SilentlyContinue) {
+            refreshenv
+            Write-Host "Used refreshenv to update environment"
+          }
+          
+          # Method 2: Manually refresh PATH from registry
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          Write-Host "Manually refreshed PATH from registry"
+          
+          # Method 3: Add NSIS path directly if still not found
+          $nsisPaths = @(
+            "C:\Program Files (x86)\NSIS",
+            "C:\Program Files\NSIS",
+            "$env:ProgramFiles\NSIS",
+            "${env:ProgramFiles(x86)}\NSIS"
+          )
+          
+          foreach ($path in $nsisPaths) {
+            if (Test-Path $path) {
+              if ($env:Path -notlike "*$path*") {
+                $env:Path += ";$path"
+                Write-Host "Added NSIS path: $path"
+              }
+              break
+            }
+          }
           
           # Verify NSIS installation
-          makensis /VERSION
-          Write-Host "NSIS installed successfully"
+          Write-Host "Checking for makensis..."
+          $makensisCmd = Get-Command makensis -ErrorAction SilentlyContinue
+          if ($makensisCmd) {
+            Write-Host "Found makensis at: $($makensisCmd.Source)"
+            & makensis /VERSION
+            Write-Host "NSIS installed and verified successfully"
+          } else {
+            Write-Host "ERROR: makensis not found in PATH"
+            Write-Host "Current PATH: $env:Path"
+            Write-Host "Searching for makensis.exe..."
+            Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName
+            exit 1
+          }
           
-          # Windows 自带 zip 和 PowerShell
           Write-Host "Windows environment ready"
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          
+          # Try to install packages, handle different Ubuntu versions
+          echo "Installing GTK3 and WebKit2GTK development libraries..."
           sudo apt-get install -y \
             libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
             libasound2-dev \
             zip \
-            pkg-config
+            pkg-config || true
+          
+          # Try webkit2gtk-4.1 first (newer), fall back to 4.0 (older)
+          if ! dpkg -l | grep -q libwebkit2gtk-4.1-dev; then
+            echo "Trying to install libwebkit2gtk-4.1-dev..."
+            sudo apt-get install -y libwebkit2gtk-4.1-dev || {
+              echo "libwebkit2gtk-4.1-dev not found, trying libwebkit2gtk-4.0-dev..."
+              sudo apt-get install -y libwebkit2gtk-4.0-dev || {
+                echo "ERROR: Neither webkit2gtk-4.1 nor 4.0 dev packages found"
+                exit 1
+              }
+            }
+          fi
           
           # Configure PKG_CONFIG_PATH for proper library detection
           export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
           
+          # List available gtk and webkit packages for debugging
+          echo "=== Available GTK packages ==="
+          dpkg -l | grep gtk || true
+          echo "=== Available WebKit packages ==="
+          dpkg -l | grep webkit || true
+          
           # Verify package installation
-          pkg-config --modversion gtk+-3.0
-          pkg-config --modversion webkit2gtk-4.1
+          echo "=== Checking pkg-config ==="
+          pkg-config --list-all | grep -i gtk || true
+          pkg-config --list-all | grep -i webkit || true
           
           echo "Linux dependencies installed and configured"
 

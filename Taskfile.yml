@@ -231,7 +231,9 @@ tasks:
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
-        task darwin:package:universal
+        - task: darwin:package:universal
+          vars:
+            TAGS: ""
         # macOS 打包universal
         cd ./bin
         PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"
@@ -306,7 +308,7 @@ tasks:
 
         rm -f ./bin/{{._APP_NAME}}
         ARCH=arm64
-        task darwin:package -tags darwin
+        task darwin:package
         # macOS 打包
         cd ./bin
 
@@ -374,7 +376,7 @@ tasks:
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
-        task darwin:package:universal  -tags darwin
+        task darwin:package:universal
         # macOS 打包universal
         cd ./bin
         PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"
@@ -441,8 +443,7 @@ tasks:
 
         # Windows 打包 universal
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"  "README.md" "LICENSE"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe" "{{._APP_NAME}}-amd64-installer.exe" "README.md" "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
