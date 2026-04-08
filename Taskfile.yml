@@ -324,7 +324,7 @@ tasks:
 
         rm -f ./bin/{{._APP_NAME}}
         ARCH=arm64
-        task darwin:package
+        task darwin:package -tags darwin
         # macOS 打包
         cd ./bin
 
@@ -359,7 +359,7 @@ tasks:
 
         rm -f ./bin/{{._APP_NAME}}
         ARCH=amd64
-        task darwin:package
+        task darwin:package -tags darwin
         # macOS 打包
         cd ./bin
         # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.zip"
@@ -392,7 +392,7 @@ tasks:
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
-        task darwin:package:universal 
+        task darwin:package:universal  -tags darwin
         # macOS 打包universal
         cd ./bin
         PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"

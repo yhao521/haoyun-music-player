@@ -68,6 +68,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          # Install NSIS (Nullsoft Scriptable Install System)
+          Write-Host "Installing NSIS..."
+          choco install nsis --no-progress -y
+          
+          # Verify NSIS installation
+          makensis /VERSION
+          Write-Host "NSIS installed successfully"
+          
           # Windows 自带 zip 和 PowerShell
           Write-Host "Windows environment ready"
 
