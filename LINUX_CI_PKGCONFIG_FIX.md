@@ -1,6 +1,255 @@
-# Linux CI pkg-config 问题完整诊断与修复指南
+# Linux CI pkg-config 问题 - 最终解决方案与诊断指南
 
-## 🔴 当前错误
+## 🎯 核心问题
+
+Wails v3.0.0-alpha.74 在编译时需要 GTK3 和 WebKit2GTK 开发库,但:
+1. Ubuntu 22.04 只提供 `webkit2gtk-4.0`,不提供 `4.1`
+2. pkg-config 可能找不到已安装的 `.pc` 文件
+3. 包安装可能失败但没有被检测到
+
+## ✅ 最终解决方案
+
+### 策略: **安装所有可能的版本 + 全面搜索 .pc 文件**
+
+```yaml
+# 1. 尝试安装所有 GTK 版本
+GTK_PACKAGES=("libgtk-3-dev" "libgtk-4-dev")
+for pkg in "${GTK_PACKAGES[@]}"; do
+  sudo apt-get install -y --no-install-recommends "$pkg"
+done
+
+# 2. 尝试安装所有 WebKit 版本  
+WEBKIT_PACKAGES=("libwebkit2gtk-4.1-dev" "libwebkit2gtk-4.0-dev" "libwebkitgtk-dev")
+for pkg in "${WEBKIT_PACKAGES[@]}"; do
+  sudo apt-get install -y --no-install-recommends "$pkg"
+done
+
+# 3. 搜索系统中所有的 .pc 文件
+find /usr -name "*.pc" | grep -E "(gtk|webkit)" > /tmp/pc_files.txt
+
+# 4. 从所有找到的目录构建 PKG_CONFIG_PATH
+while IFS= read -r pc_file; do
+  dir=$(dirname "$pc_file")
+  PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
+done < /tmp/pc_files.txt
+
+# 5. 导出并验证
+export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS"
+pkg-config --modversion gtk+-3.0
+pkg-config --modversion webkit2gtk-4.0  # 或 4.1
+```
+
+## 🔑 关键改进点
+
+### 1. **不依赖单一版本**
+```bash
+# ❌ 之前:只尝试一个版本
+apt-get install libwebkit2gtk-4.1-dev
+
+# ✅ 现在:尝试所有版本,使用第一个成功的
+for pkg in "4.1-dev" "4.0-dev" "dev"; do
+  if apt-get install "libwebkit2gtk-$pkg"; then
+    break
+  fi
+done
+```
+
+### 2. **动态发现 .pc 文件位置**
+```bash
+# ❌ 之前:假设在标准位置
+PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
+
+# ✅ 现在:搜索整个系统
+find /usr -name "*.pc" | grep -E "(gtk|webkit)"
+# 然后从结果中提取所有目录
+```
+
+### 3. **立即验证每个步骤**
+```bash
+# 安装后立即检查 dpkg
+if dpkg -l | grep -q "libgtk-3-dev"; then
+  echo "✓ Verified"
+fi
+
+# 配置路径后立即测试 pkg-config
+if pkg-config --modversion gtk+-3.0; then
+  echo "✓ Accessible"
+fi
+```
+
+## 📊 Ubuntu 22.04 预期结果
+
+### 成功安装的包
+```
+ii  libgtk-3-dev:amd64          3.24.33-1ubuntu2
+ii  libwebkit2gtk-4.0-dev       2.38.6-0ubuntu0.22.04.1
+```
+
+### 找到的 .pc 文件
+```
+/usr/lib/x86_64-linux-gnu/pkgconfig/gtk+-3.0.pc
+/usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+```
+
+### pkg-config 测试
+```bash
+$ pkg-config --modversion gtk+-3.0
+3.24.33
+
+$ pkg-config --modversion webkit2gtk-4.0
+2.38.6
+
+$ pkg-config --modversion webkit2gtk-4.1
+Package webkit2gtk-4.1 was not found  # 这是正常的!
+```
+
+## ⚠️ Wails v3 Alpha 版本的注意事项
+
+### 问题
+Wails v3.0.0-alpha.74 可能在内部硬编码了对 `webkit2gtk-4.1` 的要求。
+
+### 解决方案选项
+
+#### 选项 1: 等待 Wails 更新 (推荐)
+- Wails 团队可能会发布支持 WebKit 4.0 的版本
+- 关注 GitHub issues 和 release notes
+
+#### 选项 2: 使用 Ubuntu 24.04
+```yaml
+matrix:
+  os: [macos-latest, windows-latest, ubuntu-24.04]
+```
+Ubuntu 24.04 提供 `libwebkit2gtk-4.1-dev`
+
+#### 选项 3: 降级到 Wails v2
+如果 v3 的兼容性问题太多,考虑暂时使用稳定的 v2 版本
+
+#### 选项 4: 创建符号链接 (临时方案)
+```bash
+# 警告:这只是权宜之计,可能导致运行时错误
+ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc \
+      /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc
+```
+
+## 🚀 部署步骤
+
+### 1. 提交更改
+```bash
+git add .github/workflows/release.yml LINUX_CI_PKGCONFIG_FIX.md
+git commit -m "fix: 采用激进策略安装所有 GTK/WebKit 版本并动态配置 pkg-config"
+git push
+```
+
+### 2. 触发构建
+```bash
+git tag v0.x.x
+git push origin v0.x.x
+```
+
+### 3. 监控日志
+
+重点关注以下输出:
+
+```
+=== Installing GTK packages ===
+Trying to install: libgtk-3-dev
+✓ Successfully installed: libgtk-3-dev
+
+=== Installing WebKit packages ===
+Trying to install: libwebkit2gtk-4.1-dev
+✗ Failed to install: libwebkit2gtk-4.1-dev
+Trying to install: libwebkit2gtk-4.0-dev
+✓ Successfully installed: libwebkit2gtk-4.0-dev
+
+=== Final pkg-config verification ===
+✓ gtk+-3.0 is accessible
+✓ webkit2gtk-4.0 is accessible
+✓✓✓ All critical dependencies are properly configured ✓✓✓
+```
+
+## 🔍 如果仍然失败
+
+### 收集诊断信息
+
+在 GitHub Actions 日志中查找:
+
+1. **包安装状态**
+   ```
+   Installed GTK/WebKit packages:
+   ii  libgtk-3-dev     ...
+   ii  libwebkit2gtk-4.0-dev  ...
+   ```
+
+2. **.pc 文件位置**
+   ```
+   Found .pc files:
+   /usr/lib/x86_64-linux-gnu/pkgconfig/gtk+-3.0.pc
+   /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+   ```
+
+3. **PKG_CONFIG_PATH 内容**
+   ```
+   Final PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:...
+   ```
+
+4. **pkg-config 测试结果**
+   ```
+   Testing GTK versions...
+   ✓ gtk+-3.0 found (version: 3.24.33)
+   
+   Testing WebKit versions...
+   ✓ webkit2gtk-4.0 found (version: 2.38.6)
+   ✗ webkit2gtk-4.1 not found
+   ```
+
+### 可能的根本原因
+
+如果上述都显示正常,但仍然报错,那么问题是:
+
+**Wails v3 的 CGO 指令硬编码了 `webkit2gtk-4.1`**
+
+解决方法:
+1. 升级到支持多版本的 Wails v3 新版本
+2. 或使用 Ubuntu 24.04 (提供 webkit2gtk-4.1)
+3. 或联系 Wails 团队报告此问题
+
+## 💡 最佳实践建议
+
+### 对于 Wails v3 项目
+
+1. **优先使用 Ubuntu 24.04**
+   ```yaml
+   os: [macos-latest, windows-latest, ubuntu-24.04]
+   ```
+
+2. **或者等待更稳定的 Wails v3 版本**
+   - Alpha 版本可能有各种兼容性问题
+   - 考虑使用 Beta 或 RC 版本
+
+3. **保持灵活的依赖策略**
+   - 不要硬编码特定版本
+   - 提供多个备选方案
+   - 详细的错误提示帮助调试
+
+### 对于其他 CGO 项目
+
+1. **总是安装 `-dev` 包**,不仅仅是运行时库
+2. **使用 `--no-install-recommends`** 减少冲突
+3. **验证每个安装步骤**,不要假设成功
+4. **动态配置 PKG_CONFIG_PATH**,不要硬编码路径
+5. **提供详细的诊断信息**,方便排查问题
+
+## 📝 总结
+
+这次的修复采用了**最激进的策略**:
+- ✅ 安装所有可能的 GTK 和 WebKit 版本
+- ✅ 搜索整个系统的 .pc 文件
+- ✅ 从所有找到的目录构建 PKG_CONFIG_PATH
+- ✅ 每一步都进行验证和诊断
+
+这应该能够解决绝大多数 pkg-config 相关的问题。如果仍然失败,很可能是 Wails v3 Alpha 版本本身的限制,需要考虑升级 Wails 或更换 Ubuntu 版本。
+
+## 🔴 历史错误参考
 
 ```
 Package gtk+-3.0 was not found in the pkg-config search path.

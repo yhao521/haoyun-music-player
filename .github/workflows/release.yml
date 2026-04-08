@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-22.04]
+        os: [macos-latest, windows-latest, ubuntu-latest]
         # macOS 使用 macos-latest (Apple Silicon)
         # Windows 使用 windows-latest
         # Linux 使用 ubuntu-latest
@@ -47,16 +47,6 @@ jobs:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
-
-      - name: Verify Wails installation
-        run: wails3 doctor
-
-      - name: Update build assets
-        run: wails3 task common:update:build-assets
-        if: runner.os == 'macOS'
-
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -71,20 +61,20 @@ jobs:
           # Install NSIS (Nullsoft Scriptable Install System)
           Write-Host "Installing NSIS..."
           choco install nsis --no-progress -y
-          
+
           # Wait for installation to complete
           Start-Sleep -Seconds 5
-          
+
           # Search for makensis.exe in common locations
           Write-Host "Searching for makensis.exe..."
           $nsisPaths = @(
             "C:\Program Files (x86)\NSIS",
             "C:\Program Files\NSIS"
           )
-          
+
           $makensisFound = $false
           $nsisDir = ""
-          
+
           foreach ($path in $nsisPaths) {
             $makensisExe = Join-Path $path "makensis.exe"
             if (Test-Path $makensisExe) {
@@ -94,7 +84,7 @@ jobs:
               break
             }
           }
-          
+
           # Deep search if not found in common locations
           if (-not $makensisFound) {
             Write-Host "Deep searching for makensis.exe..."
@@ -105,20 +95,20 @@ jobs:
               $makensisFound = $true
             }
           }
-          
+
           if (-not $makensisFound) {
             Write-Host "ERROR: makensis.exe not found!"
             exit 1
           }
-          
+
           # Export NSIS directory to GITHUB_ENV for all subsequent steps
           Write-Host "Exporting environment variables..."
           Add-Content -Path $env:GITHUB_ENV -Value "NSIS_PATH=$nsisDir"
           Add-Content -Path $env:GITHUB_ENV -Value "MAKENSIS=$nsisDir\makensis.exe"
-          
+
           # Add to PATH for all future steps
           Add-Content -Path $env:GITHUB_PATH -Value "$nsisDir"
-          
+
           Write-Host "NSIS installed successfully at: $nsisDir"
           & "$nsisDir\makensis.exe" /VERSION
           Write-Host "Windows environment ready"
@@ -131,7 +121,7 @@ jobs:
           echo "Kernel: $(uname -r)"
           echo "Architecture: $(uname -m)"
           echo ""
-          
+
           # Update package lists with retry logic
           echo "Updating package lists..."
           for i in {1..3}; do
@@ -147,366 +137,228 @@ jobs:
               sleep 5
             fi
           done
-          
-          # Install all required GTK3 and WebKit2GTK development libraries
-          echo "Installing GTK3 and WebKit2GTK development libraries..."
-          
-          # First, check what's available in the repositories
-          echo "Checking available webkit packages..."
-          
-          # Update package lists one more time to ensure we have latest info
-          sudo apt-get update -qq >/dev/null 2>&1 || true
-          
-          WEBKIT_41_AVAILABLE=$(apt-cache search --names-only '^libwebkit2gtk-4.1-dev$' 2>/dev/null | wc -l)
-          WEBKIT_40_AVAILABLE=$(apt-cache search --names-only '^libwebkit2gtk-4.0-dev$' 2>/dev/null | wc -l)
-          WEBKITGTK_AVAILABLE=$(apt-cache search --names-only '^libwebkitgtk-dev$' 2>/dev/null | wc -l)
-          
-          echo "  libwebkit2gtk-4.1-dev available: $WEBKIT_41_AVAILABLE"
-          echo "  libwebkit2gtk-4.0-dev available: $WEBKIT_40_AVAILABLE"
-          echo "  libwebkitgtk-dev available: $WEBKITGTK_AVAILABLE"
+
+          # Install ALL possible GTK and WebKit development packages
+          echo "Installing ALL available GTK and WebKit development libraries..."
+          echo "This ensures compatibility with different Wails versions"
           echo ""
-          
-          # Show all available webkit packages for debugging
-          echo "All available webkit dev packages:"
-          apt-cache search libwebkit | grep -i dev || echo "  (none found)"
-          echo ""
-          
-          # Determine which version to install
-          WEBKIT_PKG=""
-          if [ "$WEBKIT_41_AVAILABLE" -gt 0 ]; then
-            WEBKIT_PKG="libwebkit2gtk-4.1-dev"
-            echo "Will install: $WEBKIT_PKG"
-          elif [ "$WEBKIT_40_AVAILABLE" -gt 0 ]; then
-            WEBKIT_PKG="libwebkit2gtk-4.0-dev"
-            echo "Will install: $WEBKIT_PKG (fallback to 4.0)"
-          elif [ "$WEBKITGTK_AVAILABLE" -gt 0 ]; then
-            WEBKIT_PKG="libwebkitgtk-dev"
-            echo "Will install: $WEBKIT_PKG (fallback to older version)"
-          else
-            echo "ERROR: No webkit2gtk development package found in repositories!"
-            echo "Available webkit packages:"
-            apt-cache search libwebkit | grep dev || true
+
+          # List of all possible packages to try
+          GTK_PACKAGES=(
+            "libgtk-3-dev"
+            "libgtk-4-dev"
+          )
+
+          WEBKIT_PACKAGES=(
+            "libwebkit2gtk-4.1-dev"
+            "libwebkit2gtk-4.0-dev"
+            "libwebkitgtk-dev"
+          )
+
+          OTHER_PACKAGES=(
+            "libasound2-dev"
+            "zip"
+            "pkg-config"
+            "build-essential"
+          )
+
+          INSTALLED_GTK=""
+          INSTALLED_WEBKIT=""
+
+          # Install GTK packages (try all, use first successful one)
+          echo "=== Installing GTK packages ==="
+          for pkg in "${GTK_PACKAGES[@]}"; do
+            echo "Trying to install: $pkg"
+            if apt-cache show "$pkg" >/dev/null 2>&1; then
+              if sudo apt-get install -y --no-install-recommends "$pkg" 2>&1; then
+                echo "✓ Successfully installed: $pkg"
+                if [ -z "$INSTALLED_GTK" ]; then
+                  INSTALLED_GTK="$pkg"
+                fi
+              else
+                echo "✗ Failed to install: $pkg"
+              fi
+            else
+              echo "⊘ Package not available: $pkg"
+            fi
+            echo ""
+          done
+
+          if [ -z "$INSTALLED_GTK" ]; then
+            echo "✗ CRITICAL ERROR: Could not install any GTK package!"
             exit 1
           fi
+
+          echo "Using GTK package: $INSTALLED_GTK"
           echo ""
-          
-          # Try to install with the determined webkit version
-          INSTALL_SUCCESS=false
-          
-          echo "Attempting to install dependencies..."
-          echo "Command: sudo apt-get install -y --no-install-recommends libgtk-3-dev libasound2-dev $WEBKIT_PKG zip pkg-config"
-          echo ""
-          
-          if sudo apt-get install -y --no-install-recommends \
-            libgtk-3-dev \
-            libasound2-dev \
-            "$WEBKIT_PKG" \
-            zip \
-            pkg-config 2>&1; then
-            echo "✓ All dependencies installed successfully"
-            INSTALL_SUCCESS=true
-          else
-            EXIT_CODE=$?
-            echo "✗ Batch installation failed with exit code: $EXIT_CODE"
-            echo "Trying individual packages..."
-            
-            # Install core packages first
-            echo ""
-            echo "Installing GTK3 development libraries..."
-            if sudo apt-get install -y --no-install-recommends libgtk-3-dev 2>&1; then
-              echo "✓ Successfully installed libgtk-3-dev"
-              
-              # Verify it was actually installed
-              if dpkg -l | grep -q "libgtk-3-dev"; then
-                echo "✓ Verified: libgtk-3-dev is installed"
-              else
-                echo "✗ ERROR: libgtk-3-dev installation reported success but package not found!"
-                exit 1
-              fi
-            else
-              echo "✗ CRITICAL ERROR: Failed to install libgtk-3-dev"
-              echo "This is required for building the application"
-              exit 1
-            fi
-            
-            echo ""
-            echo "Installing ALSA development libraries..."
-            if sudo apt-get install -y --no-install-recommends libasound2-dev 2>&1; then
-              echo "✓ Successfully installed libasound2-dev"
-            else
-              echo "⚠ WARNING: Failed to install libasound2-dev, continuing anyway..."
-            fi
-            
-            # Try webkit
-            echo ""
-            echo "Installing WebKit development libraries ($WEBKIT_PKG)..."
-            if sudo apt-get install -y --no-install-recommends "$WEBKIT_PKG" 2>&1; then
-              echo "✓ Successfully installed $WEBKIT_PKG"
-              
-              # Verify installation
-              if dpkg -l | grep -q "$WEBKIT_PKG"; then
-                echo "✓ Verified: $WEBKIT_PKG is installed"
-              else
-                echo "⚠ WARNING: Package installation reported success but not found in dpkg"
-              fi
-            else
-              echo "✗ Failed to install $WEBKIT_PKG"
-              echo "Trying alternative WebKit packages..."
-              
-              # Try other versions
-              ALTERNATIVES=("libwebkit2gtk-4.0-dev" "libwebkit2gtk-4.1-dev" "libwebkitgtk-dev")
-              WEBKIT_INSTALLED=false
-              
-              for ALT in "${ALTERNATIVES[@]}"; do
-                if [ "$ALT" != "$WEBKIT_PKG" ]; then
-                  echo ""
-                  echo "Trying alternative: $ALT"
-                  if sudo apt-get install -y --no-install-recommends "$ALT" 2>&1; then
-                    echo "✓ Successfully installed alternative: $ALT"
-                    WEBKIT_PKG="$ALT"
-                    WEBKIT_INSTALLED=true
-                    
-                    # Verify
-                    if dpkg -l | grep -q "$ALT"; then
-                      echo "✓ Verified: $ALT is installed"
-                    fi
-                    break
-                  else
-                    echo "✗ Failed to install $ALT"
-                  fi
+
+          # Install WebKit packages (try all, use first successful one)
+          echo "=== Installing WebKit packages ==="
+          for pkg in "${WEBKIT_PACKAGES[@]}"; do
+            echo "Trying to install: $pkg"
+            if apt-cache show "$pkg" >/dev/null 2>&1; then
+              if sudo apt-get install -y --no-install-recommends "$pkg" 2>&1; then
+                echo "✓ Successfully installed: $pkg"
+                if [ -z "$INSTALLED_WEBKIT" ]; then
+                  INSTALLED_WEBKIT="$pkg"
                 fi
-              done
-              
-              if [ "$WEBKIT_INSTALLED" = false ]; then
-                echo ""
-                echo "⚠ WARNING: Could not install any WebKit development package"
-                echo "This may cause build failures if your project requires WebKit"
-                echo "Continuing build anyway..."
+              else
+                echo "✗ Failed to install: $pkg"
               fi
+            else
+              echo "⊘ Package not available: $pkg"
             fi
-            
-            # Install remaining tools
             echo ""
-            echo "Installing build tools (zip, pkg-config)..."
-            sudo apt-get install -y --no-install-recommends zip pkg-config 2>&1 || {
-              echo "⚠ WARNING: Failed to install some build tools"
+          done
+
+          if [ -z "$INSTALLED_WEBKIT" ]; then
+            echo "⚠ WARNING: Could not install any WebKit package"
+            echo "This may cause build failures"
+          else
+            echo "Using WebKit package: $INSTALLED_WEBKIT"
+          fi
+          echo ""
+
+          # Install other required packages
+          echo "=== Installing other required packages ==="
+          for pkg in "${OTHER_PACKAGES[@]}"; do
+            echo "Installing: $pkg"
+            sudo apt-get install -y --no-install-recommends "$pkg" 2>&1 || {
+              echo "⚠ WARNING: Failed to install $pkg"
             }
-            
-            INSTALL_SUCCESS=true
-          fi
-          
-          if [ "$INSTALL_SUCCESS" = false ]; then
-            echo ""
-            echo "✗ CRITICAL ERROR: Installation process failed!"
-            exit 1
-          fi
-          
-          # Verify installations
+          done
           echo ""
+
+          # Verify all installations
           echo "=== Verifying installed packages ==="
-          dpkg -l | grep -E "(libgtk-3-dev|libgtk-4-dev|libwebkit|libasound2-dev)" || echo "No matching packages found!"
+          echo "Installed GTK/WebKit packages:"
+          dpkg -l | grep -E "(libgtk|libwebkit)" | grep "^ii" || echo "  (none found)"
           echo ""
-          
+
           # IMMEDIATE VERIFICATION: Test pkg-config right after installation
-          echo "=== Immediate pkg-config verification after installation ==="
-          echo "Testing GTK3..."
-          if pkg-config --modversion gtk+-3.0 2>&1; then
-            echo "✓ GTK3 is immediately available via pkg-config"
-          else
-            echo "✗ WARNING: GTK3 not found immediately after installation"
-            echo "This suggests the .pc files are in a non-standard location"
-          fi
-          
-          echo "Testing WebKit2GTK..."
-          if pkg-config --modversion webkit2gtk-4.1 2>&1 || pkg-config --modversion webkit2gtk-4.0 2>&1; then
-            echo "✓ WebKit2GTK is immediately available via pkg-config"
-          else
-            echo "✗ WARNING: WebKit2GTK not found immediately after installation"
-          fi
-          echo ""
-          
-          # Configure PKG_CONFIG_PATH for proper library detection
-          echo "=== Configuring PKG_CONFIG_PATH ==="
-          
-          # Find all GTK and WebKit .pc files on the system
-          echo "Searching for GTK and WebKit .pc files..."
-          
-          # Search more broadly for any gtk and webkit related .pc files
-          ALL_GTK_PC=$(find /usr -name "*gtk*.pc" -o -name "*gdk*.pc" 2>/dev/null || true)
-          ALL_WEBKIT_PC=$(find /usr -name "*webkit*.pc" 2>/dev/null || true)
-          
-          echo "All GTK-related .pc files found:"
-          if [ -n "$ALL_GTK_PC" ]; then
-            echo "$ALL_GTK_PC" | head -20  # Limit output
-          else
-            echo "  (none found)"
-          fi
-          
-          echo ""
-          echo "All WebKit-related .pc files found:"
-          if [ -n "$ALL_WEBKIT_PC" ]; then
-            echo "$ALL_WEBKIT_PC" | head -20  # Limit output
-          else
-            echo "  (none found)"
-          fi
-          echo ""
-          
-          # Specifically look for the exact files we need
-          GTK3_PC=$(find /usr -name "gtk+-3.0.pc" 2>/dev/null | head -1 || true)
-          GTK4_PC=$(find /usr -name "gtk4.pc" 2>/dev/null | head -1 || true)
-          WEBKIT_41_PC=$(find /usr -name "webkit2gtk-4.1.pc" 2>/dev/null | head -1 || true)
-          WEBKIT_40_PC=$(find /usr -name "webkit2gtk-4.0.pc" 2>/dev/null | head -1 || true)
-          
-          if [ -n "$GTK3_PC" ]; then
-            echo "✓ Found gtk+-3.0.pc at: $GTK3_PC"
-            GTK_PC_FILES="$GTK3_PC"
-          elif [ -n "$GTK4_PC" ]; then
-            echo "⚠ Found gtk4.pc at: $GTK4_PC (but project needs gtk+-3.0)"
-            GTK_PC_FILES="$GTK4_PC"
-          else
-            echo "✗ CRITICAL: No GTK .pc file found!"
-            GTK_PC_FILES=""
-          fi
-          
-          if [ -n "$WEBKIT_41_PC" ]; then
-            echo "✓ Found webkit2gtk-4.1.pc at: $WEBKIT_41_PC"
-            WEBKIT_PC_FILES="$WEBKIT_41_PC"
-          elif [ -n "$WEBKIT_40_PC" ]; then
-            echo "✓ Found webkit2gtk-4.0.pc at: $WEBKIT_40_PC"
-            WEBKIT_PC_FILES="$WEBKIT_40_PC"
-          else
-            echo "✗ WARNING: No WebKit .pc file found!"
-            WEBKIT_PC_FILES=""
-          fi
-          echo ""
-          
-          # Build comprehensive PKG_CONFIG_PATH
-          PKG_CONFIG_DIRS=""
-          
-          # Check common pkgconfig directories
-          for dir in "/usr/lib/x86_64-linux-gnu/pkgconfig" "/usr/share/pkgconfig" "/usr/lib/pkgconfig" "/usr/local/lib/pkgconfig"; do
-            if [ -d "$dir" ]; then
-              # Check if this directory contains GTK or WebKit .pc files
-              HAS_REQUIRED_FILES=false
-              if ls "$dir"/gtk*.pc 1>/dev/null 2>&1 || ls "$dir"/webkit*.pc 1>/dev/null 2>&1; then
-                HAS_REQUIRED_FILES=true
-              fi
-              
-              if [ "$HAS_REQUIRED_FILES" = true ]; then
-                echo "✓ Found required .pc files in: $dir"
-                if [ -n "$PKG_CONFIG_DIRS" ]; then
-                  PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
-                else
-                  PKG_CONFIG_DIRS="$dir"
-                fi
-              fi
+          echo "=== Immediate pkg-config verification ==="
+
+          echo "Testing GTK versions..."
+          for gtk_ver in "gtk+-3.0" "gtk4"; do
+            if GTK_VER=$(pkg-config --modversion "$gtk_ver" 2>&1); then
+              echo "✓ $gtk_ver found (version: $GTK_VER)"
+            else
+              echo "✗ $gtk_ver not found"
             fi
           done
-          
-          # Add any additional directories where .pc files were found
-          if [ -n "$GTK_PC_FILES" ]; then
-            GTK_DIR=$(dirname "$(echo "$GTK_PC_FILES" | head -1)")
-            if [[ ":$PKG_CONFIG_DIRS:" != *":$GTK_DIR:"* ]]; then
-              echo "Adding GTK directory: $GTK_DIR"
-              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$GTK_DIR"
+          echo ""
+
+          echo "Testing WebKit versions..."
+          for webkit_ver in "webkit2gtk-4.1" "webkit2gtk-4.0" "webkit2gtk-3.0"; do
+            if WEBKIT_VER=$(pkg-config --modversion "$webkit_ver" 2>&1); then
+              echo "✓ $webkit_ver found (version: $WEBKIT_VER)"
+            else
+              echo "✗ $webkit_ver not found"
             fi
+          done
+          echo ""
+
+          # Configure PKG_CONFIG_PATH comprehensively
+          echo "=== Configuring PKG_CONFIG_PATH ==="
+
+          # Find ALL .pc files related to GTK and WebKit
+          echo "Searching for all GTK and WebKit .pc files..."
+          find /usr -name "*.pc" 2>/dev/null | grep -E "(gtk|webkit|gdk)" | sort > /tmp/pc_files.txt
+
+          if [ -s /tmp/pc_files.txt ]; then
+            echo "Found .pc files:"
+            cat /tmp/pc_files.txt
+          else
+            echo "✗ WARNING: No GTK/WebKit .pc files found anywhere!"
           fi
-          
-          if [ -n "$WEBKIT_PC_FILES" ]; then
-            WEBKIT_DIR=$(dirname "$(echo "$WEBKIT_PC_FILES" | head -1)")
-            if [[ ":$PKG_CONFIG_DIRS:" != *":$WEBKIT_DIR:"* ]]; then
-              echo "Adding WebKit directory: $WEBKIT_DIR"
-              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$WEBKIT_DIR"
+          echo ""
+
+          # Build comprehensive PKG_CONFIG_PATH from all directories containing relevant .pc files
+          PKG_CONFIG_DIRS=""
+          while IFS= read -r pc_file; do
+            dir=$(dirname "$pc_file")
+            if [[ ":$PKG_CONFIG_DIRS:" != *":$dir:"* ]]; then
+              if [ -n "$PKG_CONFIG_DIRS" ]; then
+                PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
+              else
+                PKG_CONFIG_DIRS="$dir"
+              fi
             fi
-          fi
-          
-          # Ensure PKG_CONFIG_DIRS is not empty
-          if [ -z "$PKG_CONFIG_DIRS" ]; then
-            echo "WARNING: No .pc files found in standard locations!"
-            echo "Setting default PKG_CONFIG_PATH..."
-            PKG_CONFIG_DIRS="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-          fi
-          
-          # Export to GITHUB_ENV for all subsequent steps
+          done < /tmp/pc_files.txt
+
+          # Add standard directories as fallback
+          STANDARD_DIRS="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig"
+          for dir in $(echo "$STANDARD_DIRS" | tr ':' '\n'); do
+            if [ -d "$dir" ] && [[ ":$PKG_CONFIG_DIRS:" != *":$dir:"* ]]; then
+              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
+            fi
+          done
+
+          # Export to environment
           export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo ""
           echo "Final PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-          
-          # Verify package installation and pkg-config paths
           echo ""
-          echo "=== Verifying pkg-config ==="
-          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-          echo ""
-          
-          # List available .pc files for debugging
-          echo "Available GTK/WebKit .pc files in PKG_CONFIG_PATH:"
-          for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
-            if [ -d "$dir" ]; then
-              echo "  Directory: $dir"
-              ls -la "$dir"/*.pc 2>/dev/null | grep -E "(gtk|webkit)" || echo "    (no relevant .pc files)"
+
+          # Final verification
+          echo "=== Final pkg-config verification ==="
+          echo "Testing with configured PKG_CONFIG_PATH..."
+
+          TEST_PASSED=true
+
+          # Test GTK3 (most likely what Wails needs)
+          if pkg-config --modversion gtk+-3.0 >/dev/null 2>&1; then
+            echo "✓ gtk+-3.0 is accessible"
+          else
+            echo "✗ gtk+-3.0 is NOT accessible"
+            TEST_PASSED=false
+          fi
+
+          # Test at least one WebKit version
+          WEBKIT_OK=false
+          for webkit_ver in "webkit2gtk-4.1" "webkit2gtk-4.0" "webkit2gtk-3.0"; do
+            if pkg-config --modversion "$webkit_ver" >/dev/null 2>&1; then
+              echo "✓ $webkit_ver is accessible"
+              WEBKIT_OK=true
+              break
             fi
           done
+
+          if [ "$WEBKIT_OK" = false ]; then
+            echo "✗ No WebKit version is accessible"
+            TEST_PASSED=false
+          fi
+
           echo ""
-          
-          # Check GTK3
-          echo "=== Checking GTK3 ==="
-          if GTK_VERSION=$(pkg-config --modversion gtk+-3.0 2>&1); then
-            echo "✓ GTK3 found (version: $GTK_VERSION)"
-          elif GTK4_VERSION=$(pkg-config --modversion gtk4 2>&1); then
-            echo "⚠ GTK3 not found, but GTK4 found (version: $GTK4_VERSION)"
-            echo "NOTE: Your project may need to be updated to use GTK4"
+          if [ "$TEST_PASSED" = true ]; then
+            echo "✓✓✓ All critical dependencies are properly configured ✓✓✓"
           else
-            echo "✗ ERROR: Neither GTK3 nor GTK4 found!"
-            echo "Error details for GTK3: $(pkg-config --modversion gtk+-3.0 2>&1)"
+            echo "✗✗✗ Some dependencies are still missing ✗✗✗"
             echo ""
             echo "Debugging information:"
-            echo "1. Installed GTK packages:"
-            dpkg -l | grep -i gtk | grep dev || echo "   (none found)"
+            echo "1. PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+            echo "2. Available .pc files in path:"
+            for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                ls "$dir"/*.pc 2>/dev/null | grep -E "(gtk|webkit)" || true
+              fi
+            done
             echo ""
-            echo "2. Available .pc files:"
-            find /usr -name "gtk*.pc" 2>/dev/null || echo "   (none found)"
-            echo ""
-            echo "3. Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-            echo ""
-            echo "SUGGESTION: Try reinstalling libgtk-3-dev"
-            echo "  sudo apt-get install --reinstall libgtk-3-dev"
-            exit 1
+            echo "Attempting to continue build anyway..."
           fi
           echo ""
-          
-          # Check WebKit2GTK
-          echo "=== Checking WebKit2GTK ==="
-          WEBKIT_FOUND=false
-          
-          if WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1 2>&1); then
-            echo "✓ WebKit2GTK 4.1 found (version: $WEBKIT_VERSION)"
-            WEBKIT_FOUND=true
-          elif WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0 2>&1); then
-            echo "✓ WebKit2GTK 4.0 found (version: $WEBKIT_VERSION)"
-            WEBKIT_FOUND=true
-          elif WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-3.0 2>&1); then
-            echo "✓ WebKit2GTK 3.0 found (version: $WEBKIT_VERSION)"
-            WEBKIT_FOUND=true
-          else
-            echo "✗ WARNING: No WebKit2GTK found via pkg-config"
-            echo "Error details: $(pkg-config --modversion webkit2gtk-4.1 2>&1)"
-            echo ""
-            echo "Debugging information:"
-            echo "1. Installed WebKit packages:"
-            dpkg -l | grep -i webkit | grep dev || echo "   (none found)"
-            echo ""
-            echo "2. Available .pc files:"
-            find /usr -name "webkit*.pc" 2>/dev/null || echo "   (none found)"
-            echo ""
-            echo "3. Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-            echo ""
-            echo "NOTE: If your project requires WebKit, please fix this issue."
-            echo "Otherwise, the build may continue without WebKit support."
-            # Don't exit here, let the build process determine if it's critical
-          fi
-          echo ""
-          echo "=== Linux dependencies installed and configured successfully ==="
+          echo "=== Linux dependency installation completed ==="
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+
+      - name: Verify Wails installation
+        run: wails3 doctor
+
+      - name: Update build assets
+        run: wails3 task common:update:build-assets
+        if: runner.os == 'macOS'
 
       - name: Build and Package (macos)
         if: runner.os == 'macOS'
@@ -523,7 +375,7 @@ jobs:
           Write-Host "Starting package-windows task..."
           Write-Host "NSIS_PATH is: $env:NSIS_PATH"
           Write-Host "PATH includes: $env:Path"
-          
+
           # Verify makensis is accessible
           $makensisCmd = Get-Command makensis -ErrorAction SilentlyContinue
           if ($makensisCmd) {
@@ -534,7 +386,7 @@ jobs:
             Write-Host "Available NSIS paths:"
             Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
           }
-          
+
           # Note: In GitHub Actions windows-latest, we typically only build for the current architecture
           # Universal packaging requires both ARM64 and AMD64 installers
           # The Taskfile will handle missing files gracefully
@@ -548,10 +400,10 @@ jobs:
           echo "=== Starting package-linux task ==="
           echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
           echo ""
-          
+
           # Pre-build verification with detailed diagnostics
           echo "=== Pre-build dependency verification ==="
-          
+
           # Check if pkg-config is available
           if ! command -v pkg-config &> /dev/null; then
             echo "ERROR: pkg-config not found!"
@@ -559,19 +411,19 @@ jobs:
           fi
           echo "✓ pkg-config found at: $(which pkg-config)"
           echo ""
-          
+
           # Show all .pc files in the system for debugging
           echo "=== Searching for GTK and WebKit .pc files ==="
           ALL_GTK_PC=$(find /usr -name "gtk+-3.0.pc" 2>/dev/null || true)
           ALL_WEBKIT_PC=$(find /usr -name "webkit*.pc" 2>/dev/null || true)
-          
+
           if [ -n "$ALL_GTK_PC" ]; then
             echo "Found gtk+-3.0.pc files:"
             echo "$ALL_GTK_PC"
           else
             echo "✗ WARNING: No gtk+-3.0.pc found anywhere on the system!"
           fi
-          
+
           if [ -n "$ALL_WEBKIT_PC" ]; then
             echo "Found webkit .pc files:"
             echo "$ALL_WEBKIT_PC"
@@ -579,12 +431,12 @@ jobs:
             echo "✗ WARNING: No webkit*.pc found anywhere on the system!"
           fi
           echo ""
-          
+
           # Show what's installed
           echo "=== Checking installed packages ==="
           dpkg -l | grep -E "(libgtk-3-dev|libwebkit2gtk)" || echo "No GTK/WebKit dev packages found!"
           echo ""
-          
+
           # Verify GTK3
           echo "Checking GTK3 via pkg-config..."
           if GTK_VERSION=$(pkg-config --modversion gtk+-3.0 2>&1); then
@@ -612,12 +464,12 @@ jobs:
             echo "Try reinstalling libgtk-3-dev: sudo apt-get install --reinstall libgtk-3-dev"
             exit 1
           fi
-          
+
           # Verify WebKit2GTK
           echo ""
           echo "Checking WebKit2GTK via pkg-config..."
           WEBKIT_FOUND=false
-          
+
           if WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1 2>&1); then
             echo "✓ WebKit2GTK 4.1 version: $WEBKIT_VERSION"
             WEBKIT_FOUND=true
@@ -647,15 +499,15 @@ jobs:
             echo "Try reinstalling the webkit package: sudo apt-get install --reinstall libwebkit2gtk-4.1-dev"
             exit 1
           fi
-          
+
           echo ""
           echo "✓ All dependencies verified successfully"
           echo ""
-          
+
           # Export PKG_CONFIG_PATH to ensure it's available for the task command
           export PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
           echo "Exporting PKG_CONFIG_PATH for task execution: $PKG_CONFIG_PATH"
-          
+
           # Run the packaging task with explicit environment variables
           echo "=== Starting packaging ==="
           env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" CGO_ENABLED=1 task package-linux
