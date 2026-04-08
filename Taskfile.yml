@@ -183,8 +183,7 @@ tasks:
 
         # Windows 打包 universal
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-amd64-installer.exe" "{{._APP_NAME}}-arm64-installer.exe"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
