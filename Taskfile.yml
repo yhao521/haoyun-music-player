@@ -316,37 +316,70 @@ tasks:
         mkdir -p ./bin/releases
         task package-pre
 
-        # Build ARM64 installer (if on native ARM64 or cross-compiling)
+        # Detect current architecture using multiple methods
+        BUILD_ARCH="amd64"  # Default
+        
+        # Try PROCESSOR_ARCHITECTURE environment variable (Windows)
+        if [ -n "$PROCESSOR_ARCHITECTURE" ]; then
+          case "$PROCESSOR_ARCHITECTURE" in
+            AMD64|x86_64)
+              BUILD_ARCH="amd64"
+              ;;
+            ARM64|aarch64)
+              BUILD_ARCH="arm64"
+              ;;
+          esac
+        fi
+        
+        # Fallback: try uname
+        if command -v uname > /dev/null 2>&1; then
+          UNAME_ARCH=$(uname -m 2>/dev/null || true)
+          case "$UNAME_ARCH" in
+            x86_64)
+              BUILD_ARCH="amd64"
+              ;;
+            aarch64|arm64)
+              BUILD_ARCH="arm64"
+              ;;
+          esac
+        fi
+        
+        echo "Detected architecture: ${PROCESSOR_ARCHITECTURE:-unknown} -> Building for: $BUILD_ARCH"
+
+        # Build installer for detected architecture
         rm -f ./bin/{{._APP_NAME}}
-        ARCH=arm64
+        ARCH=$BUILD_ARCH
         task windows:package
         
         # Rename the generated installer to include architecture suffix
         cd ./bin
+        EXPECTED_FILE="{{._APP_NAME}}-${BUILD_ARCH}-installer.exe"
         if [ -f "{{._APP_NAME}}-installer.exe" ]; then
-          mv "{{._APP_NAME}}-installer.exe" "{{._APP_NAME}}-arm64-installer.exe"
-          echo "Renamed installer to {{._APP_NAME}}-arm64-installer.exe"
+          mv "{{._APP_NAME}}-installer.exe" "$EXPECTED_FILE"
+          echo "Renamed to $EXPECTED_FILE"
+        elif [ -f "$EXPECTED_FILE" ]; then
+          echo "File already named correctly: $EXPECTED_FILE"
         else
-          echo "WARNING: ARM64 installer not found at {{._APP_NAME}}-installer.exe"
+          echo "ERROR: Installer not found!"
           echo "Available files in bin:"
-          ls -la
+          ls -la *.exe 2>/dev/null || dir *.exe
+          exit 1
         fi
         
-        cp ../"LICENSE" ./
-        # 创建说明文件
+        cp ../LICENSE ./
         cat > README.md << EOF
         # {{._APP_NAME}} ${_VERSION}
 
         ## 安装说明
 
-        1. 双击运行 `{{._APP_NAME}}-arm64-installer.exe` (ARM64) 或 `{{._APP_NAME}}-amd64-installer.exe` (AMD64)
+        1. 双击运行 `{{._APP_NAME}}-${BUILD_ARCH}-installer.exe`
         2. 按照安装向导完成安装
         3. 从开始菜单或桌面快捷方式启动应用
 
         ## 系统要求
 
         - Windows 10 或更高版本
-        - ARM64 或 x86_64 (AMD64) 处理器
+        - ${BUILD_ARCH} 处理器
 
         ## 功能特性
 
@@ -369,31 +402,9 @@ tasks:
         如有问题请访问项目主页或提交 Issue。
         EOF
 
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_arm64.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe','README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
-        echo "打包完成: releases/${PACKAGE_NAME}"
-        cd ../
-
-
-        # Build AMD64 installer
-        rm -f ./bin/{{._APP_NAME}}
-        ARCH=amd64
-        task windows:package
-        
-        # Rename the generated installer to include architecture suffix
-        cd ./bin
-        if [ -f "{{._APP_NAME}}-installer.exe" ]; then
-          mv "{{._APP_NAME}}-installer.exe" "{{._APP_NAME}}-amd64-installer.exe"
-          echo "Renamed installer to {{._APP_NAME}}-amd64-installer.exe"
-        else
-          echo "ERROR: AMD64 installer not found at {{._APP_NAME}}-installer.exe"
-          echo "Available files in bin:"
-          ls -la
-          exit 1
-        fi
-        
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe','README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
+        # Compress package
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_${BUILD_ARCH}.zip"
+        powershell Compress-Archive -Path "$EXPECTED_FILE",'README.md','LICENSE' -DestinationPath "./releases/${PACKAGE_NAME}" -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
