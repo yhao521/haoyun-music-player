@@ -160,7 +160,7 @@ tasks:
         _VERSION=$(git describe --tags --abbrev=0)
 
         # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        TIMESTAMP=$(date +"%Y%m%d")
 
         rm -f ./bin/{{._APP_NAME}}
         ARCH=arm64
@@ -198,7 +198,7 @@ tasks:
         _VERSION=$(git describe --tags --abbrev=0)
 
         # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        TIMESTAMP=$(date +"%Y%m%d")
         # 创建打包目录
         rm -rf ./bin/releases
         mkdir -p ./bin/releases
@@ -310,7 +310,7 @@ tasks:
         _VERSION=$(git describe --tags --abbrev=0)
 
         # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        TIMESTAMP=$(date +"%Y%m%d")
         # 创建打包目录
         rm -rf ./bin/releases
         mkdir -p ./bin/releases
@@ -372,11 +372,6 @@ tasks:
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
         powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe','README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
-
-        # Windows 打包 universal (需要先确保两个文件都存在)
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', '{{._APP_NAME}}-amd64-installer.exe','README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
-        echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
       - task package-post
@@ -392,7 +387,7 @@ tasks:
         _VERSION=$(git describe --tags --abbrev=0)
 
         # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+        TIMESTAMP=$(date +"%Y%m%d")
         # 创建打包目录
         rm -rf ./bin/releases
         mkdir -p ./bin/releases

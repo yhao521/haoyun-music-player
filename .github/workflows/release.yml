@@ -412,6 +412,9 @@ jobs:
             Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
           }
           
+          # Note: In GitHub Actions windows-latest, we typically only build for the current architecture
+          # Universal packaging requires both ARM64 and AMD64 installers
+          # The Taskfile will handle missing files gracefully
           task package-windows
         env:
           CGO_ENABLED: 1
