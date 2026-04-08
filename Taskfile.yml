@@ -305,6 +305,7 @@ tasks:
     cmds:
       - echo "开始打包应用..."
       - |
+        cp ../"LICENSE" ./
         # 获取版本号
         VERSION_3=$(git rev-list HEAD --no-merges  --count)
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
@@ -323,7 +324,7 @@ tasks:
         # Windows 打包 arm64
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_arm64.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
+        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ../
 
@@ -334,22 +335,23 @@ tasks:
         # Windows 打包 amd64
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
+        powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         # Windows 打包 universal (需要先确保两个文件都存在)
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
-        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
+        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', '{{._APP_NAME}}-amd64-installer.exe', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
-        task package-post
+      - task package-post
 
   package-linux:
     summary: Package the application with version and timestamp for Linux
     cmds:
       - echo "开始打包应用..."
       - |
+        cp ../"LICENSE" ./
         # 获取版本号
         VERSION_3=$(git rev-list HEAD --no-merges  --count)
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
@@ -368,7 +370,7 @@ tasks:
         # Linux 打包
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_arm64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"  "README.md" "LICENSE"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}" "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         rm -f ./bin/{{._APP_NAME}}
@@ -377,7 +379,7 @@ tasks:
         # Linux 打包
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_amd64.zip"
-        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"  "README.md" "LICENSE"
+        zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"  "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
 
-        task package-post
+      - task package-post
