@@ -423,27 +423,23 @@ tasks:
         task package-pre
 
         rm -f ./bin/{{._APP_NAME}}
-        ARCH=arm64
+        # ARCH=arm64
         task windows:package
         # Windows 打包 arm64
         cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_arm64.zip"
-        powershell -Command "Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force"
+        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
-        cd ..
 
-        rm -f ./bin/{{._APP_NAME}}
-        ARCH=amd64
-        task windows:package
+
         # Windows 打包 amd64
-        cd ./bin
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
-        powershell -Command "Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force"
+        powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         # Windows 打包 universal
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
-        powershell -Command "Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force"
+        powershell Compress-Archive -Path '{{._APP_NAME}}-arm64-installer.exe', '{{._APP_NAME}}-amd64-installer.exe', 'README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
 
