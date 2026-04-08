@@ -231,7 +231,7 @@ tasks:
         cd ..
 
         rm -f ./bin/{{._APP_NAME}}
-        task darwin:package:universal 
+        task darwin:package:universal
         # macOS 打包universal
         cd ./bin
         PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"
@@ -284,24 +284,6 @@ tasks:
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
-
-        # rm -f ./bin/{{._APP_NAME}}
-        ARCH=arm64
-        # task linux:package
-        # # Linux 打包
-        # cd ./bin
-        # PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_arm64.zip"
-        # zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
-        # echo "打包完成: releases/${PACKAGE_NAME}"
-
-        rm -f ./bin/{{._APP_NAME}}
-        ARCH=amd64
-        # task linux:package
-        # # Linux 打包
-        # cd ./bin
-        # PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_amd64.zip"
-        # zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}"
-        # echo "打包完成: releases/${PACKAGE_NAME}"
 
         task package-post
 
@@ -359,7 +341,7 @@ tasks:
 
         rm -f ./bin/{{._APP_NAME}}
         ARCH=amd64
-        task darwin:package -tags darwin
+        task darwin:package
         # macOS 打包
         cd ./bin
         # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.zip"
