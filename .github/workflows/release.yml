@@ -126,86 +126,264 @@ jobs:
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          echo "=== Starting Linux dependency installation ==="
+          echo "Ubuntu version: $(lsb_release -ds 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME)"
+          echo ""
+          
+          # Update package lists with retry logic
+          echo "Updating package lists..."
+          for i in {1..3}; do
+            if sudo apt-get update; then
+              echo "✓ Package lists updated successfully"
+              break
+            else
+              echo "Attempt $i failed, retrying..."
+              if [ $i -eq 3 ]; then
+                echo "ERROR: Failed to update package lists after 3 attempts"
+                exit 1
+              fi
+              sleep 5
+            fi
+          done
           
           # Install all required GTK3 and WebKit2GTK development libraries
           echo "Installing GTK3 and WebKit2GTK development libraries..."
           
-          # Try to install with fallback for different Ubuntu versions
-          if ! sudo apt-get install -y \
+          # First, check what's available in the repositories
+          echo "Checking available webkit packages..."
+          WEBKIT_41_AVAILABLE=$(apt-cache search libwebkit2gtk-4.1-dev | wc -l)
+          WEBKIT_40_AVAILABLE=$(apt-cache search libwebkit2gtk-4.0-dev | wc -l)
+          
+          echo "  libwebkit2gtk-4.1-dev available: $WEBKIT_41_AVAILABLE"
+          echo "  libwebkit2gtk-4.0-dev available: $WEBKIT_40_AVAILABLE"
+          echo ""
+          
+          # Determine which version to install
+          if [ "$WEBKIT_41_AVAILABLE" -gt 0 ]; then
+            WEBKIT_PKG="libwebkit2gtk-4.1-dev"
+            echo "Will install: $WEBKIT_PKG"
+          elif [ "$WEBKIT_40_AVAILABLE" -gt 0 ]; then
+            WEBKIT_PKG="libwebkit2gtk-4.0-dev"
+            echo "Will install: $WEBKIT_PKG (fallback to 4.0)"
+          else
+            echo "ERROR: No webkit2gtk development package found in repositories!"
+            echo "Available webkit packages:"
+            apt-cache search libwebkit | grep dev || true
+            exit 1
+          fi
+          echo ""
+          
+          # Try to install with the determined webkit version
+          INSTALL_SUCCESS=false
+          
+          echo "Attempting to install dependencies..."
+          if sudo apt-get install -y \
             libgtk-3-dev \
             libasound2-dev \
-            libwebkit2gtk-4.1-dev \
+            "$WEBKIT_PKG" \
             zip \
-            pkg-config; then
+            pkg-config 2>&1; then
+            echo "✓ All dependencies installed successfully"
+            INSTALL_SUCCESS=true
+          else
+            echo "✗ Batch installation failed, trying individual packages..."
             
-            echo "Primary installation failed, trying webkit2gtk-4.0..."
-            if ! sudo apt-get install -y \
-              libgtk-3-dev \
-              libasound2-dev \
-              libwebkit2gtk-4.0-dev \
-              zip \
-              pkg-config; then
-              
-              echo "ERROR: Failed to install required dependencies"
+            # Install core packages first
+            echo "Installing core dependencies..."
+            sudo apt-get install -y libgtk-3-dev || {
+              echo "ERROR: Failed to install libgtk-3-dev"
               exit 1
+            }
+            
+            sudo apt-get install -y libasound2-dev || {
+              echo "ERROR: Failed to install libasound2-dev"
+              exit 1
+            }
+            
+            # Try webkit
+            echo "Installing webkit..."
+            if sudo apt-get install -y "$WEBKIT_PKG"; then
+              echo "✓ Installed $WEBKIT_PKG"
+            else
+              echo "ERROR: Failed to install $WEBKIT_PKG"
+              echo "Trying alternative webkit packages..."
+              
+              # Try the other version as last resort
+              if [ "$WEBKIT_PKG" = "libwebkit2gtk-4.1-dev" ]; then
+                ALTERNATIVE="libwebkit2gtk-4.0-dev"
+              else
+                ALTERNATIVE="libwebkit2gtk-4.1-dev"
+              fi
+              
+              if sudo apt-get install -y "$ALTERNATIVE"; then
+                echo "✓ Installed alternative: $ALTERNATIVE"
+                WEBKIT_PKG="$ALTERNATIVE"
+              else
+                echo "ERROR: Cannot install any webkit2gtk package"
+                exit 1
+              fi
             fi
+            
+            # Install remaining tools
+            sudo apt-get install -y zip pkg-config || true
+            INSTALL_SUCCESS=true
+          fi
+          
+          if [ "$INSTALL_SUCCESS" = false ]; then
+            echo "ERROR: Installation failed!"
+            exit 1
           fi
           
           # Configure PKG_CONFIG_PATH for proper library detection
-          # Check which pkgconfig directories exist
-          PKG_CONFIG_DIRS=""
-          if [ -d "/usr/lib/x86_64-linux-gnu/pkgconfig" ]; then
-            PKG_CONFIG_DIRS="/usr/lib/x86_64-linux-gnu/pkgconfig"
+          echo ""
+          echo "=== Configuring PKG_CONFIG_PATH ==="
+          
+          # First, check what was actually installed
+          echo "Checking installed webkit packages..."
+          dpkg -l | grep -i webkit || true
+          echo ""
+          
+          # Find all webkit .pc files on the system
+          echo "Searching for webkit .pc files..."
+          WEBKIT_PC_FILES=$(find /usr -name "webkit*.pc" 2>/dev/null)
+          if [ -n "$WEBKIT_PC_FILES" ]; then
+            echo "Found webkit .pc files:"
+            echo "$WEBKIT_PC_FILES"
+            echo ""
+          else
+            echo "WARNING: No webkit .pc files found on system!"
+            echo ""
           fi
-          if [ -d "/usr/share/pkgconfig" ]; then
-            if [ -n "$PKG_CONFIG_DIRS" ]; then
-              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:/usr/share/pkgconfig"
-            else
-              PKG_CONFIG_DIRS="/usr/share/pkgconfig"
+          
+          # Check which webkit version is available
+          WEBKIT_VERSION=""
+          if pkg-config --exists webkit2gtk-4.1 2>/dev/null; then
+            WEBKIT_VERSION="4.1"
+            echo "✓ webkit2gtk-4.1 is available via pkg-config"
+          elif pkg-config --exists webkit2gtk-4.0 2>/dev/null; then
+            WEBKIT_VERSION="4.0"
+            echo "✓ webkit2gtk-4.0 is available via pkg-config"
+          else
+            echo "✗ Neither webkit2gtk-4.1 nor webkit2gtk-4.0 found via pkg-config"
+            
+            # Try to find the .pc file manually and add its directory to PATH
+            if [ -n "$WEBKIT_PC_FILES" ]; then
+              echo "Attempting to fix by adding directories to PKG_CONFIG_PATH..."
+              WEBKIT_PC_DIR=$(dirname $(echo "$WEBKIT_PC_FILES" | head -1))
+              echo "Adding directory: $WEBKIT_PC_DIR"
+              
+              # Determine which version based on filename
+              if echo "$WEBKIT_PC_FILES" | grep -q "webkit2gtk-4.1"; then
+                WEBKIT_VERSION="4.1"
+                echo "Detected webkit2gtk-4.1 from .pc file"
+              elif echo "$WEBKIT_PC_FILES" | grep -q "webkit2gtk-4.0"; then
+                WEBKIT_VERSION="4.0"
+                echo "Detected webkit2gtk-4.0 from .pc file"
+              fi
             fi
           fi
-          if [ -d "/usr/lib/pkgconfig" ]; then
-            if [ -n "$PKG_CONFIG_DIRS" ]; then
-              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:/usr/lib/pkgconfig"
-            else
-              PKG_CONFIG_DIRS="/usr/lib/pkgconfig"
+          echo ""
+          
+          PKG_CONFIG_DIRS=""
+          
+          # Check common pkgconfig directories
+          for dir in "/usr/lib/x86_64-linux-gnu/pkgconfig" "/usr/share/pkgconfig" "/usr/lib/pkgconfig" "/usr/local/lib/pkgconfig"; do
+            if [ -d "$dir" ]; then
+              echo "Found pkgconfig directory: $dir"
+              # List webkit files in this directory
+              ls "$dir"/webkit*.pc 2>/dev/null && echo "  → Contains webkit .pc files" || true
+              if [ -n "$PKG_CONFIG_DIRS" ]; then
+                PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$dir"
+              else
+                PKG_CONFIG_DIRS="$dir"
+              fi
+            fi
+          done
+          
+          # If we found a specific webkit directory, ensure it's included
+          if [ -n "$WEBKIT_PC_FILES" ] && [ -z "$WEBKIT_VERSION" ]; then
+            WEBKIT_PC_DIR=$(dirname $(echo "$WEBKIT_PC_FILES" | head -1))
+            if [[ ":$PKG_CONFIG_DIRS:" != *":$WEBKIT_PC_DIR:"* ]]; then
+              echo "Adding webkit directory to PKG_CONFIG_PATH: $WEBKIT_PC_DIR"
+              PKG_CONFIG_DIRS="$PKG_CONFIG_DIRS:$WEBKIT_PC_DIR"
             fi
           fi
           
           export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS:$PKG_CONFIG_PATH"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo ""
+          echo "Final PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
           
           # Verify package installation and pkg-config paths
-          echo "=== Verifying pkg-config ==="
-          echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
           echo ""
+          echo "=== Verifying pkg-config ==="
+          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          echo ""
+          
+          # List available .pc files for debugging
+          echo "Available GTK/WebKit .pc files:"
+          find /usr -name "*.pc" 2>/dev/null | grep -E "(gtk|webkit)" | head -20 || true
+          echo ""
+          
+          # Check GTK3
           echo "=== Checking GTK3 ==="
           if pkg-config --modversion gtk+-3.0; then
             echo "✓ GTK3 found"
           else
             echo "✗ ERROR: gtk+-3.0 not found!"
-            echo "Available .pc files:"
-            find /usr -name "*.pc" 2>/dev/null | grep -i gtk || true
+            echo "Searching for gtk .pc files..."
+            find /usr -name "gtk*.pc" 2>/dev/null || true
+            echo ""
+            echo "pkg-config search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || true
             exit 1
           fi
           echo ""
+          
+          # Check WebKit2GTK
           echo "=== Checking WebKit2GTK ==="
-          if pkg-config --modversion webkit2gtk-4.1; then
-            echo "✓ WebKit2GTK 4.1 found"
-          elif pkg-config --modversion webkit2gtk-4.0; then
-            echo "✓ WebKit2GTK 4.0 found"
+          
+          # Try both versions with detailed error reporting
+          WEBKIT_FOUND=false
+          
+          if pkg-config --modversion webkit2gtk-4.1 2>&1; then
+            WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1)
+            echo "✓ WebKit2GTK 4.1 found (version: $WEBKIT_VERSION)"
+            WEBKIT_FOUND=true
+          elif pkg-config --modversion webkit2gtk-4.0 2>&1; then
+            WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0)
+            echo "✓ WebKit2GTK 4.0 found (version: $WEBKIT_VERSION)"
+            WEBKIT_FOUND=true
           else
-            echo "✗ ERROR: webkit2gtk not found!"
-            echo "Available .pc files:"
-            find /usr -name "*.pc" 2>/dev/null | grep -i webkit || true
+            echo "✗ ERROR: Neither webkit2gtk-4.1 nor webkit2gtk-4.0 found!"
+            echo ""
+            echo "Debugging information:"
+            echo "1. Installed webkit packages:"
+            dpkg -l | grep -i webkit || echo "   (none found)"
+            echo ""
+            echo "2. Available webkit .pc files on system:"
+            find /usr -name "webkit*.pc" 2>/dev/null || echo "   (none found)"
+            echo ""
+            echo "3. Current PKG_CONFIG_PATH:"
+            echo "   $PKG_CONFIG_PATH"
+            echo ""
+            echo "4. pkg-config default search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
+            echo ""
+            echo "5. Contents of pkgconfig directories:"
+            for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                echo "   Directory: $dir"
+                ls -la "$dir"/webkit*.pc 2>/dev/null || echo "     (no webkit .pc files)"
+              fi
+            done
+            echo ""
+            echo "SUGGESTION: If .pc files exist but pkg-config can't find them,"
+            echo "you may need to reinstall the package or check file permissions."
             exit 1
           fi
           echo ""
-          echo "=== Available .pc files ==="
-          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ 2>/dev/null | grep -E "(gtk|webkit)" || true
-          echo ""
-          echo "Linux dependencies installed and configured successfully"
+          echo "=== Linux dependencies installed and configured successfully ==="
 
       - name: Build and Package (macos)
         if: runner.os == 'macOS'
@@ -241,25 +419,70 @@ jobs:
       - name: Build and Package (Linux)
         if: runner.os == 'Linux'
         run: |
-          echo "Starting package-linux task..."
-          echo "PKG_CONFIG_PATH is: $PKG_CONFIG_PATH"
+          echo "=== Starting package-linux task ==="
+          echo "Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          echo ""
           
-          # Verify pkg-config can find required libraries before building
-          echo "=== Pre-build verification ==="
-          if ! pkg-config --modversion gtk+-3.0; then
-            echo "ERROR: Cannot find gtk+-3.0 before build!"
+          # Pre-build verification with detailed diagnostics
+          echo "=== Pre-build dependency verification ==="
+          
+          # Check if pkg-config is available
+          if ! command -v pkg-config &> /dev/null; then
+            echo "ERROR: pkg-config not found!"
             exit 1
           fi
-          if ! pkg-config --modversion webkit2gtk-4.1 && ! pkg-config --modversion webkit2gtk-4.0; then
-            echo "ERROR: Cannot find webkit2gtk before build!"
+          echo "✓ pkg-config found at: $(which pkg-config)"
+          echo ""
+          
+          # Verify GTK3
+          echo "Checking GTK3..."
+          if GTK_VERSION=$(pkg-config --modversion gtk+-3.0 2>&1); then
+            echo "✓ GTK3 version: $GTK_VERSION"
+          else
+            echo "✗ ERROR: Cannot find gtk+-3.0"
+            echo "Error details: $GTK_VERSION"
+            echo ""
+            echo "Available .pc files in search path:"
+            for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                echo "  Directory: $dir"
+                ls -la "$dir"/*.pc 2>/dev/null | grep -i gtk || echo "    (no gtk .pc files)"
+              fi
+            done
             exit 1
           fi
-          echo "✓ All dependencies verified"
           
+          # Verify WebKit2GTK
+          echo ""
+          echo "Checking WebKit2GTK..."
+          if WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1 2>&1); then
+            echo "✓ WebKit2GTK 4.1 version: $WEBKIT_VERSION"
+          elif WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0 2>&1); then
+            echo "✓ WebKit2GTK 4.0 version: $WEBKIT_VERSION"
+          else
+            echo "✗ ERROR: Cannot find webkit2gtk"
+            echo "Error details: $WEBKIT_VERSION"
+            echo ""
+            echo "Available .pc files in search path:"
+            for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
+              if [ -d "$dir" ]; then
+                echo "  Directory: $dir"
+                ls -la "$dir"/*.pc 2>/dev/null | grep -i webkit || echo "    (no webkit .pc files)"
+              fi
+            done
+            exit 1
+          fi
+          
+          echo ""
+          echo "✓ All dependencies verified successfully"
+          echo ""
+          
+          # Run the packaging task
+          echo "=== Starting packaging ==="
           task package-linux
         env:
           CGO_ENABLED: 1
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:/usr/lib/pkgconfig:/usr/local/lib/pkgconfig
 
       - name: List built artifacts
         run: |
