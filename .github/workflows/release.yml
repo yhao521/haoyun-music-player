@@ -72,20 +72,30 @@ jobs:
           Write-Host "Installing NSIS..."
           choco install nsis --no-progress -y
           
+          # Wait for installation to complete
+          Start-Sleep -Seconds 3
+          
           # Refresh environment variables using multiple methods
           Write-Host "Refreshing environment variables..."
           
           # Method 1: Try refreshenv (Chocolatey helper)
           if (Get-Command refreshenv -ErrorAction SilentlyContinue) {
-            refreshenv
-            Write-Host "Used refreshenv to update environment"
+            try {
+              refreshenv
+              Write-Host "Used refreshenv to update environment"
+            } catch {
+              Write-Host "refreshenv failed: $_"
+            }
           }
           
           # Method 2: Manually refresh PATH from registry
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          $machinePath = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+          $userPath = [System.Environment]::GetEnvironmentVariable("Path","User")
+          $env:Path = "$machinePath;$userPath"
           Write-Host "Manually refreshed PATH from registry"
           
-          # Method 3: Add NSIS path directly if still not found
+          # Method 3: Search for makensis.exe and add its directory to PATH
+          Write-Host "Searching for makensis.exe..."
           $nsisPaths = @(
             "C:\Program Files (x86)\NSIS",
             "C:\Program Files\NSIS",
@@ -93,29 +103,59 @@ jobs:
             "${env:ProgramFiles(x86)}\NSIS"
           )
           
+          $makensisFound = $false
           foreach ($path in $nsisPaths) {
-            if (Test-Path $path) {
+            $makensisExe = Join-Path $path "makensis.exe"
+            if (Test-Path $makensisExe) {
+              Write-Host "Found makensis at: $makensisExe"
               if ($env:Path -notlike "*$path*") {
-                $env:Path += ";$path"
-                Write-Host "Added NSIS path: $path"
+                $env:Path = "$path;$env:Path"
+                Write-Host "Added NSIS path to PATH: $path"
               }
+              $makensisFound = $true
               break
             }
           }
           
-          # Verify NSIS installation
-          Write-Host "Checking for makensis..."
+          # Method 4: Deep search if not found in common locations
+          if (-not $makensisFound) {
+            Write-Host "Searching deeper for makensis.exe..."
+            $foundFiles = Get-ChildItem -Path "C:\" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($foundFiles) {
+              $nsisDir = Split-Path $foundFiles.FullName -Parent
+              Write-Host "Found makensis at: $($foundFiles.FullName)"
+              if ($env:Path -notlike "*$nsisDir*") {
+                $env:Path = "$nsisDir;$env:Path"
+                Write-Host "Added NSIS path to PATH: $nsisDir"
+              }
+              $makensisFound = $true
+            }
+          }
+          
+          # Final verification
+          if (-not $makensisFound) {
+            Write-Host "ERROR: makensis.exe not found anywhere on the system"
+            Write-Host "Current PATH: $env:Path"
+            exit 1
+          }
+          
+          # Verify makensis is accessible
+          Write-Host "Verifying makensis command..."
           $makensisCmd = Get-Command makensis -ErrorAction SilentlyContinue
           if ($makensisCmd) {
-            Write-Host "Found makensis at: $($makensisCmd.Source)"
+            Write-Host "SUCCESS: makensis is available at: $($makensisCmd.Source)"
             & makensis /VERSION
             Write-Host "NSIS installed and verified successfully"
           } else {
-            Write-Host "ERROR: makensis not found in PATH"
+            Write-Host "WARNING: makensis not in PATH after all attempts"
             Write-Host "Current PATH: $env:Path"
-            Write-Host "Searching for makensis.exe..."
-            Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 5 FullName
-            exit 1
+            Write-Host "Attempting to use absolute path in subsequent steps..."
+            # Export the absolute path for later use
+            $makensisExe = Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($makensisExe) {
+              echo "MAKENSIS_PATH=$($makensisExe.FullName)" >> $env:GITHUB_ENV
+              Write-Host "Exported MAKENSIS_PATH: $($makensisExe.FullName)"
+            }
           }
           
           Write-Host "Windows environment ready"
@@ -125,41 +165,43 @@ jobs:
         run: |
           sudo apt-get update
           
-          # Try to install packages, handle different Ubuntu versions
+          # Install all required GTK3 and WebKit2GTK development libraries
           echo "Installing GTK3 and WebKit2GTK development libraries..."
           sudo apt-get install -y \
             libgtk-3-dev \
             libasound2-dev \
+            libwebkit2gtk-4.1-dev \
             zip \
-            pkg-config || true
-          
-          # Try webkit2gtk-4.1 first (newer), fall back to 4.0 (older)
-          if ! dpkg -l | grep -q libwebkit2gtk-4.1-dev; then
-            echo "Trying to install libwebkit2gtk-4.1-dev..."
-            sudo apt-get install -y libwebkit2gtk-4.1-dev || {
-              echo "libwebkit2gtk-4.1-dev not found, trying libwebkit2gtk-4.0-dev..."
-              sudo apt-get install -y libwebkit2gtk-4.0-dev || {
-                echo "ERROR: Neither webkit2gtk-4.1 nor 4.0 dev packages found"
-                exit 1
-              }
+            pkg-config || {
+              echo "Primary installation failed, trying fallback packages..."
+              sudo apt-get install -y \
+                libgtk-3-dev \
+                libasound2-dev \
+                libwebkit2gtk-4.0-dev \
+                zip \
+                pkg-config || {
+                  echo "ERROR: Failed to install required dependencies"
+                  exit 1
+                }
             }
-          fi
           
           # Configure PKG_CONFIG_PATH for proper library detection
           export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"
-          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
           
-          # List available gtk and webkit packages for debugging
-          echo "=== Available GTK packages ==="
-          dpkg -l | grep gtk || true
-          echo "=== Available WebKit packages ==="
-          dpkg -l | grep webkit || true
-          
-          # Verify package installation
-          echo "=== Checking pkg-config ==="
-          pkg-config --list-all | grep -i gtk || true
-          pkg-config --list-all | grep -i webkit || true
-          
+          # Verify package installation and pkg-config paths
+          echo "=== Verifying pkg-config ==="
+          echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+          echo ""
+          echo "=== Checking GTK3 ==="
+          pkg-config --modversion gtk+-3.0 || echo "WARNING: gtk+-3.0 not found"
+          echo ""
+          echo "=== Checking WebKit2GTK ==="
+          pkg-config --modversion webkit2gtk-4.1 || pkg-config --modversion webkit2gtk-4.0 || echo "WARNING: webkit2gtk not found"
+          echo ""
+          echo "=== Available .pc files ==="
+          ls -la /usr/lib/x86_64-linux-gnu/pkgconfig/ | grep -E "(gtk|webkit)" || true
+          echo ""
           echo "Linux dependencies installed and configured"
 
       - name: Build and Package (macos)
@@ -168,7 +210,7 @@ jobs:
           echo "Starting package-all task..."
           task package-macos
         env:
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
 
       - name: Build and Package (Windows)
         if: runner.os == 'Windows'
@@ -176,7 +218,7 @@ jobs:
           echo "Starting package-all task..."
           task package-windows
         env:
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
 
       - name: Build and Package (Linux)
         if: runner.os == 'Linux'

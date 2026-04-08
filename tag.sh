@@ -75,7 +75,7 @@ echo "✅ 构建资源已同步"
 echo "📦 提交版本更新..."
 git add build/config.yml build/
 git commit -m "chore: bump version to $version_number"
-git push origin
+git push
 
 # 创建并推送 tag
 echo "🏷️  创建 Git tag: $version"
