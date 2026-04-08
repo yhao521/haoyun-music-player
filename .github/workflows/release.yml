@@ -73,91 +73,54 @@ jobs:
           choco install nsis --no-progress -y
           
           # Wait for installation to complete
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 5
           
-          # Refresh environment variables using multiple methods
-          Write-Host "Refreshing environment variables..."
-          
-          # Method 1: Try refreshenv (Chocolatey helper)
-          if (Get-Command refreshenv -ErrorAction SilentlyContinue) {
-            try {
-              refreshenv
-              Write-Host "Used refreshenv to update environment"
-            } catch {
-              Write-Host "refreshenv failed: $_"
-            }
-          }
-          
-          # Method 2: Manually refresh PATH from registry
-          $machinePath = [System.Environment]::GetEnvironmentVariable("Path","Machine")
-          $userPath = [System.Environment]::GetEnvironmentVariable("Path","User")
-          $env:Path = "$machinePath;$userPath"
-          Write-Host "Manually refreshed PATH from registry"
-          
-          # Method 3: Search for makensis.exe and add its directory to PATH
+          # Search for makensis.exe in common locations
           Write-Host "Searching for makensis.exe..."
           $nsisPaths = @(
             "C:\Program Files (x86)\NSIS",
-            "C:\Program Files\NSIS",
-            "$env:ProgramFiles\NSIS",
-            "${env:ProgramFiles(x86)}\NSIS"
+            "C:\Program Files\NSIS"
           )
           
           $makensisFound = $false
+          $nsisDir = ""
+          
           foreach ($path in $nsisPaths) {
             $makensisExe = Join-Path $path "makensis.exe"
             if (Test-Path $makensisExe) {
               Write-Host "Found makensis at: $makensisExe"
-              if ($env:Path -notlike "*$path*") {
-                $env:Path = "$path;$env:Path"
-                Write-Host "Added NSIS path to PATH: $path"
-              }
+              $nsisDir = $path
               $makensisFound = $true
               break
             }
           }
           
-          # Method 4: Deep search if not found in common locations
+          # Deep search if not found in common locations
           if (-not $makensisFound) {
-            Write-Host "Searching deeper for makensis.exe..."
-            $foundFiles = Get-ChildItem -Path "C:\" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            Write-Host "Deep searching for makensis.exe..."
+            $foundFiles = Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($foundFiles) {
               $nsisDir = Split-Path $foundFiles.FullName -Parent
               Write-Host "Found makensis at: $($foundFiles.FullName)"
-              if ($env:Path -notlike "*$nsisDir*") {
-                $env:Path = "$nsisDir;$env:Path"
-                Write-Host "Added NSIS path to PATH: $nsisDir"
-              }
               $makensisFound = $true
             }
           }
           
-          # Final verification
           if (-not $makensisFound) {
-            Write-Host "ERROR: makensis.exe not found anywhere on the system"
-            Write-Host "Current PATH: $env:Path"
+            Write-Host "ERROR: makensis.exe not found!"
             exit 1
           }
           
-          # Verify makensis is accessible
-          Write-Host "Verifying makensis command..."
-          $makensisCmd = Get-Command makensis -ErrorAction SilentlyContinue
-          if ($makensisCmd) {
-            Write-Host "SUCCESS: makensis is available at: $($makensisCmd.Source)"
-            & makensis /VERSION
-            Write-Host "NSIS installed and verified successfully"
-          } else {
-            Write-Host "WARNING: makensis not in PATH after all attempts"
-            Write-Host "Current PATH: $env:Path"
-            Write-Host "Attempting to use absolute path in subsequent steps..."
-            # Export the absolute path for later use
-            $makensisExe = Get-ChildItem -Path "C:\Program Files*" -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($makensisExe) {
-              echo "MAKENSIS_PATH=$($makensisExe.FullName)" >> $env:GITHUB_ENV
-              Write-Host "Exported MAKENSIS_PATH: $($makensisExe.FullName)"
-            }
-          }
+          # Export NSIS directory to GITHUB_ENV for all subsequent steps
+          Write-Host "Exporting NSIS_PATH to environment..."
+          echo "NSIS_PATH=$nsisDir" >> $env:GITHUB_ENV
+          echo "MAKENSIS=$nsisDir\makensis.exe" >> $env:GITHUB_ENV
           
+          # Also add to PATH for current and future steps
+          echo "$nsisDir" >> $env:GITHUB_PATH
+          
+          Write-Host "NSIS installed successfully at: $nsisDir"
+          & "$nsisDir\makensis.exe" /VERSION
           Write-Host "Windows environment ready"
 
       - name: Install dependencies (Linux)
@@ -215,7 +178,9 @@ jobs:
       - name: Build and Package (Windows)
         if: runner.os == 'Windows'
         run: |
-          echo "Starting package-all task..."
+          echo "Starting package-windows task..."
+          echo "NSIS_PATH is: $env:NSIS_PATH"
+          echo "PATH includes: $env:Path"
           task package-windows
         env:
           CGO_ENABLED: 1
@@ -224,9 +189,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "Starting package-linux task..."
+          echo "PKG_CONFIG_PATH is: $PKG_CONFIG_PATH"
           task package-linux
         env:
           CGO_ENABLED: 1
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
 
       - name: List built artifacts
         run: |
