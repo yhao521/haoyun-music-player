@@ -561,3 +561,205 @@ matrix:
 5. ✅ 提供详细的调试信息
 
 如果仍然失败,日志会明确指出是哪个环节出了问题,从而可以快速定位和修复。
+
+# Linux 打包路径问题修复
+
+## 🔴 问题现象
+
+在 GitHub Actions Linux CI 构建中,Go 编译成功但打包阶段失败:
+
+```
+task: [linux:build:native] go build -tags production -trimpath -buildvcs=false -ldflags="-w -s" -o bin/haoyun-music-player
+task: [linux:generate:dotdesktop] mkdir -p /home/runner/work/haoyun-music-player/haoyun-music-player/build/linux/appimage
+task: [linux:generate:dotdesktop] wails3 generate .desktop -name "haoyun-music-player" -exec "haoyun-music-player" -icon "haoyun-music-player" -outputfile "/home/runner/work/haoyun-music-player/haoyun-music-player/build/linux/haoyun-music-player.desktop" -categories "Development;"
+task: [linux:generate:aur] wails3 tool package -name "haoyun-music-player" -format archlinux -config ./build/linux/nfpm/nfpm.yaml -out /home/runner/work/haoyun-music-player/haoyun-music-player/bin
+cd: no such file or directory: "./bin"
+Error: Process completed with exit code 201.
+```
+
+## 🔍 根本原因
+
+### 1. nfpm.yaml 使用了相对路径
+
+``yaml
+contents:
+  - src: "./bin/haoyun-music-player"  # ❌ 相对路径
+    dst: "/usr/local/bin/haoyun-music-player"
+```
+
+### 2. Taskfile 命令未指定工作目录
+
+``yaml
+generate:aur:
+  cmds:
+    - wails3 tool package -name "{{.APP_NAME}}" -format archlinux -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+    # ❌ 没有 cd 到项目根目录,导致相对路径失效
+```
+
+当 `wails3 tool package` 执行时,它的工作目录可能不是项目根目录,因此 `./bin/haoyun-music-player` 路径找不到文件。
+
+## ✅ 解决方案
+
+### 修改 1: 清理 nfpm.yaml 中的路径
+
+**文件**: `build/linux/nfpm/nfpm.yaml`
+
+```
+# 之前 (有前导 ./)
+contents:
+  - src: "./bin/haoyun-music-player"
+    dst: "/usr/local/bin/haoyun-music-player"
+  - src: "./build/appicon.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/haoyun-music-player.png"
+
+# 之后 (移除前导 ./,更清晰)
+contents:
+  - src: "bin/haoyun-music-player"
+    dst: "/usr/local/bin/haoyun-music-player"
+  - src: "build/appicon.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/haoyun-music-player.png"
+```
+
+**注意**: 这些路径仍然是相对路径,需要在正确的工作目录下执行 nfpm 命令。
+
+### 修改 2: 在 Taskfile 中明确工作目录
+
+**文件**: `build/linux/Taskfile.yml`
+
+```
+# 之前
+generate:deb:
+  cmds:
+    - wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+
+# 之后 (添加 cd {{.ROOT_DIR}})
+generate:deb:
+  cmds:
+    - cd {{.ROOT_DIR}} && wails3 tool package -name "{{.APP_NAME}}" -format deb -config ./build/linux/nfpm/nfpm.yaml -out {{.ROOT_DIR}}/bin
+```
+
+对所有三个打包格式都进行了相同修改:
+- `generate:deb`
+- `generate:rpm`
+- `generate:aur`
+
+## 🎯 工作原理
+
+### 执行流程
+
+1. **构建阶段** (`build:native`)
+   ```bash
+   go build -o bin/haoyun-music-player
+   # 在项目根目录执行,生成 bin/haoyun-music-player
+   ```
+
+2. **打包阶段** (`generate:aur`)
+   ```bash
+   cd /home/runner/work/haoyun-music-player/haoyun-music-player && \
+   wails3 tool package \
+     -name "haoyun-music-player" \
+     -format archlinux \
+     -config ./build/linux/nfpm/nfpm.yaml \
+     -out /home/runner/work/haoyun-music-player/haoyun-music-player/bin
+   ```
+
+3. **nfpm 读取配置**
+   ```yaml
+   # nfpm.yaml 中的相对路径现在是相对于项目根目录
+   contents:
+     - src: "bin/haoyun-music-player"  # ✅ 能找到!
+       dst: "/usr/local/bin/haoyun-music-player"
+   ```
+
+## 📊 关键要点
+
+### 1. 相对路径的陷阱
+
+在 CI/CD 环境中,命令的工作目录可能不是你期望的:
+- Task 可能在子目录中执行
+- Docker 容器可能有不同的工作目录
+- 并行任务可能改变当前目录
+
+**最佳实践**:
+- 始终使用 `cd {{.ROOT_DIR}} && command` 确保在正确的目录执行
+- 或者使用绝对路径: `{{.ROOT_DIR}}/bin/haoyun-music-player`
+
+### 2. nfpm 配置文件的路径解析
+
+nfpm 配置文件中的 `src` 路径是相对于:
+- **nfpm 命令执行时的工作目录**,不是配置文件所在目录
+
+因此必须确保:
+```bash
+cd /project/root && nfpm pkg --config build/linux/nfpm/nfpm.yaml
+```
+
+### 3. Wails v3 Taskfile 变量
+
+- `{{.ROOT_DIR}}`: 项目根目录的绝对路径
+- `{{.BIN_DIR}}`: 通常是 `bin`
+- `{{.APP_NAME}}`: 应用名称
+
+使用这些变量可以确保路径的正确性。
+
+## 🔧 其他可能的修复方案
+
+### 方案 A: 使用绝对路径 (更可靠)
+
+修改 `nfpm.yaml`:
+
+```
+# 但这需要模板化,因为绝对路径在不同环境中不同
+contents:
+  - src: "${PROJECT_ROOT}/bin/haoyun-music-player"
+    dst: "/usr/local/bin/haoyun-music-player"
+```
+
+然后在 Taskfile 中设置环境变量:
+
+```yaml
+generate:aur:
+  cmds:
+    - PROJECT_ROOT={{.ROOT_DIR}} wails3 tool package ...
+```
+
+### 方案 B: 使用 nfpm 的 --packager 参数指定工作目录
+
+```bash
+wails3 tool package --chdir {{.ROOT_DIR}} ...
+```
+
+(如果 wails3 支持这个参数)
+
+### 方案 C: 当前采用的方案 (推荐)
+
+在 Taskfile 中使用 `cd {{.ROOT_DIR}} && command`,简单直接且可靠。
+
+## ✅ 验证步骤
+
+提交更改后,GitHub Actions 应该能够:
+
+1. ✅ 成功编译 Go 代码到 `bin/haoyun-music-player`
+2. ✅ 找到二进制文件并创建 DEB/RPM/AUR 包
+3. ✅ 输出打包好的文件到 `bin/` 目录
+
+预期日志:
+
+```
+task: [linux:build:native] go build -tags production ... -o bin/haoyun-music-player
+task: [linux:generate:aur] cd /home/runner/work/... && wails3 tool package ...
+✓ Successfully created Arch Linux package
+```
+
+## 📝 总结
+
+**问题**: nfpm 命令在错误的工作目录执行,导致相对路径失效
+
+**解决**: 
+1. 清理 nfpm.yaml 中的路径格式(移除 `./`)
+2. 在 Taskfile 的所有 nfpm 命令前添加 `cd {{.ROOT_DIR}} &&`
+
+**教训**: 
+- 在 CI/CD 环境中,永远不要假设工作目录
+- 始终显式指定或切换到正确的目录
+- 使用 `{{.ROOT_DIR}}` 等变量确保路径的可靠性
