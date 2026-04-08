@@ -298,8 +298,15 @@ jobs:
             fi
           fi
           
+          # Ensure PKG_CONFIG_DIRS is not empty
+          if [ -z "$PKG_CONFIG_DIRS" ]; then
+            echo "WARNING: No .pc files found in standard locations!"
+            echo "Setting default PKG_CONFIG_PATH..."
+            PKG_CONFIG_DIRS="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
+          fi
+          
           # Export to GITHUB_ENV for all subsequent steps
-          export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS:$PKG_CONFIG_PATH"
+          export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
           echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
           echo ""
           echo "Final PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
@@ -415,42 +422,91 @@ jobs:
           echo "✓ pkg-config found at: $(which pkg-config)"
           echo ""
           
+          # Show all .pc files in the system for debugging
+          echo "=== Searching for GTK and WebKit .pc files ==="
+          ALL_GTK_PC=$(find /usr -name "gtk+-3.0.pc" 2>/dev/null || true)
+          ALL_WEBKIT_PC=$(find /usr -name "webkit*.pc" 2>/dev/null || true)
+          
+          if [ -n "$ALL_GTK_PC" ]; then
+            echo "Found gtk+-3.0.pc files:"
+            echo "$ALL_GTK_PC"
+          else
+            echo "✗ WARNING: No gtk+-3.0.pc found anywhere on the system!"
+          fi
+          
+          if [ -n "$ALL_WEBKIT_PC" ]; then
+            echo "Found webkit .pc files:"
+            echo "$ALL_WEBKIT_PC"
+          else
+            echo "✗ WARNING: No webkit*.pc found anywhere on the system!"
+          fi
+          echo ""
+          
+          # Show what's installed
+          echo "=== Checking installed packages ==="
+          dpkg -l | grep -E "(libgtk-3-dev|libwebkit2gtk)" || echo "No GTK/WebKit dev packages found!"
+          echo ""
+          
           # Verify GTK3
-          echo "Checking GTK3..."
+          echo "Checking GTK3 via pkg-config..."
           if GTK_VERSION=$(pkg-config --modversion gtk+-3.0 2>&1); then
             echo "✓ GTK3 version: $GTK_VERSION"
           else
-            echo "✗ ERROR: Cannot find gtk+-3.0"
+            echo "✗ ERROR: Cannot find gtk+-3.0 via pkg-config"
             echo "Error details: $GTK_VERSION"
             echo ""
-            echo "Available .pc files in search path:"
+            echo "Debugging information:"
+            echo "1. Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+            echo "2. Directories in PKG_CONFIG_PATH:"
             for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
               if [ -d "$dir" ]; then
-                echo "  Directory: $dir"
-                ls -la "$dir"/*.pc 2>/dev/null | grep -i gtk || echo "    (no gtk .pc files)"
+                echo "   ✓ Directory exists: $dir"
+                ls "$dir"/gtk+-3.0.pc 2>/dev/null && echo "     → Contains gtk+-3.0.pc" || echo "     → No gtk+-3.0.pc"
+              else
+                echo "   ✗ Directory does NOT exist: $dir"
               fi
             done
+            echo ""
+            echo "3. pkg-config default search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
+            echo ""
+            echo "SUGGESTION: The .pc files may not be installed or are in a non-standard location."
+            echo "Try reinstalling libgtk-3-dev: sudo apt-get install --reinstall libgtk-3-dev"
             exit 1
           fi
           
           # Verify WebKit2GTK
           echo ""
-          echo "Checking WebKit2GTK..."
+          echo "Checking WebKit2GTK via pkg-config..."
+          WEBKIT_FOUND=false
+          
           if WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.1 2>&1); then
             echo "✓ WebKit2GTK 4.1 version: $WEBKIT_VERSION"
+            WEBKIT_FOUND=true
           elif WEBKIT_VERSION=$(pkg-config --modversion webkit2gtk-4.0 2>&1); then
             echo "✓ WebKit2GTK 4.0 version: $WEBKIT_VERSION"
+            WEBKIT_FOUND=true
           else
-            echo "✗ ERROR: Cannot find webkit2gtk"
+            echo "✗ ERROR: Cannot find webkit2gtk via pkg-config"
             echo "Error details: $WEBKIT_VERSION"
             echo ""
-            echo "Available .pc files in search path:"
+            echo "Debugging information:"
+            echo "1. Current PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+            echo "2. Directories in PKG_CONFIG_PATH:"
             for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
               if [ -d "$dir" ]; then
-                echo "  Directory: $dir"
-                ls -la "$dir"/*.pc 2>/dev/null | grep -i webkit || echo "    (no webkit .pc files)"
+                echo "   ✓ Directory exists: $dir"
+                ls "$dir"/webkit*.pc 2>/dev/null && echo "     → Contains webkit .pc files" || echo "     → No webkit .pc files"
+              else
+                echo "   ✗ Directory does NOT exist: $dir"
               fi
             done
+            echo ""
+            echo "3. pkg-config default search path:"
+            pkg-config --variable pc_path pkg-config 2>/dev/null || echo "   (unable to retrieve)"
+            echo ""
+            echo "SUGGESTION: The .pc files may not be installed or are in a non-standard location."
+            echo "Try reinstalling the webkit package: sudo apt-get install --reinstall libwebkit2gtk-4.1-dev"
             exit 1
           fi
           
