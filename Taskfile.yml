@@ -316,11 +316,22 @@ tasks:
         mkdir -p ./bin/releases
         task package-pre
 
+        # Build ARM64 installer (if on native ARM64 or cross-compiling)
         rm -f ./bin/{{._APP_NAME}}
         ARCH=arm64
         task windows:package
-        # Windows 打包 arm64
+        
+        # Rename the generated installer to include architecture suffix
         cd ./bin
+        if [ -f "{{._APP_NAME}}-installer.exe" ]; then
+          mv "{{._APP_NAME}}-installer.exe" "{{._APP_NAME}}-arm64-installer.exe"
+          echo "Renamed installer to {{._APP_NAME}}-arm64-installer.exe"
+        else
+          echo "WARNING: ARM64 installer not found at {{._APP_NAME}}-installer.exe"
+          echo "Available files in bin:"
+          ls -la
+        fi
+        
         cp ../"LICENSE" ./
         # 创建说明文件
         cat > README.md << EOF
@@ -364,11 +375,23 @@ tasks:
         cd ../
 
 
+        # Build AMD64 installer
         rm -f ./bin/{{._APP_NAME}}
         ARCH=amd64
         task windows:package
-        # Windows 打包 amd64
+        
+        # Rename the generated installer to include architecture suffix
         cd ./bin
+        if [ -f "{{._APP_NAME}}-installer.exe" ]; then
+          mv "{{._APP_NAME}}-installer.exe" "{{._APP_NAME}}-amd64-installer.exe"
+          echo "Renamed installer to {{._APP_NAME}}-amd64-installer.exe"
+        else
+          echo "ERROR: AMD64 installer not found at {{._APP_NAME}}-installer.exe"
+          echo "Available files in bin:"
+          ls -la
+          exit 1
+        fi
+        
         PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
         powershell Compress-Archive -Path '{{._APP_NAME}}-amd64-installer.exe','README.md', 'LICENSE' -DestinationPath './releases/${PACKAGE_NAME}' -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
