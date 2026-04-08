@@ -1,8 +1,6 @@
-# Linux CI pkg-config 问题修复说明
+# Linux CI pkg-config 问题完整诊断与修复指南
 
-## 问题现象
-
-在 GitHub Actions Linux CI 环境中构建时出现以下错误:
+## 🔴 当前错误
 
 ```
 Package gtk+-3.0 was not found in the pkg-config search path.
@@ -12,186 +10,305 @@ Package 'gtk+-3.0', required by 'virtual:world', not found
 Package 'webkit2gtk-4.1', required by 'virtual:world', not found
 ```
 
-## 根本原因分析
+## 📋 已实施的修复措施
 
-### 1. PKG_CONFIG_PATH 配置不完整
-- 虽然安装了 GTK3 和 WebKit2GTK 开发库,但 `.pc` 文件可能不在标准搜索路径中
-- 原配置逻辑可能在某些情况下生成空的路径或带有前导冒号的路径
+### 1. 使用稳定的 Ubuntu 版本
+- ✅ 从 `ubuntu-latest` 改为 `ubuntu-22.04`
+- **原因**: `ubuntu-latest` 可能升级到 24.04,包名称和可用性会变化
 
-### 2. 环境变量传递问题
-- GitHub Actions 中写入 `$GITHUB_ENV` 只对后续步骤有效
-- `task` 命令及其子进程(Go 编译器、pkg-config)可能无法正确继承环境变量
-- 需要使用 `env` 命令显式传递关键环境变量
-
-## 解决方案
-
-### 修改 1: 改进 PKG_CONFIG_PATH 配置逻辑
-
-**位置**: `.github/workflows/release.yml` - "Install dependencies (Linux)" 步骤
-
-**关键改进**:
-
-1. **确保默认路径存在**:
-   ```bash
-   # Ensure PKG_CONFIG_DIRS is not empty
-   if [ -z "$PKG_CONFIG_DIRS" ]; then
-     echo "WARNING: No .pc files found in standard locations!"
-     echo "Setting default PKG_CONFIG_PATH..."
-     PKG_CONFIG_DIRS="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig"
-   fi
-   ```
-
-2. **正确的字符串拼接**(避免前导冒号):
-   ```bash
-   # 之前(可能有前导冒号):
-   export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS:$PKG_CONFIG_PATH"
-   
-   # 现在(正确处理空值):
-   export PKG_CONFIG_PATH="$PKG_CONFIG_DIRS${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-   ```
-   
-   `${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}` 的含义:
-   - 如果 `PKG_CONFIG_PATH` 非空,则扩展为 `:$PKG_CONFIG_PATH`
-   - 如果 `PKG_CONFIG_PATH` 为空,则扩展为空字符串
-   - 避免了 `:/usr/...` 这样的前导冒号问题
-
-3. **导出到 GITHUB_ENV**:
-   ```bash
-   echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-   ```
-
-### 修改 2: 增强诊断信息
-
-**位置**: `.github/workflows/release.yml` - "Build and Package (Linux)" 步骤
-
-**新增诊断内容**:
-
-1. **全局搜索 .pc 文件**:
-   ```bash
-   ALL_GTK_PC=$(find /usr -name "gtk+-3.0.pc" 2>/dev/null || true)
-   ALL_WEBKIT_PC=$(find /usr -name "webkit*.pc" 2>/dev/null || true)
-   ```
-
-2. **显示已安装的包**:
-   ```bash
-   dpkg -l | grep -E "(libgtk-3-dev|libwebkit2gtk)" || echo "No GTK/WebKit dev packages found!"
-   ```
-
-3. **逐个检查 PKG_CONFIG_PATH 中的目录**:
-   ```bash
-   for dir in $(echo "$PKG_CONFIG_PATH" | tr ':' '\n'); do
-     if [ -d "$dir" ]; then
-       echo "   ✓ Directory exists: $dir"
-       ls "$dir"/gtk+-3.0.pc 2>/dev/null && echo "     → Contains gtk+-3.0.pc" || echo "     → No gtk+-3.0.pc"
-     else
-       echo "   ✗ Directory does NOT exist: $dir"
-     fi
-   done
-   ```
-
-4. **提供明确的解决建议**:
-   ```bash
-   echo "SUGGESTION: The .pc files may not be installed or are in a non-standard location."
-   echo "Try reinstalling libgtk-3-dev: sudo apt-get install --reinstall libgtk-3-dev"
-   ```
-
-### 修改 3: 显式传递环境变量
-
-**关键代码**:
-```bash
-# Export to current shell
-export PKG_CONFIG_PATH="$PKG_CONFIG_PATH"
-
-# Use env command to explicitly pass to task subprocess
-env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" CGO_ENABLED=1 task package-linux
+### 2. 增强的包安装验证
+```yaml
+# 每个包安装后立即验证
+if sudo apt-get install -y --no-install-recommends libgtk-3-dev; then
+  # 检查 dpkg 确认真正安装成功
+  if dpkg -l | grep -q "libgtk-3-dev"; then
+    echo "✓ Verified: libgtk-3-dev is installed"
+  else
+    echo "✗ ERROR: Package not found after installation!"
+    exit 1
+  fi
+fi
 ```
 
-这确保了:
-- 当前 shell 环境有正确的 `PKG_CONFIG_PATH`
-- `task` 命令及其所有子进程都能访问该变量
-- 避免环境变量在进程间传递时丢失
-
-## 验证步骤
-
-提交更改后,GitHub Actions 将:
-
-1. **安装依赖阶段**:
-   - 安装 `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`(或 4.0), `libasound2-dev`
-   - 查找所有 `.pc` 文件位置
-   - 构建完整的 `PKG_CONFIG_PATH` 并导出
-
-2. **构建阶段**:
-   - 显示详细的诊断信息(找到的 .pc 文件、已安装的包等)
-   - 验证 `pkg-config` 能否找到 GTK3 和 WebKit2GTK
-   - 如果失败,提供详细的调试信息和解决建议
-   - 使用 `env` 命令显式传递环境变量执行 `task package-linux`
-
-## 常见问题排查
-
-### 问题 1: 仍然找不到 .pc 文件
-
-**检查点**:
-1. 查看日志中的 "Searching for GTK and WebKit .pc files" 部分
-2. 确认 `dpkg -l` 输出中包含 `libgtk-3-dev` 和 `libwebkit2gtk-*-dev`
-3. 如果 `.pc` 文件存在但 pkg-config 找不到,检查文件权限
-
-**解决方案**:
+### 3. 精确的包名称检测
 ```bash
-# 重新安装包
-sudo apt-get install --reinstall libgtk-3-dev libwebkit2gtk-4.1-dev
-
-# 手动查找 .pc 文件
-find /usr -name "*.pc" | grep -E "(gtk|webkit)"
-
-# 手动测试 pkg-config
-PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig pkg-config --modversion gtk+-3.0
+# 使用 --names-only 进行精确匹配
+WEBKIT_41_AVAILABLE=$(apt-cache search --names-only '^libwebkit2gtk-4.1-dev$' | wc -l)
+WEBKIT_40_AVAILABLE=$(apt-cache search --names-only '^libwebkit2gtk-4.0-dev$' | wc -l)
 ```
 
-### 问题 2: PKG_CONFIG_PATH 为空
+### 4. 全面的 .pc 文件搜索
+```bash
+# 搜索所有 GTK/WebKit 相关的 .pc 文件
+find /usr -name "*gtk*.pc" -o -name "*gdk*.pc"
+find /usr -name "*webkit*.pc"
 
-**原因**: 没有找到任何 `.pc` 文件
+# 精确查找所需的文件
+find /usr -name "gtk+-3.0.pc"
+find /usr -name "webkit2gtk-4.1.pc"
+find /usr -name "webkit2gtk-4.0.pc"
+```
 
-**解决方案**:
-- 检查 "Install dependencies (Linux)" 步骤的日志
-- 确认 `apt-get install` 成功执行
-- 查看是否有包冲突或安装失败的错误信息
+### 5. 安装后立即测试 pkg-config
+```bash
+# 在安装完成后立即测试
+echo "Testing GTK3..."
+pkg-config --modversion gtk+-3.0
 
-### 问题 3: 包版本不匹配
+echo "Testing WebKit2GTK..."
+pkg-config --modversion webkit2gtk-4.1 || pkg-config --modversion webkit2gtk-4.0
+```
 
-**症状**: `webkit2gtk-4.1` 不可用,只有 `webkit2gtk-4.0`
+## 🔍 诊断步骤
 
-**解决方案**:
-- Workflow 已经支持自动检测并回退到 4.0 版本
-- 查看日志中的 "Will install: libwebkit2gtk-4.0-dev (fallback to 4.0)" 提示
+当遇到此错误时,按以下步骤排查:
 
-## 技术要点总结
+### 步骤 1: 检查包是否真正安装
 
-1. **GitHub Actions 环境变量传递机制**:
-   - `$GITHUB_ENV`: 对后续步骤有效
-   - `export`: 对当前脚本内的子进程有效
-   - `env VAR=value command`: 显式传递给特定命令
+查看 GitHub Actions 日志中的 "Install dependencies (Linux)" 步骤,找到:
 
-2. **Bash 字符串处理技巧**:
-   - `${VAR:+value}`: 条件扩展,避免空值问题
-   - `tr ':' '\n'`: 将冒号分隔的路径转换为多行
+```
+=== Verifying installed packages ===
+```
 
-3. **pkg-config 工作原理**:
-   - 搜索 `.pc` 文件获取编译和链接参数
-   - 搜索路径由 `PKG_CONFIG_PATH` 环境变量控制
-   - 默认搜索路径可通过 `pkg-config --variable pc_path pkg-config` 查看
+应该看到类似输出:
+```
+ii  libgtk-3-dev:amd64          3.24.33-1ubuntu2      amd64  GTK development files
+ii  libwebkit2gtk-4.0-dev       2.38.6-0ubuntu0.22.04.1  amd64  WebKitGTK development files
+```
 
-4. **防御性编程最佳实践**:
-   - 在关键操作前进行预检
-   - 失败时提供充分的诊断信息
-   - 给出明确的解决建议
+**如果没有这些行或显示 "No matching packages found"**,说明包安装失败。
 
-## 相关文件
+### 步骤 2: 检查 .pc 文件是否存在
 
-- `.github/workflows/release.yml`: CI/CD 工作流配置
-- `Taskfile.yml`: 构建任务定义
-- `build/linux/Taskfile.yml`: Linux 平台特定的构建任务
+在日志中查找:
+```
+All GTK-related .pc files found:
+/usr/lib/x86_64-linux-gnu/pkgconfig/gtk+-3.0.pc
 
-## 更新历史
+All WebKit-related .pc files found:
+/usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+```
 
-- **2026-04-08**: 初始修复,改进 PKG_CONFIG_PATH 配置和环境变量传递
-- **2026-04-08**: 增强诊断信息,添加默认路径保护,修复字符串拼接问题
+**如果显示 "(none found)"**,说明:
+- 包没有正确安装
+- 或者 Ubuntu 版本不提供这些开发包
+
+### 步骤 3: 检查 PKG_CONFIG_PATH
+
+查找日志中的:
+```
+Final PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+```
+
+然后检查:
+```
+Directories in PKG_CONFIG_PATH:
+   ✓ Directory exists: /usr/lib/x86_64-linux-gnu/pkgconfig
+     → Contains gtk+-3.0.pc
+```
+
+**如果目录不存在或不包含 .pc 文件**,需要手动添加路径。
+
+### 步骤 4: 检查 pkg-config 测试结果
+
+查找:
+```
+=== Immediate pkg-config verification after installation ===
+Testing GTK3...
+3.24.33
+✓ GTK3 is immediately available via pkg-config
+```
+
+**如果这里就失败了**,说明即使安装了包,pkg-config 也找不到。
+
+## 🛠️ 常见解决方案
+
+### 方案 1: 包名称不匹配
+
+**症状**: `apt-cache search` 显示包不可用
+
+**解决**: Ubuntu 22.04 可能只有 `libwebkit2gtk-4.0-dev`,没有 4.1 版本
+
+Workflow 已经自动处理这种情况,会尝试:
+1. libwebkit2gtk-4.1-dev
+2. libwebkit2gtk-4.0-dev (回退)
+3. libwebkitgtk-dev (旧版本)
+
+### 方案 2: .pc 文件在非标准位置
+
+**症状**: 包已安装但 pkg-config 找不到
+
+**解决**: Workflow 会自动搜索并添加路径到 PKG_CONFIG_PATH
+
+如果需要手动指定,可以在 workflow 中添加:
+```yaml
+env:
+  PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig
+```
+
+### 方案 3: 包安装被跳过或失败
+
+**症状**: 日志中没有 "Successfully installed" 消息
+
+**可能原因**:
+1. APT 缓存过期
+2. 网络问题
+3. 包依赖冲突
+
+**解决**: Workflow 已经添加了重试逻辑和详细错误输出
+
+### 方案 4: Ubuntu 版本太新或太旧
+
+**症状**: 所有包都找不到
+
+**解决**: 
+- Ubuntu 24.04: 可能有更新的包名(如 GTK4)
+- Ubuntu 20.04: 可能需要更旧的包名
+
+当前使用 **Ubuntu 22.04**,这是最稳定的选择。
+
+## 📊 Ubuntu 22.04 预期行为
+
+在 Ubuntu 22.04 上,你应该看到:
+
+### 可用的包
+```bash
+libgtk-3-dev              # GTK 3.24.x
+libwebkit2gtk-4.0-dev     # WebKit2GTK 4.0 (不是 4.1!)
+libasound2-dev            # ALSA
+```
+
+### .pc 文件位置
+```bash
+/usr/lib/x86_64-linux-gnu/pkgconfig/gtk+-3.0.pc
+/usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc  # 注意是 4.0
+```
+
+### pkg-config 测试
+```bash
+pkg-config --modversion gtk+-3.0        # 输出: 3.24.33
+pkg-config --modversion webkit2gtk-4.0  # 输出: 2.38.x
+pkg-config --modversion webkit2gtk-4.1  # 失败! 4.1 不存在
+```
+
+## ⚠️ 关键注意事项
+
+### 1. WebKit 版本差异
+
+**Ubuntu 22.04 只提供 WebKit2GTK 4.0**,不是 4.1!
+
+如果你的代码中硬编码了 `webkit2gtk-4.1`:
+```go
+//go:build linux
+// #cgo pkg-config: webkit2gtk-4.1  // ❌ 在 Ubuntu 22.04 上会失败
+```
+
+需要改为支持多个版本:
+```go
+//go:build linux
+// #cgo pkg-config: webkit2gtk-4.0  // ✅ Ubuntu 22.04
+```
+
+或者使用构建标签区分:
+```go
+// ubuntu22.go
+//go:build linux && ubuntu22
+// #cgo pkg-config: webkit2gtk-4.0
+
+// ubuntu24.go  
+//go:build linux && ubuntu24
+// #cgo pkg-config: webkit2gtk-4.1
+```
+
+### 2. Wails v3 的要求
+
+Wails v3 可能要求特定版本的 WebKit。检查:
+- Wails 文档中关于 Linux 依赖的说明
+- `go.mod` 中 Wails 的版本要求
+
+如果 Wails 严格要求 WebKit 4.1,你可能需要:
+- 使用 Ubuntu 24.04
+- 或等待 Wails 更新以支持 4.0
+
+### 3. 检查你的 Go 代码
+
+查看项目中是否有 CGO 指令指定了 WebKit 版本:
+
+```bash
+grep -r "webkit2gtk" --include="*.go" .
+```
+
+如果找到类似:
+```go
+// #cgo pkg-config: webkit2gtk-4.1
+```
+
+这就是问题所在!需要修改为 4.0 或支持多版本。
+
+## 🎯 下一步行动
+
+### 1. 提交当前修复
+```bash
+git add .github/workflows/release.yml
+git commit -m "fix: 增强 Linux 依赖安装的诊断和验证"
+git push
+```
+
+### 2. 触发新的构建
+```bash
+git tag v0.x.x
+git push origin v0.x.x
+```
+
+### 3. 仔细检查日志
+
+重点关注:
+- ✅ 包是否真正安装 (`dpkg -l` 输出)
+- ✅ `.pc` 文件是否存在 (`find` 输出)
+- ✅ pkg-config 是否能找到库 (immediate verification)
+- ❌ 任何错误消息或警告
+
+### 4. 如果仍然失败
+
+收集以下信息并提供:
+1. 完整的 "Install dependencies (Linux)" 步骤日志
+2. `dpkg -l | grep -E "(gtk|webkit)"` 的输出
+3. `find /usr -name "*.pc" | grep -E "(gtk|webkit)"` 的输出
+4. 你的 Go 代码中关于 WebKit 的 CGO 指令
+
+## 🔧 临时解决方案
+
+如果急需构建,可以:
+
+### 选项 A: 使用 Docker 构建
+```bash
+# 在 macOS 上使用 Docker 交叉编译
+task setup:docker
+task build:docker
+```
+
+### 选项 B: 本地构建
+```bash
+# 如果你有 Ubuntu 22.04 机器
+sudo apt-get install libgtk-3-dev libwebkit2gtk-4.0-dev libasound2-dev
+task linux:package
+```
+
+### 选项 C: 禁用 Linux 构建
+暂时从 matrix 中移除 Linux:
+```yaml
+matrix:
+  os: [macos-latest, windows-latest]  # 暂时移除 ubuntu-22.04
+```
+
+## 📝 总结
+
+当前修复已经大幅增强了诊断能力,应该能够:
+1. ✅ 准确检测可用的包版本
+2. ✅ 验证包是否真正安装
+3. ✅ 找到所有 .pc 文件的位置
+4. ✅ 配置正确的 PKG_CONFIG_PATH
+5. ✅ 提供详细的调试信息
+
+如果仍然失败,日志会明确指出是哪个环节出了问题,从而可以快速定位和修复。
