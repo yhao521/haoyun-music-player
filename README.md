@@ -11,7 +11,7 @@
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
-[快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md) • [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md)
+[🌐 官方网站](https://yhao521.github.io/haoyun-music-player/) • [✨ 功能特性](./FEATURES.md) • [快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md) • [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md)
 
 </div>
 

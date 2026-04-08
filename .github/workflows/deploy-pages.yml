@@ -1,0 +1,95 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Copy documentation files to docs folder
+        run: |
+          # Copy all markdown files to docs folder for GitHub Pages
+          cp README.md docs/
+          cp WEBSITE.md docs/
+          cp FEATURES.md docs/
+          cp QUICKSTART.md docs/ 2>/dev/null || true
+          cp KEYBOARD_SHORTCUTS.md docs/ 2>/dev/null || true
+          cp I18N_QUICKSTART.md docs/ 2>/dev/null || true
+          cp FFMPEG_GUIDE.md docs/ 2>/dev/null || true
+          cp TROUBLESHOOTING.md docs/ 2>/dev/null || true
+          cp BACKEND_DESIGN.md docs/ 2>/dev/null || true
+          cp API_GUIDE.md docs/ 2>/dev/null || true
+          cp IMPLEMENTATION.md docs/ 2>/dev/null || true
+          cp NEW_FEATURES.md docs/ 2>/dev/null || true
+          cp FAVORITES_FEATURE.md docs/ 2>/dev/null || true
+          cp MUSIC_INFO_DISPLAY.md docs/ 2>/dev/null || true
+          cp MEDIA_KEYS_GUIDE.md docs/ 2>/dev/null || true
+          cp DEPENDENCY_AUTO_INSTALL.md docs/ 2>/dev/null || true
+          cp GITHUB_ACTIONS_QUICKSTART.md docs/ 2>/dev/null || true
+          
+          # Create a simple navigation file
+          cat > docs/DOCS_INDEX.md << 'EOF'
+          # 📚 文档索引
+          
+          所有文档已复制到 `docs/` 文件夹，可以通过以下链接访问：
+          
+          ## 用户指南
+          - [README](./README.md)
+          - [快速开始](./QUICKSTART.md)
+          - [键盘快捷键](./KEYBOARD_SHORTCUTS.md)
+          - [多语言支持](./I18N_QUICKSTART.md)
+          - [FFmpeg 安装](./FFMPEG_GUIDE.md)
+          - [故障排除](./TROUBLESHOOTING.md)
+          
+          ## 开发者文档
+          - [架构设计](./BACKEND_DESIGN.md)
+          - [API 指南](./API_GUIDE.md)
+          - [实现细节](./IMPLEMENTATION.md)
+          - [依赖管理](./DEPENDENCY_AUTO_INSTALL.md)
+          - [CI/CD 流程](./GITHUB_ACTIONS_QUICKSTART.md)
+          
+          ## 特性文档
+          - [新功能介绍](./NEW_FEATURES.md)
+          - [喜爱音乐功能](./FAVORITES_FEATURE.md)
+          - [音乐信息显示](./MUSIC_INFO_DISPLAY.md)
+          - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
+          - [功能特性详解](./FEATURES.md)
+          EOF
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "好运音乐"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "0.0.18"
+    !define INFO_PRODUCTVERSION "0.0.27"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "(c) 2025, yhao521"

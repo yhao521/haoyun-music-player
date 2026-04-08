@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haoyun Music Player - 简约而不简单的跨平台音乐播放器</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Haoyun Music Player 是一款基于 Wails 3 + Vue 3 打造的现代化跨平台音乐播放器，支持全格式音频、智能音乐库管理、多语言界面和系统深度集成。">
+    <meta name="keywords" content="music player, 音乐播放器, Wails, Vue, cross-platform, MP3, FLAC, FFmpeg">
+    <meta name="author" content="YHao521">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yhao521.github.io/haoyun-music-player/">
+    <meta property="og:title" content="Haoyun Music Player - 简约而不简单的跨平台音乐播放器">
+    <meta property="og:description" content="基于 Wails 3 + Vue 3 打造的现代化跨平台音乐播放器，支持全格式音频、智能音乐库管理">
+    <meta property="og:image" content="https://yhao521.github.io/haoyun-music-player/preview.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://yhao521.github.io/haoyun-music-player/">
+    <meta property="twitter:title" content="Haoyun Music Player">
+    <meta property="twitter:description" content="基于 Wails 3 + Vue 3 打造的现代化跨平台音乐播放器">
+    <meta property="twitter:image" content="https://yhao521.github.io/haoyun-music-player/preview.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="./favicon.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="./styles.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">🎵</span>
+                <span class="brand-name">Haoyun Music Player</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#features">特性</a></li>
+                <li><a href="#screenshots">预览</a></li>
+                <li><a href="#download">下载</a></li>
+                <li><a href="#docs">文档</a></li>
+                <li><a href="https://github.com/yhao521/haoyun-music-player" target="_blank" class="btn-github">GitHub ⭐</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    🎵 Haoyun Music Player
+                </h1>
+                <p class="hero-subtitle">
+                    简约而不简单的跨平台音乐播放器
+                </p>
+                <p class="hero-description">
+                    基于 Wails 3 + Vue 3 打造，为您带来极致的音乐体验
+                </p>
+                
+                <div class="hero-badges">
+                    <span class="badge">Wails v3</span>
+                    <span class="badge">Vue 3</span>
+                    <span class="badge">TypeScript</span>
+                    <span class="badge">Go 1.25+</span>
+                    <span class="badge">跨平台</span>
+                </div>
+                
+                <div class="hero-actions">
+                    <a href="#download" class="btn btn-primary">立即下载</a>
+                    <a href="#features" class="btn btn-secondary">了解更多</a>
+                    <a href="https://github.com/yhao521/haoyun-music-player" target="_blank" class="btn btn-outline">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        Star on GitHub
+                    </a>
+                </div>
+            </div>
+            
+            <div class="hero-image">
+                <div class="mockup-window">
+                    <div class="window-header">
+                        <div class="window-controls">
+                            <span class="control close"></span>
+                            <span class="control minimize"></span>
+                            <span class="control maximize"></span>
+                        </div>
+                        <div class="window-title">Haoyun Music Player</div>
+                    </div>
+                    <div class="window-content">
+                        <div class="mockup-player">
+                            <div class="player-cover">🎵</div>
+                            <div class="player-info">
+                                <div class="song-title">夜曲.mp3</div>
+                                <div class="artist-name">周杰伦</div>
+                            </div>
+                            <div class="player-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 35%"></div>
+                                </div>
+                                <div class="progress-time">
+                                    <span>1:23</span>
+                                    <span>3:45</span>
+                                </div>
+                            </div>
+                            <div class="player-controls">
+                                <button class="control-btn">⏮</button>
+                                <button class="control-btn play">▶️</button>
+                                <button class="control-btn">⏭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="hero-bg-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">✨ 核心特性</h2>
+                <p class="section-subtitle">每一个细节，都为您精心打造</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">现代化设计</h3>
+                    <p class="feature-description">毛玻璃特效、渐变主题、响应式布局，带来视觉盛宴</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <h3 class="feature-title">全格式支持</h3>
+                    <p class="feature-description">通过 FFmpeg 支持 MP3、WAV、FLAC、AAC、OGG 等所有主流格式</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">极速性能</h3>
+                    <p class="feature-description">Go 语言驱动，毫秒级启动和切换，流畅无卡顿</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📂</div>
+                    <h3 class="feature-title">智能管理</h3>
+                    <p class="feature-description">自动扫描、索引和管理多个音乐库，支持实时搜索和分页</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">⌨️</div>
+                    <h3 class="feature-title">高效操作</h3>
+                    <p class="feature-description">全局快捷键、系统托盘、菜单栏控制，操作随心所欲</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3 class="feature-title">多语言支持</h3>
+                    <p class="feature-description">内置中英文界面，支持实时切换，全球用户友好</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">数据统计</h3>
+                    <p class="feature-description">播放历史记录、喜爱排行、库统计信息，了解您的聆听习惯</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3 class="feature-title">深度集成</h3>
+                    <p class="feature-description">系统托盘、菜单栏、媒体键、开机自启，与系统完美融合</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshots Section -->
+    <section id="screenshots" class="screenshots">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🖼️ 界面预览</h2>
+                <p class="section-subtitle">简洁优雅的界面设计</p>
+            </div>
+            
+            <div class="screenshots-grid">
+                <div class="screenshot-card">
+                    <div class="screenshot-placeholder">
+                        <div class="placeholder-icon">🎵</div>
+                        <div class="placeholder-text">主播放器界面</div>
+                    </div>
+                    <div class="screenshot-caption">主播放器 - 专注音乐本身</div>
+                </div>
+                
+                <div class="screenshot-card">
+                    <div class="screenshot-placeholder">
+                        <div class="placeholder-icon">📂</div>
+                        <div class="placeholder-text">浏览音乐库</div>
+                    </div>
+                    <div class="screenshot-caption">浏览窗口 - 高效管理海量音乐</div>
+                </div>
+                
+                <div class="screenshot-card">
+                    <div class="screenshot-placeholder">
+                        <div class="placeholder-icon">❤️</div>
+                        <div class="placeholder-text">喜爱音乐</div>
+                    </div>
+                    <div class="screenshot-caption">喜爱音乐 - 智能排序发现最爱</div>
+                </div>
+            </div>
+            
+            <div class="screenshot-note">
+                <p>💡 提示：实际应用中可以替换为真实的截图图片</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="download">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">📥 下载安装</h2>
+                <p class="section-subtitle">选择适合您平台的版本</p>
+            </div>
+            
+            <div class="download-grid">
+                <div class="download-card">
+                    <div class="platform-icon">🍎</div>
+                    <h3 class="platform-name">macOS</h3>
+                    <p class="platform-version">macOS 10.15+</p>
+                    <ul class="platform-features">
+                        <li>✅ Intel & Apple Silicon</li>
+                        <li>✅ DMG / ZIP 格式</li>
+                        <li>✅ Homebrew 安装</li>
+                    </ul>
+                    <div class="download-buttons">
+                        <a href="https://github.com/yhao521/haoyun-music-player/releases" target="_blank" class="btn btn-download">
+                            下载 DMG
+                        </a>
+                        <code class="install-command">brew install --cask haoyun-music-player</code>
+                    </div>
+                </div>
+                
+                <div class="download-card">
+                    <div class="platform-icon">🪟</div>
+                    <h3 class="platform-name">Windows</h3>
+                    <p class="platform-version">Windows 10+</p>
+                    <ul class="platform-features">
+                        <li>✅ x86_64 & ARM64</li>
+                        <li>✅ NSIS 安装包</li>
+                        <li>✅ Chocolatey 安装</li>
+                    </ul>
+                    <div class="download-buttons">
+                        <a href="https://github.com/yhao521/haoyun-music-player/releases" target="_blank" class="btn btn-download">
+                            下载 EXE
+                        </a>
+                        <code class="install-command">choco install haoyun-music-player</code>
+                    </div>
+                </div>
+                
+                <div class="download-card">
+                    <div class="platform-icon">🐧</div>
+                    <h3 class="platform-name">Linux</h3>
+                    <p class="platform-version">Ubuntu 20.04+</p>
+                    <ul class="platform-features">
+                        <li>✅ x86_64 & ARM64</li>
+                        <li>✅ DEB / RPM 包</li>
+                        <li>✅ AppImage</li>
+                    </ul>
+                    <div class="download-buttons">
+                        <a href="https://github.com/yhao521/haoyun-music-player/releases" target="_blank" class="btn btn-download">
+                            下载 DEB
+                        </a>
+                        <code class="install-command">sudo dpkg -i haoyun-music-player.deb</code>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="download-source">
+                <h3>从源码构建</h3>
+                <div class="code-block">
+                    <pre><code># 克隆项目
+git clone https://github.com/yhao521/haoyun-music-player.git
+cd haoyun-music-player
+
+# 安装依赖
+go mod tidy
+cd frontend && npm install && cd ..
+
+# 运行应用
+wails3 dev -config ./build/config.yml</code></pre>
+                </div>
+                <a href="./QUICKSTART.md" class="btn btn-link">查看完整指南 →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section id="docs" class="documentation">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">📚 完整文档</h2>
+                <p class="section-subtitle">深入了解每一个功能</p>
+            </div>
+            
+            <div class="docs-grid">
+                <div class="doc-category">
+                    <h3 class="doc-category-title">📖 用户指南</h3>
+                    <ul class="doc-list">
+                        <li><a href="./QUICKSTART.md">快速开始</a></li>
+                        <li><a href="./KEYBOARD_SHORTCUTS.md">键盘快捷键</a></li>
+                        <li><a href="./I18N_QUICKSTART.md">多语言支持</a></li>
+                        <li><a href="./FFMPEG_GUIDE.md">FFmpeg 安装</a></li>
+                        <li><a href="./TROUBLESHOOTING.md">故障排除</a></li>
+                    </ul>
+                </div>
+                
+                <div class="doc-category">
+                    <h3 class="doc-category-title">🔧 开发者文档</h3>
+                    <ul class="doc-list">
+                        <li><a href="./BACKEND_DESIGN.md">架构设计</a></li>
+                        <li><a href="./API_GUIDE.md">API 指南</a></li>
+                        <li><a href="./DEPENDENCY_AUTO_INSTALL.md">依赖管理</a></li>
+                        <li><a href="./GITHUB_ACTIONS_QUICKSTART.md">CI/CD 流程</a></li>
+                        <li><a href="./IMPLEMENTATION.md">实现细节</a></li>
+                    </ul>
+                </div>
+                
+                <div class="doc-category">
+                    <h3 class="doc-category-title">✨ 特性文档</h3>
+                    <ul class="doc-list">
+                        <li><a href="./NEW_FEATURES.md">新功能介绍</a></li>
+                        <li><a href="./FAVORITES_FEATURE.md">喜爱音乐功能</a></li>
+                        <li><a href="./MUSIC_INFO_DISPLAY.md">音乐信息显示</a></li>
+                        <li><a href="./MEDIA_KEYS_GUIDE.md">媒体键支持</a></li>
+                        <li><a href="./FEATURES.md">功能特性详解</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="tech-stack">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">🛠️ 技术栈</h2>
+                <p class="section-subtitle">强大而现代的技术选型</p>
+            </div>
+            
+            <div class="tech-grid">
+                <div class="tech-category">
+                    <h3>后端技术</h3>
+                    <div class="tech-items">
+                        <span class="tech-item">Go 1.25+</span>
+                        <span class="tech-item">Wails v3</span>
+                        <span class="tech-item">Oto v3</span>
+                        <span class="tech-item">FFmpeg</span>
+                    </div>
+                </div>
+                
+                <div class="tech-category">
+                    <h3>前端技术</h3>
+                    <div class="tech-items">
+                        <span class="tech-item">Vue 3</span>
+                        <span class="tech-item">TypeScript</span>
+                        <span class="tech-item">Vite</span>
+                        <span class="tech-item">CSS3</span>
+                    </div>
+                </div>
+                
+                <div class="tech-category">
+                    <h3>架构模式</h3>
+                    <div class="tech-items">
+                        <span class="tech-item">MVC + Facade</span>
+                        <span class="tech-item">事件驱动</span>
+                        <span class="tech-item">单例模式</span>
+                        <span class="tech-item">观察者模式</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2 class="cta-title">准备好开始了吗？</h2>
+                <p class="cta-description">立即下载 Haoyun Music Player，享受极致的音乐体验</p>
+                <div class="cta-actions">
+                    <a href="#download" class="btn btn-primary btn-large">立即下载</a>
+                    <a href="https://github.com/yhao521/haoyun-music-player" target="_blank" class="btn btn-outline btn-large">
+                        在 GitHub 上查看
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Haoyun Music Player</h3>
+                    <p>简约而不简单的跨平台音乐播放器</p>
+                    <div class="social-links">
+                        <a href="https://github.com/yhao521/haoyun-music-player" target="_blank" title="GitHub">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>产品</h4>
+                    <ul>
+                        <li><a href="#features">特性</a></li>
+                        <li><a href="#download">下载</a></li>
+                        <li><a href="./CHANGELOG.md">更新日志</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>资源</h4>
+                    <ul>
+                        <li><a href="./WEBSITE.md">官网</a></li>
+                        <li><a href="./FEATURES.md">功能详情</a></li>
+                        <li><a href="#docs">文档</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>社区</h4>
+                    <ul>
+                        <li><a href="https://github.com/yhao521/haoyun-music-player/issues" target="_blank">问题反馈</a></li>
+                        <li><a href="https://github.com/yhao521/haoyun-music-player/discussions" target="_blank">讨论区</a></li>
+                        <li><a href="./CONTRIBUTING.md">贡献指南</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>Made with ❤️ by YHao521</p>
+                <p>© 2026 Haoyun Music Player. Licensed under Apache 2.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="./script.js"></script>
+</body>
+</html>
