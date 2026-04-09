@@ -116,9 +116,9 @@ const filteredTracks = computed(() => {
   if (!searchQuery.value) return tracks.value;
   const query = searchQuery.value.toLowerCase();
   return tracks.value.filter((track) =>
-    track.title.toLowerCase().includes(query) ||
-    track.artist.toLowerCase().includes(query) ||
-    track.album.toLowerCase().includes(query) ||
+    (track.title || "").toLowerCase().includes(query) ||
+    (track.artist || "").toLowerCase().includes(query) ||
+    (track.album || "").toLowerCase().includes(query) ||
     track.filename.toLowerCase().includes(query)
   );
 });
