@@ -19,6 +19,7 @@ type MusicService struct {
 	historyManager  *HistoryManager   // 播放历史管理
 	lyricManager    *LyricManager     // 歌词管理
 	coverManager    *CoverManager     // 专辑封面管理
+	metadataManager *MetadataManager  // 元数据管理器
 }
 
 // NewMusicService 创建音乐服务实例
@@ -30,6 +31,7 @@ func NewMusicService() *MusicService {
 		historyManager:  NewHistoryManager(),
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
+		metadataManager: NewMetadataManager(),
 	}
 }
 
@@ -464,13 +466,19 @@ func (m *MusicService) GetCurrentTrackName() (string, error) {
 
 // GetSongMetadata 获取歌曲元数据
 func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, error) {
-	filename := filepath.Base(path)
-	return map[string]interface{}{
-		"title":  filename,
-		"artist": "未知艺术家",
-		"album":  "未知专辑",
-		"path":   path,
-	}, nil
+	if m.metadataManager == nil {
+		// 如果元数据管理器未初始化，返回基本元数据
+		filename := filepath.Base(path)
+		return map[string]interface{}{
+			"title":  filename,
+			"artist": "未知艺术家",
+			"album":  "未知专辑",
+			"path":   path,
+		}, nil
+	}
+	
+	// 使用元数据管理器获取详细的元数据
+	return m.metadataManager.GetMetadata(path)
 }
 
 // ===== 播放历史管理方法 =====
@@ -543,6 +551,13 @@ func (m *MusicService) GetCachedCover(trackPath string) *AlbumArt {
 // ClearCoverCache 清除封面缓存
 func (m *MusicService) ClearCoverCache() {
 	m.coverManager.ClearCache()
+}
+
+// ClearMetadataCache 清除元数据缓存
+func (m *MusicService) ClearMetadataCache() {
+	if m.metadataManager != nil {
+		m.metadataManager.ClearCache()
+	}
 }
 
 // Shutdown 关闭服务
