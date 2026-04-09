@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -351,6 +352,14 @@ func (m *MusicService) AddLibrary() error {
 
 	// 使用目录名称作为库名称
 	libName := filepath.Base(dirPath)
+	
+	// 如果名称已存在，添加时间戳后缀
+	if m.libraryManager.LibraryExists(libName) {
+		timestamp := time.Now().Format("20060102_150405")
+		libName = fmt.Sprintf("%s_%s", libName, timestamp)
+		log.Printf("⚠️ 音乐库 '%s' 已存在，使用新名称: %s", filepath.Base(dirPath), libName)
+	}
+	
 	return m.libraryManager.AddLibrary(libName, dirPath)
 }
 

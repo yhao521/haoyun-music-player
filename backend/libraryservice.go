@@ -108,23 +108,8 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 		}
 	}
 
-	// 如果没有音乐库，创建一个默认的
-	if len(lm.libraries) == 0 {
-		defaultLib := &MusicLibrary{
-			Name:      "music",
-			Path:      "",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Tracks:    make([]TrackInfo, 0),
-		}
-		lm.libraries["music"] = defaultLib
-		lm.currentLib = "music"
-		if err := lm.saveLibrary(defaultLib); err != nil {
-			log.Printf("保存默认音乐库失败：%v", err)
-		}
-		log.Println("✓ 创建默认音乐库：music")
-	} else {
-		// 设置第一个库为当前库
+	// 设置第一个库为当前库（如果没有音乐库，currentLib 保持为空字符串）
+	if len(lm.libraries) > 0 {
 		for name := range lm.libraries {
 			lm.currentLib = name
 			break
@@ -248,6 +233,14 @@ func (lm *LibraryManager) DeleteLibrary(name string) error {
 
 	log.Printf("✓ 已删除音乐库：%s", name)
 	return nil
+}
+
+// LibraryExists 检查音乐库是否存在
+func (lm *LibraryManager) LibraryExists(name string) bool {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	_, exists := lm.libraries[name]
+	return exists
 }
 
 // SwitchLibrary 切换音乐库
