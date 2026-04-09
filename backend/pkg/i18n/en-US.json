@@ -43,7 +43,18 @@
     "refreshCurrent": "Refresh Current Library",
     "renameCurrent": "Rename Current Library",
     "deleteCurrent": "Delete Current Library",
-    "noLibrary": "No Library Available"
+    "noLibrary": "No Library Available",
+    "addSuccess": "Library added successfully",
+    "addSuccessWithCount": "Library added successfully, %d songs total",
+    "refreshSuccess": "Library refreshed successfully",
+    "refreshSuccessWithCount": "Library refreshed successfully, %d songs total",
+    "scanning": "Scanning library...",
+    "loadingToPlaylist": "Loading to playlist..."
+  },
+  "notification": {
+    "success": "Success",
+    "info": "Info",
+    "error": "Error"
   },
   "status": {
     "notPlaying": "Not Playing",

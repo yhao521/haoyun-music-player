@@ -98,5 +98,13 @@
     "unknownSong": "Unknown Song",
     "unknownArtist": "Unknown Artist",
     "unknownAlbum": "Unknown Album"
+  },
+  "notification": {
+    "libraryAddSuccess": "Library added successfully",
+    "libraryAddSuccessWithCount": "Library added successfully, %d songs total",
+    "libraryRefreshSuccess": "Library refreshed successfully",
+    "libraryRefreshSuccessWithCount": "Library refreshed successfully, %d songs total",
+    "scanning": "Scanning library...",
+    "loadingToPlaylist": "Loading to playlist..."
   }
 }

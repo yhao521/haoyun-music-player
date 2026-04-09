@@ -44,6 +44,8 @@ func init() {
 	application.RegisterEvent[[]backend.HistoryRecord]("historyUpdated") // 添加播放历史更新事件
 	application.RegisterEvent[*backend.LyricInfo]("lyricLoaded")         // 添加歌词加载完成事件
 	application.RegisterEvent[int]("currentLyricLineChanged")            // 添加当前歌词行变化事件
+	// 通知事件未成功
+	application.RegisterEvent[map[string]interface{}]("showNotification") // 添加系统通知事件
 }
 
 func main() {
@@ -328,7 +330,7 @@ func main() {
 		// 更新菜单标签
 		playModeOrder.SetLabel("  " + t("playMode.order"))
 		playModeLoop.SetLabel("  " + t("playMode.loop"))
-		playModeRandom.SetLabel("  " + t("playMode.random"))
+		playModeRandom.SetLabel("✓ " + t("playMode.random"))
 		playModeSingle.SetLabel("✓ " + t("playMode.single"))
 	})
 
@@ -353,9 +355,21 @@ func main() {
 				return
 			}
 
+			// 显示扫描提示
+			app.Event.Emit("showNotification", map[string]interface{}{
+				"title":   t("notification.info"),
+				"message": t("library.scanning"),
+				"type":    "info",
+			})
+
 			// 添加音乐库
 			if err := musicService.AddLibrary(); err != nil {
 				log.Printf("添加音乐库失败：%v", err)
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.error"),
+					"message": fmt.Sprintf("添加音乐库失败: %v", err),
+					"type":    "error",
+				})
 				return
 			}
 
@@ -368,13 +382,31 @@ func main() {
 				time.Sleep(2 * time.Second) // 等待扫描完成
 				tracks, err := musicService.GetCurrentLibraryTracks()
 				if err != nil {
-					// return err
-					log.Printf("添加音轨失败  %v", err)
+					log.Printf("获取音轨失败: %v", err)
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   t("notification.error"),
+						"message": fmt.Sprintf("获取音轨失败: %v", err),
+						"type":    "error",
+					})
+					return
 				}
 
 				if len(tracks) == 0 {
 					log.Printf("音乐库中没有音轨")
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   t("notification.info"),
+						"message": "音乐库中没有音轨",
+						"type":    "info",
+					})
+					return
 				}
+
+				// 显示加载提示
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.info"),
+					"message": t("library.loadingToPlaylist"),
+					"type":    "info",
+				})
 
 				// 清空当前播放列表
 				musicService.ClearPlaylist()
@@ -393,7 +425,21 @@ func main() {
 					}
 				}
 
-				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", musicService.GetCurrentLibrary().Name, len(tracks))
+				// 发送成功通知
+				currentLib := musicService.GetCurrentLibrary()
+				libName := ""
+				if currentLib != nil {
+					libName = currentLib.Name
+				}
+				
+				message := fmt.Sprintf("%s: %s (%d 首歌曲)", t("library.addSuccess"), libName, len(tracks))
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.success"),
+					"message": message,
+					"type":    "success",
+				})
+
+				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", libName, len(tracks))
 			}()
 		})
 
@@ -410,26 +456,61 @@ func main() {
 			currentLib := musicService.GetCurrentLibrary()
 			if currentLib == nil {
 				log.Println("当前没有音乐库")
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.info"),
+					"message": "当前没有音乐库",
+					"type":    "info",
+				})
 				return
 			}
+
+			// 显示扫描提示
+			app.Event.Emit("showNotification", map[string]interface{}{
+				"title":   t("notification.info"),
+				"message": t("library.scanning"),
+				"type":    "info",
+			})
 
 			go func() {
 				// 刷新音乐库（重新扫描）
 				if err := musicService.RefreshLibrary(); err != nil {
 					log.Printf("刷新音乐库失败：%v", err)
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   t("notification.error"),
+						"message": fmt.Sprintf("刷新音乐库失败: %v", err),
+						"type":    "error",
+					})
 					return
 				}
 
 				// 刷新成功后，重新加载到播放列表
 				tracks, err := musicService.GetCurrentLibraryTracks()
 				if err != nil {
-					// return err
-					log.Printf("添加音轨失败  %v", err)
+					log.Printf("获取音轨失败: %v", err)
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   t("notification.error"),
+						"message": fmt.Sprintf("获取音轨失败: %v", err),
+						"type":    "error",
+					})
+					return
 				}
 
 				if len(tracks) == 0 {
 					log.Printf("音乐库中没有音轨")
+					app.Event.Emit("showNotification", map[string]interface{}{
+						"title":   t("notification.info"),
+						"message": "音乐库中没有音轨",
+						"type":    "info",
+					})
+					return
 				}
+
+				// 显示加载提示
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.info"),
+					"message": t("library.loadingToPlaylist"),
+					"type":    "info",
+				})
 
 				// 清空当前播放列表
 				musicService.ClearPlaylist()
@@ -448,7 +529,21 @@ func main() {
 					}
 				}
 
-				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", musicService.GetCurrentLibrary().Name, len(tracks))
+				// 发送成功通知
+				currentLib := musicService.GetCurrentLibrary()
+				libName := ""
+				if currentLib != nil {
+					libName = currentLib.Name
+				}
+				
+				message := fmt.Sprintf("%s: %s (%d 首歌曲)", t("library.refreshSuccess"), libName, len(tracks))
+				app.Event.Emit("showNotification", map[string]interface{}{
+					"title":   t("notification.success"),
+					"message": message,
+					"type":    "success",
+				})
+
+				log.Printf("已加载音乐库 %s 到播放列表，共 %d 首歌曲", libName, len(tracks))
 			}()
 		})
 
