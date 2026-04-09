@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -906,8 +907,10 @@ func main() {
 
 		log.Printf("✓ 更新正在播放：%s", trackName)
 
+		// 去掉文件扩展名（如 .mp3, .flac 等）
+		displayName := strings.TrimSuffix(trackName, filepath.Ext(trackName))
+
 		// 安全截断过长的文件名（使用 rune 避免截断多字节字符）
-		displayName := trackName
 		runes := []rune(displayName)
 		if len(runes) > 30 {
 			displayName = string(runes[:27]) + "..."
@@ -1006,10 +1009,6 @@ func main() {
 			}()
 		}
 	})
-
-	// 创建正在播放的音乐名称菜单项（禁用状态，仅展示）
-	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
-	nowPlayingItem.SetEnabled(false)
 
 	// 监听当前歌曲变化事件
 	app.Event.On("currentTrackChanged", func(event *application.CustomEvent) {
