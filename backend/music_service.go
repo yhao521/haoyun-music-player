@@ -17,6 +17,7 @@ type MusicService struct {
 	audioPlayer     *AudioPlayer      // beep 音频播放器
 	playlistManager *PlaylistManager  // 播放列表管理
 	libraryManager  *LibraryManager   // 音乐库管理
+	organizeService *OrganizeService  // 整理音乐服务
 	historyManager  *HistoryManager   // 播放历史管理
 	lyricManager    *LyricManager     // 歌词管理
 	coverManager    *CoverManager     // 专辑封面管理
@@ -29,6 +30,7 @@ func NewMusicService() *MusicService {
 		audioPlayer:     NewAudioPlayer(),
 		playlistManager: NewPlaylistManager(),
 		libraryManager:  NewLibraryManager(),
+		organizeService: NewOrganizeService(),
 		historyManager:  NewHistoryManager(),
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
@@ -42,6 +44,7 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.audioPlayer.SetApp(app)
 	m.playlistManager.SetApp(app)
 	m.libraryManager.SetApp(app)
+	m.organizeService.SetLibraryManager(m.libraryManager)
 	m.historyManager.SetApp(app)
 	
 	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
@@ -659,4 +662,14 @@ func (m *MusicService) GetPlaylistManager() *PlaylistManager {
 func (m *MusicService) Shutdown() error {
 	m.audioPlayer.Stop()
 	return nil
+}
+
+// OrganizeLibrary 整理音乐库：将音乐文件和歌词文件分别移动到子目录
+func (m *MusicService) OrganizeLibrary() error {
+	return m.organizeService.OrganizeLibrary()
+}
+
+// GetOrganizeService 获取整理音乐服务
+func (m *MusicService) GetOrganizeService() *OrganizeService {
+	return m.organizeService
 }

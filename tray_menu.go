@@ -24,6 +24,7 @@ var (
 	playModeItem   *application.MenuItem
 	musicLibItem   *application.MenuItem
 	toolsMenuItem  *application.MenuItem
+	organizeMenuItem *application.MenuItem
 	nowPlayingItem *application.MenuItem
 	downloadItem   *application.MenuItem
 	wakeItem       *application.MenuItem
@@ -44,6 +45,9 @@ var (
 	// 防重复提交标志
 	isAddingLibrary   bool
 	isRefreshingLibrary bool
+	
+	// 整理音乐操作标志
+	isOrganizingLibrary bool
 )
 
 // createTrayAndMenu 创建系统托盘和菜单
@@ -189,6 +193,9 @@ func buildInitialTrayMenu() {
 
 	// 构建工具菜单
 	buildToolsMenu()
+	
+	// 构建整理音乐菜单
+	buildOrganizeMenu()
 
 	// 组装完整菜单
 	menu = application.NewMenuFromItems(
@@ -202,6 +209,7 @@ func buildInitialTrayMenu() {
 		favoriteItem,
 		playModeItem,
 		musicLibItem,
+		organizeMenuItem,
 		toolsMenuItem,
 		downloadItem,
 		wakeItem,
@@ -299,6 +307,8 @@ func rebuildTrayMenu() {
 
 	buildToolsMenu()
 
+	buildOrganizeMenu()
+
 	updateNowPlayingItem()
 
 	menu = application.NewMenuFromItems(
@@ -312,6 +322,7 @@ func rebuildTrayMenu() {
 		favoriteItem,
 		playModeItem,
 		musicLibItem,
+		organizeMenuItem,
 		toolsMenuItem,
 		downloadItem,
 		wakeItem,
@@ -449,6 +460,108 @@ func buildMusicLibMenu() {
 	}
 
 	musicLibItem = application.NewSubmenu(t("menu.musicLibrary"), musicLibMenu)
+}
+
+// buildOrganizeMenu 构建整理音乐菜单
+func buildOrganizeMenu() {
+	log.Println("📁 构建整理音乐菜单...")
+
+	// 拆分歌词和音乐文件菜单项
+	splitLyricsItem := application.NewMenuItem(t("organize.splitLyrics"))
+	if isOrganizingLibrary {
+		splitLyricsItem.SetEnabled(false)
+		splitLyricsItem.SetLabel(t("organize.processing"))
+	}
+	splitLyricsItem.OnClick(func(ctx *application.Context) {
+		handleSplitLyricsAndMusic()
+	})
+
+	// TODO: 未来可以添加更多整理功能
+	// - 移动音乐文件到新目录
+	// - 清理重复文件
+	// - 批量重命名
+
+	organizeMenuItems := []*application.MenuItem{
+		splitLyricsItem,
+	}
+
+	if len(organizeMenuItems) > 0 {
+		organizeMenu := application.NewMenuFromItems(organizeMenuItems[0], organizeMenuItems[1:]...)
+		organizeMenuItem = application.NewSubmenu(t("menu.organizeMusic"), organizeMenu)
+	} else {
+		organizeMenuItem = application.NewSubmenu(t("menu.organizeMusic"), application.NewMenu())
+	}
+
+	log.Println("✅ 整理音乐菜单构建完成")
+}
+
+// handleSplitLyricsAndMusic 处理拆分歌词和音乐文件
+func handleSplitLyricsAndMusic() {
+	// 防止重复提交
+	if isOrganizingLibrary {
+		log.Println("⚠️ 整理音乐操作正在进行中,忽略重复请求")
+		return
+	}
+
+	// 立即设置标志并更新菜单
+	isOrganizingLibrary = true
+	rebuildTrayMenu()
+
+	log.Println(t("organize.splitLyrics"))
+
+	if musicService == nil {
+		log.Println("❌ musicService 为 nil")
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+		return
+	}
+
+	currentLib := musicService.GetCurrentLibrary()
+	if currentLib == nil {
+		log.Println("当前没有音乐库")
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.info"),
+			"message": "当前没有音乐库",
+			"type":    "info",
+		})
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+		return
+	}
+
+	app.Event.Emit("showNotification", map[string]interface{}{
+		"title":   t("notification.info"),
+		"message": t("organize.splittingLyrics"),
+		"type":    "info",
+	})
+
+	// 在后台执行拆分操作
+	go func() {
+		// 调用后端的整理音乐库方法
+		if err := musicService.OrganizeLibrary(); err != nil {
+			log.Printf("整理音乐库失败：%v", err)
+			app.Event.Emit("showNotification", map[string]interface{}{
+				"title":   t("notification.error"),
+				"message": fmt.Sprintf("整理音乐库失败: %v", err),
+				"type":    "error",
+			})
+			isOrganizingLibrary = false
+			rebuildTrayMenu()
+			return
+		}
+
+		// 操作完成后重置标志并重建菜单
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.success"),
+			"message": t("organize.splitSuccess"),
+			"type":    "success",
+		})
+
+		log.Printf("✓ 歌词和音乐文件拆分完成")
+	}()
 }
 
 // handleAddLibrary 处理添加音乐库
@@ -852,3 +965,4 @@ func buildToolsMenu() {
 
 	log.Println("✅ 依赖工具菜单构建完成")
 }
+

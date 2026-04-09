@@ -634,3 +634,55 @@ func (lm *LibraryManager) CompactLibraries() (int, error) {
 	log.Printf("✓ 压缩完成：共处理 %d 个音乐库", compactedCount)
 	return compactedCount, nil
 }
+
+// ReloadCurrentLibrary 重新加载当前音乐库（扫描目录更新索引）
+func (lm *LibraryManager) ReloadCurrentLibrary() error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	if lm.currentLib == "" {
+		return fmt.Errorf("当前没有音乐库")
+	}
+
+	lib, exists := lm.libraries[lm.currentLib]
+	if !exists {
+		return fmt.Errorf("音乐库 %s 不存在", lm.currentLib)
+	}
+
+	if lib.Path == "" {
+		return fmt.Errorf("音乐库路径为空")
+	}
+
+	log.Printf("🔄 重新扫描音乐库：%s (路径：%s)", lib.Name, lib.Path)
+
+	// 清除旧的路径索引
+	lm.clearTracksIndexForLibrary(lib)
+
+	// 重新扫描目录
+	tracks, err := lm.scanDirectory(lib.Path)
+	if err != nil {
+		return fmt.Errorf("扫描目录失败：%w", err)
+	}
+
+	// 更新音乐库的音轨列表
+	lib.Tracks = tracks
+	lib.UpdatedAt = time.Now()
+
+	// 构建新的路径索引
+	lm.buildTracksIndexForLibrary(lib)
+
+	// 保存到 JSON 文件
+	if err := lm.saveLibrary(lib); err != nil {
+		return fmt.Errorf("保存音乐库失败：%w", err)
+	}
+
+	log.Printf("✓ 音乐库 %s 重新加载完成，共 %d 首歌曲", lib.Name, len(tracks))
+	return nil
+}
+
+// clearTracksIndexForLibrary 清除音乐库的路径索引
+func (lm *LibraryManager) clearTracksIndexForLibrary(lib *MusicLibrary) {
+	for _, track := range lib.Tracks {
+		delete(lm.tracksByPath, track.Path)
+	}
+}

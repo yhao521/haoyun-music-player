@@ -8,6 +8,7 @@
     "favoriteSongs": "Favorite Songs",
     "playMode": "Play Mode",
     "musicLibrary": "Music Library",
+    "organizeMusic": "Organize Music",
     "downloadMusic": "Download Music",
     "keepAwake": "Keep System Awake",
     "autoLaunch": "Auto Launch",
@@ -50,6 +51,12 @@
     "refreshSuccessWithCount": "Library refreshed successfully, %d songs total",
     "scanning": "Scanning library...",
     "loadingToPlaylist": "Loading to playlist..."
+  },
+  "organize": {
+    "splitLyrics": "Split Lyrics and Music Files",
+    "processing": "Processing...",
+    "splittingLyrics": "Splitting lyrics and music files...",
+    "splitSuccess": "Lyrics and music files split successfully"
   },
   "notification": {
     "success": "Success",
