@@ -74,7 +74,7 @@ echo "✅ 构建资源已同步"
 
 # 提交更改
 echo "📦 提交版本更新..."
-git add build/config.yml build/
+git add build/config.yml build/ main.go
 git commit -m "chore: bump version to $version_number"
 
 # 推送代码到远程仓库

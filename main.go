@@ -25,7 +25,7 @@ import (
 type TrackInfo = backend.TrackInfo
 
 // 应用版本信息
-const AppVersion = "0.0.27"
+const AppVersion = "0.0.28"
 
 //go:embed all:frontend/dist
 var assets embed.FS
