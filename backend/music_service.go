@@ -464,21 +464,93 @@ func (m *MusicService) GetCurrentTrackName() (string, error) {
 	return filename, nil
 }
 
-// GetSongMetadata 获取歌曲元数据
+// GetSongMetadata 获取歌曲元数据（优先使用音乐库扫描结果）
 func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, error) {
-	if m.metadataManager == nil {
-		// 如果元数据管理器未初始化，返回基本元数据
-		filename := filepath.Base(path)
-		return map[string]interface{}{
-			"title":  filename,
-			"artist": "未知艺术家",
-			"album":  "未知专辑",
-			"path":   path,
-		}, nil
+	// 策略 1: 尝试从当前音乐库中获取已扫描的元数据
+	if m.libraryManager != nil {
+		currentLib := m.libraryManager.GetCurrentLibrary()
+		if currentLib != nil {
+			for _, track := range currentLib.Tracks {
+				if track.Path == path {
+					// 找到匹配的音轨，使用扫描时获取的元数据
+					metadata := map[string]interface{}{
+						"title":    track.Title,
+						"artist":   track.Artist,
+						"album":    track.Album,
+						"duration": track.Duration,
+						"path":     track.Path,
+						"filename": track.Filename,
+						"size":     track.Size,
+						"lyric_path": track.LyricPath,
+					}
+					
+					log.Printf("✓ 从音乐库缓存获取元数据：%s - %s", track.Artist, track.Title)
+					return metadata, nil
+				}
+			}
+		}
 	}
 	
-	// 使用元数据管理器获取详细的元数据
-	return m.metadataManager.GetMetadata(path)
+	// 策略 2: 如果音乐库中没有，尝试从元数据管理器缓存中获取
+	if m.metadataManager != nil {
+		metadata, err := m.metadataManager.GetMetadata(path)
+		if err == nil {
+			log.Printf("✓ 从元数据管理器缓存获取：%s", path)
+			return metadata, nil
+		}
+		log.Printf("⚠️ 元数据管理器读取失败：%v，使用基本信息", err)
+	}
+	
+	// 策略 3: 降级到基本信息
+	filename := filepath.Base(path)
+	return map[string]interface{}{
+		"title":    filename,
+		"artist":   "未知艺术家",
+		"album":    "未知专辑",
+		"duration": int64(0),
+		"path":     path,
+		"filename": filename,
+		"size":     int64(0),
+		"lyric_path": "",
+	}, nil
+}
+
+// GetTrackInfo 获取完整的音轨信息（优先从音乐库）
+func (m *MusicService) GetTrackInfo(trackPath string) (*TrackInfo, error) {
+	// 尝试从当前音乐库中获取
+	if m.libraryManager != nil {
+		currentLib := m.libraryManager.GetCurrentLibrary()
+		if currentLib != nil {
+			for _, track := range currentLib.Tracks {
+				if track.Path == trackPath {
+					log.Printf("✓ 从音乐库获取 TrackInfo：%s", track.Title)
+					return &track, nil
+				}
+			}
+		}
+	}
+	
+	// 如果音乐库中没有，实时获取元数据
+	if m.libraryManager != nil {
+		track, err := m.libraryManager.GetTrackMetadata(trackPath)
+		if err == nil {
+			log.Printf("✓ 实时获取 TrackInfo：%s", trackPath)
+			return track, nil
+		}
+	}
+	
+	// 降级：返回基本信息
+	filename := filepath.Base(trackPath)
+	return &TrackInfo{
+		Path:      trackPath,
+		Filename:  filename,
+		Title:     filename,
+		Artist:    "未知艺术家",
+		Album:     "未知专辑",
+		Duration:  0,
+		Size:      0,
+		LyricPath: "",
+	}, nil
 }
 
 // ===== 播放历史管理方法 =====

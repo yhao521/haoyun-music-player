@@ -1,10 +1,12 @@
 package backend
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -67,8 +69,29 @@ func (adr *AudioDurationReader) readDuration(filePath string) (int64, error) {
 	}
 }
 
-// readMP3Duration 读取 MP3 文件时长
+// readMP3Duration 读取 MP3 文件时长（支持 go-mp3 和 FFmpeg 降级）
 func (adr *AudioDurationReader) readMP3Duration(filePath string) (int64, error) {
+	// 策略 1: 尝试使用 go-mp3（快速、无依赖）
+	duration, err := adr.readMP3DurationWithGoMP3(filePath)
+	if err == nil {
+		return duration, nil
+	}
+	
+	log.Printf("⚠️ go-mp3 读取失败：%v，尝试使用 FFmpeg", err)
+	
+	// 策略 2: 降级到 FFmpeg（兼容性更好）
+	return adr.readDurationWithFFmpeg(filePath)
+}
+
+// readMP3DurationWithGoMP3 使用 go-mp3 库读取时长
+func (adr *AudioDurationReader) readMP3DurationWithGoMP3(filePath string) (int64, error) {
+	// 添加 panic 恢复机制
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("⚠️ go-mp3 解码 panic：%v", r)
+		}
+	}()
+	
 	file, err := os.Open(filePath)
 	if err != nil {
 		return 0, fmt.Errorf("打开文件失败：%w", err)
@@ -178,6 +201,51 @@ func (adr *AudioDurationReader) readWAVDuration(filePath string) (int64, error) 
 	// 计算时长（秒）
 	duration := audioDataSize / bytesPerSecond
 
+	return duration, nil
+}
+
+// readDurationWithFFmpeg 使用 FFmpeg 读取音频时长（后备方案）
+func (adr *AudioDurationReader) readDurationWithFFmpeg(filePath string) (int64, error) {
+	ffmpegPath, err := findFFmpegPath()
+	if err != nil {
+		return 0, fmt.Errorf("FFmpeg 未找到：%w", err)
+	}
+
+	// 使用 ffprobe 获取准确的时长信息
+	// ffprobe -v quiet -show_entries format=duration -of csv=p=0 <file>
+	cmd := exec.Command(ffmpegPath,
+		"-v", "quiet",
+		"-show_entries", "format=duration",
+		"-of", "csv=p=0",
+		filePath,
+	)
+	
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("FFmpeg 执行失败：%w, stderr: %s", err, stderr.String())
+	}
+	
+	// 解析输出（秒数，可能是小数）
+	durationStr := strings.TrimSpace(stdout.String())
+	if durationStr == "" {
+		return 0, fmt.Errorf("FFmpeg 未返回时长信息")
+	}
+	
+	// 转换为浮点数再取整
+	var durationFloat float64
+	_, err = fmt.Sscanf(durationStr, "%f", &durationFloat)
+	if err != nil {
+		return 0, fmt.Errorf("解析时长失败：%w", err)
+	}
+	
+	// 转换为秒（整数）
+	duration := int64(durationFloat)
+	
+	log.Printf("✓ FFmpeg 读取时长成功：%d 秒", duration)
 	return duration, nil
 }
 
