@@ -12,7 +12,7 @@
     "keepAwake": "保持系统唤醒",
     "autoLaunch": "开机启动",
     "settings": "设置",
-    "version": "版本 0.5.0",
+    "version": "版本 %s",
     "quit": "退出",
     "showMainWindow": "显示主窗口",
     "file": "文件",
@@ -43,7 +43,18 @@
     "refreshCurrent": "刷新当前音乐库",
     "renameCurrent": "重命名当前音乐库",
     "deleteCurrent": "删除当前音乐库",
-    "noLibrary": "暂无音乐库"
+    "noLibrary": "暂无音乐库",
+    "addSuccess": "音乐库添加成功",
+    "addSuccessWithCount": "音乐库添加成功，共 %d 首歌曲",
+    "refreshSuccess": "音乐库刷新成功",
+    "refreshSuccessWithCount": "音乐库刷新成功，共 %d 首歌曲",
+    "scanning": "正在扫描音乐库...",
+    "loadingToPlaylist": "正在加载到播放列表..."
+  },
+  "notification": {
+    "success": "成功",
+    "info": "提示",
+    "error": "错误"
   },
   "status": {
     "notPlaying": "未播放",

@@ -80,7 +80,7 @@ func (hm *HistoryManager) loadHistory() error {
 
 // saveHistory 保存历史记录到文件
 func (hm *HistoryManager) saveHistory() error {
-	data, err := json.MarshalIndent(hm.records, "", "  ")
+	data, err := json.Marshal(hm.records)
 	if err != nil {
 		return fmt.Errorf("序列化历史记录失败：%w", err)
 	}

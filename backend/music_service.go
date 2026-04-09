@@ -19,6 +19,7 @@ type MusicService struct {
 	historyManager  *HistoryManager   // 播放历史管理
 	lyricManager    *LyricManager     // 歌词管理
 	coverManager    *CoverManager     // 专辑封面管理
+	metadataManager *MetadataManager  // 元数据管理器
 }
 
 // NewMusicService 创建音乐服务实例
@@ -30,6 +31,7 @@ func NewMusicService() *MusicService {
 		historyManager:  NewHistoryManager(),
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
+		metadataManager: NewMetadataManager(),
 	}
 }
 
@@ -40,6 +42,9 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.playlistManager.SetApp(app)
 	m.libraryManager.SetApp(app)
 	m.historyManager.SetApp(app)
+	
+	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
+	m.playlistManager.SetLibraryManager(m.libraryManager)
 	
 	// 监听播放结束事件，根据播放模式决定是否自动播放下一首
 	app.Event.On("playbackEnded", func(event *application.CustomEvent) {
@@ -155,9 +160,9 @@ func (m *MusicService) Play() error {
 
 	currentPath := playlist[currentIndex]
 	
-	// 异步记录播放历史
+	// 异步记录播放历史（使用音乐库获取完整元数据）
 	go func() {
-		trackInfo := createTrackInfo(currentPath)
+		trackInfo := createTrackInfoFromLibrary(currentPath, m.libraryManager)
 		m.historyManager.AddToHistory(trackInfo)
 	}()
 	
@@ -462,14 +467,92 @@ func (m *MusicService) GetCurrentTrackName() (string, error) {
 	return filename, nil
 }
 
-// GetSongMetadata 获取歌曲元数据
+// GetSongMetadata 获取歌曲元数据（优先使用音乐库扫描结果）
 func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, error) {
+	// 策略 1: 尝试从当前音乐库中获取已扫描的元数据
+	if m.libraryManager != nil {
+		currentLib := m.libraryManager.GetCurrentLibrary()
+		if currentLib != nil {
+			for _, track := range currentLib.Tracks {
+				if track.Path == path {
+					// 找到匹配的音轨，使用扫描时获取的元数据
+					metadata := map[string]interface{}{
+						"title":    track.Title,
+						"artist":   track.Artist,
+						"album":    track.Album,
+						"duration": track.Duration,
+						"path":     track.Path,
+						"filename": track.Filename,
+						"size":     track.Size,
+						"lyric_path": track.LyricPath,
+					}
+					
+					log.Printf("✓ 从音乐库缓存获取元数据：%s - %s", track.Artist, track.Title)
+					return metadata, nil
+				}
+			}
+		}
+	}
+	
+	// 策略 2: 如果音乐库中没有，尝试从元数据管理器缓存中获取
+	if m.metadataManager != nil {
+		metadata, err := m.metadataManager.GetMetadata(path)
+		if err == nil {
+			log.Printf("✓ 从元数据管理器缓存获取：%s", path)
+			return metadata, nil
+		}
+		log.Printf("⚠️ 元数据管理器读取失败：%v，使用基本信息", err)
+	}
+	
+	// 策略 3: 降级到基本信息
 	filename := filepath.Base(path)
 	return map[string]interface{}{
-		"title":  filename,
-		"artist": "未知艺术家",
-		"album":  "未知专辑",
-		"path":   path,
+		"title":    filename,
+		"artist":   "未知艺术家",
+		"album":    "未知专辑",
+		"duration": int64(0),
+		"path":     path,
+		"filename": filename,
+		"size":     int64(0),
+		"lyric_path": "",
+	}, nil
+}
+
+// GetTrackInfo 获取完整的音轨信息（优先从音乐库）
+func (m *MusicService) GetTrackInfo(trackPath string) (*TrackInfo, error) {
+	// 尝试从当前音乐库中获取
+	if m.libraryManager != nil {
+		currentLib := m.libraryManager.GetCurrentLibrary()
+		if currentLib != nil {
+			for _, track := range currentLib.Tracks {
+				if track.Path == trackPath {
+					log.Printf("✓ 从音乐库获取 TrackInfo：%s", track.Title)
+					return &track, nil
+				}
+			}
+		}
+	}
+	
+	// 如果音乐库中没有，实时获取元数据
+	if m.libraryManager != nil {
+		track, err := m.libraryManager.GetTrackMetadata(trackPath)
+		if err == nil {
+			log.Printf("✓ 实时获取 TrackInfo：%s", trackPath)
+			return track, nil
+		}
+	}
+	
+	// 降级：返回基本信息
+	filename := filepath.Base(trackPath)
+	return &TrackInfo{
+		Path:      trackPath,
+		Filename:  filename,
+		Title:     filename,
+		Artist:    "未知艺术家",
+		Album:     "未知专辑",
+		Duration:  0,
+		Size:      0,
+		LyricPath: "",
 	}, nil
 }
 
@@ -543,6 +626,21 @@ func (m *MusicService) GetCachedCover(trackPath string) *AlbumArt {
 // ClearCoverCache 清除封面缓存
 func (m *MusicService) ClearCoverCache() {
 	m.coverManager.ClearCache()
+}
+
+// ClearMetadataCache 清除元数据缓存
+func (m *MusicService) ClearMetadataCache() {
+	if m.metadataManager != nil {
+		m.metadataManager.ClearCache()
+	}
+}
+
+// CompactLibraries 压缩所有音乐库文件（移除空字段和多余空白）
+func (m *MusicService) CompactLibraries() (int, error) {
+	if m.libraryManager == nil {
+		return 0, fmt.Errorf("音乐库管理器未初始化")
+	}
+	return m.libraryManager.CompactLibraries()
 }
 
 // Shutdown 关闭服务

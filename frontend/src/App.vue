@@ -4,6 +4,7 @@ import AppMain from "./components/AppMain.vue";
 import BrowseView from "./views/BrowseView.vue";
 import FavoritesView from "./views/FavoritesView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import NotificationToast from "./components/NotificationToast.vue";
 import { Events } from "@wailsio/runtime";
 // 当前视图
 const currentView = ref<string>("main");
@@ -100,9 +101,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <component :is="currentView === 'browse' ? BrowseView : currentView === 'favorites' ? FavoritesView : currentView === 'settings' ? SettingsView : AppMain" />
+  <div class="app-container">
+    <component :is="currentView === 'browse' ? BrowseView : currentView === 'favorites' ? FavoritesView : currentView === 'settings' ? SettingsView : AppMain" />
+    <NotificationToast />
+  </div>
 </template>
 
 <style scoped>
-/* 全局容器样式 */
+.app-container {
+  width: 100%;
+  height: 100%;
+}
 </style>

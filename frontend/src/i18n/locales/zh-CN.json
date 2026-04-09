@@ -4,6 +4,7 @@
     "general": "通用设置",
     "playback": "播放设置",
     "mediaKeys": "媒体键设置",
+    "storage": "存储优化",
     "about": "关于",
     "autoLaunch": "开机自动启动",
     "autoLaunchDesc": "应用程序将在系统启动时自动运行",
@@ -19,6 +20,10 @@
     "volume": "音量",
     "enableMediaKeys": "启用媒体键控制",
     "enableMediaKeysDesc": "允许使用键盘媒体键控制播放",
+    "compactLibraries": "压缩音乐库文件",
+    "compactLibrariesDesc": "移除空字段和多余空白，减小存储空间占用",
+    "compacting": "正在压缩...",
+    "compacted": "压缩完成！共处理 {count} 个音乐库",
     "appName": "好运音乐播放器",
     "appVersion": "版本 0.5.0",
     "appDesc": "基于 Wails v3 + Vue 3 构建的跨平台桌面音乐播放器",
@@ -98,5 +103,13 @@
     "unknownSong": "未知歌曲",
     "unknownArtist": "未知艺术家",
     "unknownAlbum": "未知专辑"
+  },
+  "notification": {
+    "libraryAddSuccess": "音乐库添加成功",
+    "libraryAddSuccessWithCount": "音乐库添加成功，共 %d 首歌曲",
+    "libraryRefreshSuccess": "音乐库刷新成功",
+    "libraryRefreshSuccessWithCount": "音乐库刷新成功，共 %d 首歌曲",
+    "scanning": "正在扫描音乐库...",
+    "loadingToPlaylist": "正在加载到播放列表..."
   }
 }

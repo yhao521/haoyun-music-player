@@ -4,6 +4,7 @@
     "general": "General Settings",
     "playback": "Playback Settings",
     "mediaKeys": "Media Keys Settings",
+    "storage": "Storage Optimization",
     "about": "About",
     "autoLaunch": "Auto Launch",
     "autoLaunchDesc": "Application will run automatically when system starts",
@@ -19,6 +20,10 @@
     "volume": "Volume",
     "enableMediaKeys": "Enable Media Keys Control",
     "enableMediaKeysDesc": "Allow using keyboard media keys to control playback",
+    "compactLibraries": "Compact Library Files",
+    "compactLibrariesDesc": "Remove empty fields and extra whitespace to reduce storage usage",
+    "compacting": "Compacting...",
+    "compacted": "Compaction complete! Processed {count} libraries",
     "appName": "Haoyun Music Player",
     "appVersion": "Version 0.5.0",
     "appDesc": "Cross-platform desktop music player built with Wails v3 + Vue 3",
@@ -98,5 +103,13 @@
     "unknownSong": "Unknown Song",
     "unknownArtist": "Unknown Artist",
     "unknownAlbum": "Unknown Album"
+  },
+  "notification": {
+    "libraryAddSuccess": "Library added successfully",
+    "libraryAddSuccessWithCount": "Library added successfully, %d songs total",
+    "libraryRefreshSuccess": "Library refreshed successfully",
+    "libraryRefreshSuccessWithCount": "Library refreshed successfully, %d songs total",
+    "scanning": "Scanning library...",
+    "loadingToPlaylist": "Loading to playlist..."
   }
 }

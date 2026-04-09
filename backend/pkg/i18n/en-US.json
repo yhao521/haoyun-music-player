@@ -12,7 +12,7 @@
     "keepAwake": "Keep System Awake",
     "autoLaunch": "Auto Launch",
     "settings": "Settings",
-    "version": "Version 0.5.0",
+    "version": "Version %s",
     "quit": "Quit",
     "showMainWindow": "Show Main Window",
     "file": "File",
@@ -43,7 +43,18 @@
     "refreshCurrent": "Refresh Current Library",
     "renameCurrent": "Rename Current Library",
     "deleteCurrent": "Delete Current Library",
-    "noLibrary": "No Library Available"
+    "noLibrary": "No Library Available",
+    "addSuccess": "Library added successfully",
+    "addSuccessWithCount": "Library added successfully, %d songs total",
+    "refreshSuccess": "Library refreshed successfully",
+    "refreshSuccessWithCount": "Library refreshed successfully, %d songs total",
+    "scanning": "Scanning library...",
+    "loadingToPlaylist": "Loading to playlist..."
+  },
+  "notification": {
+    "success": "Success",
+    "info": "Info",
+    "error": "Error"
   },
   "status": {
     "notPlaying": "Not Playing",

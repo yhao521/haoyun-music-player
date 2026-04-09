@@ -26,30 +26,32 @@ type MusicLibrary struct {
 
 // TrackInfo 音乐文件信息
 type TrackInfo struct {
-	Path      string `json:"path"`       // 歌曲路径
-	Filename  string `json:"filename"`   // 文件名
-	Title     string `json:"title"`      // 标题
-	Artist    string `json:"artist"`     // 艺术家
-	Album     string `json:"album"`      // 专辑
-	Duration  int64  `json:"duration"`   // 秒
-	Size      int64  `json:"size"`       // 字节
-	LyricPath string `json:"lyric_path"` // 歌词文件路径（如果有）
+	Path      string `json:"path"`                 // 歌曲路径
+	Filename  string `json:"filename"`             // 文件名
+	Title     string `json:"title,omitempty"`      // 标题
+	Artist    string `json:"artist,omitempty"`     // 艺术家
+	Album     string `json:"album,omitempty"`      // 专辑
+	Duration  int64  `json:"duration"`             // 秒
+	Size      int64  `json:"size"`                 // 字节
+	LyricPath string `json:"lyric_path,omitempty"` // 歌词文件路径（如果有）
 }
 
 // LibraryManager 音乐库管理器
 type LibraryManager struct {
-	ctx        context.Context
-	app        *application.App
-	libraries  map[string]*MusicLibrary
-	currentLib string
-	mu         sync.RWMutex
-	libDir     string
+	ctx             context.Context
+	app             *application.App
+	libraries       map[string]*MusicLibrary
+	currentLib      string
+	mu              sync.RWMutex
+	libDir          string
+	metadataManager *MetadataManager // 元数据管理器
 }
 
 // NewLibraryManager 创建音乐库管理器
 func NewLibraryManager() *LibraryManager {
 	return &LibraryManager{
-		libraries: make(map[string]*MusicLibrary),
+		libraries:       make(map[string]*MusicLibrary),
+		metadataManager: NewMetadataManager(),
 	}
 }
 
@@ -144,7 +146,8 @@ func (lm *LibraryManager) loadLibrary(name string) (*MusicLibrary, error) {
 func (lm *LibraryManager) saveLibrary(lib *MusicLibrary) error {
 	lib.UpdatedAt = time.Now()
 
-	data, err := json.MarshalIndent(lib, "", "  ")
+	// 使用紧凑格式减少文件大小（移除缩进和换行）
+	data, err := json.Marshal(lib)
 	if err != nil {
 		return err
 	}
@@ -293,6 +296,12 @@ func (lm *LibraryManager) RefreshLibrary() error {
 
 	lib := lm.libraries[lm.currentLib]
 
+	// 清除元数据缓存，确保重新读取元数据
+	if lm.metadataManager != nil {
+		lm.metadataManager.ClearCache()
+		log.Printf("🗑️ 已清除元数据缓存")
+	}
+
 	// 重新扫描目录
 	tracks, err := lm.scanDirectory(lib.Path)
 	if err != nil {
@@ -364,8 +373,115 @@ func (lm *LibraryManager) RenameLibrary(newName string) error {
 	return nil
 }
 
-// scanDirectory 扫描目录中的音乐文件和歌词文件
+// scanDirectory 扫描目录中的音乐文件和歌词文件（使用元数据）
 func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
+	// 使用新的带元数据的扫描方法
+	return lm.scanDirectoryWithMetadata(dirPath)
+}
+
+// GetCurrentLibraryTracks 获取当前音乐库的所有音轨
+func (lm *LibraryManager) GetCurrentLibraryTracks() ([]string, error) {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+
+	if lm.currentLib == "" {
+		return []string{}, nil
+	}
+
+	lib := lm.libraries[lm.currentLib]
+	trackPaths := make([]string, len(lib.Tracks))
+	for i, track := range lib.Tracks {
+		trackPaths[i] = track.Path
+	}
+
+	return trackPaths, nil
+}
+
+// SetCurrentLibrary 设置当前音乐库（原子操作）
+func (lm *LibraryManager) SetCurrentLibrary(name string) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+	lm.currentLib = name
+}
+
+// GetTrackMetadata 获取单个音轨的元数据
+func (lm *LibraryManager) GetTrackMetadata(trackPath string) (*TrackInfo, error) {
+	if lm.metadataManager == nil {
+		return nil, fmt.Errorf("元数据管理器未初始化")
+	}
+
+	// 获取文件信息
+	fileInfo, err := os.Stat(trackPath)
+	if err != nil {
+		return nil, fmt.Errorf("获取文件信息失败：%w", err)
+	}
+
+	// 从元数据管理器读取元数据
+	metadata, err := lm.metadataManager.GetMetadata(trackPath)
+	if err != nil {
+		log.Printf("⚠️ 读取元数据失败 %s：%v，使用基本信息", trackPath, err)
+		// 即使失败也继续，使用基本信息
+	}
+
+	// 查找对应的歌词文件
+	lyricPath := lm.findLyricFile(trackPath)
+
+	// 构建 TrackInfo
+	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+
+	// 从元数据中获取时长
+	duration := int64(0)
+	if dur, ok := metadata["duration"].(int64); ok {
+		duration = dur
+	}
+
+	track := &TrackInfo{
+		Path:      trackPath,
+		Filename:  fileInfo.Name(),
+		Title:     getStringFromMetadata(metadata, "title", baseName),
+		Artist:    getStringFromMetadata(metadata, "artist", "未知艺术家"),
+		Album:     getStringFromMetadata(metadata, "album", "未知专辑"),
+		Duration:  duration, // 从元数据中读取时长
+		Size:      fileInfo.Size(),
+		LyricPath: lyricPath,
+	}
+
+	return track, nil
+}
+
+// findLyricFile 查找歌词文件
+func (lm *LibraryManager) findLyricFile(trackPath string) string {
+	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+	dirPath := filepath.Dir(trackPath)
+
+	// 常见的歌词文件扩展名
+	lyricExts := []string{".lrc", ".txt"}
+
+	for _, ext := range lyricExts {
+		lyricPath := filepath.Join(dirPath, baseName+ext)
+		if _, err := os.Stat(lyricPath); err == nil {
+			return lyricPath
+		}
+	}
+
+	return ""
+}
+
+// getStringFromMetadata 从元数据中安全地获取字符串值
+func getStringFromMetadata(metadata map[string]interface{}, key string, defaultValue string) string {
+	if metadata == nil {
+		return defaultValue
+	}
+
+	if value, ok := metadata[key].(string); ok && value != "" {
+		return value
+	}
+
+	return defaultValue
+}
+
+// scanDirectoryWithMetadata 扫描目录并获取完整的元数据
+func (lm *LibraryManager) scanDirectoryWithMetadata(dirPath string) ([]TrackInfo, error) {
 	var tracks []TrackInfo
 
 	if dirPath == "" {
@@ -392,7 +508,7 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".lrc" {
+		if ext == ".lrc" || ext == ".txt" {
 			baseName := strings.TrimSuffix(info.Name(), ext)
 			lyricMap[baseName] = path
 		}
@@ -403,39 +519,19 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 		log.Printf("⚠️ 扫描歌词文件失败：%v", err)
 	}
 
-	// 扫描音乐文件
+	// 收集所有音频文件路径
+	var audioFiles []string
 	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // 跳过无法访问的文件
+			return nil
 		}
-
 		if info.IsDir() {
 			return nil
 		}
-
 		ext := strings.ToLower(filepath.Ext(path))
 		if supportedFormats[ext] {
-			baseName := strings.TrimSuffix(info.Name(), ext)
-			
-			// 查找对应的歌词文件
-			lyricPath := ""
-			if lrcPath, ok := lyricMap[baseName]; ok {
-				lyricPath = lrcPath
-			}
-
-			track := TrackInfo{
-				Path:      path,
-				Filename:  info.Name(),
-				Title:     baseName,
-				Artist:    "未知艺术家",
-				Album:     "未知专辑",
-				Duration:  0, // TODO: 从音频文件中读取
-				Size:      info.Size(),
-				LyricPath: lyricPath, // 保存歌词路径
-			}
-			tracks = append(tracks, track)
+			audioFiles = append(audioFiles, path)
 		}
-
 		return nil
 	})
 
@@ -443,31 +539,60 @@ func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 		return nil, err
 	}
 
-	log.Printf("✓ 扫描完成：找到 %d 首歌曲，%d 个歌词文件", len(tracks), len(lyricMap))
+	log.Printf("🔍 开始扫描 %d 个音频文件...", len(audioFiles))
+
+	// 逐个获取元数据
+	successCount := 0
+	for i, audioPath := range audioFiles {
+		track, err := lm.GetTrackMetadata(audioPath)
+		if err != nil {
+			log.Printf("⚠️ 处理文件 %d/%d 失败：%s - %v", i+1, len(audioFiles), audioPath, err)
+			continue
+		}
+
+		// 如果元数据中没有歌词路径，尝试从映射表中查找
+		if track.LyricPath == "" {
+			baseName := strings.TrimSuffix(filepath.Base(audioPath), filepath.Ext(audioPath))
+			if lrcPath, ok := lyricMap[baseName]; ok {
+				track.LyricPath = lrcPath
+			}
+		}
+
+		tracks = append(tracks, *track)
+		successCount++
+
+		// 每处理 50 个文件输出一次进度
+		if (i+1)%50 == 0 || i+1 == len(audioFiles) {
+			log.Printf("📊 进度：%d/%d (%.1f%%)", i+1, len(audioFiles), float64(i+1)/float64(len(audioFiles))*100)
+		}
+	}
+
+	log.Printf("✓ 扫描完成：成功处理 %d/%d 首歌曲，找到 %d 个歌词文件",
+		successCount, len(audioFiles), len(lyricMap))
+
 	return tracks, nil
 }
 
-// GetCurrentLibraryTracks 获取当前音乐库的所有音轨
-func (lm *LibraryManager) GetCurrentLibraryTracks() ([]string, error) {
-	lm.mu.RLock()
-	defer lm.mu.RUnlock()
-
-	if lm.currentLib == "" {
-		return []string{}, nil
-	}
-
-	lib := lm.libraries[lm.currentLib]
-	trackPaths := make([]string, len(lib.Tracks))
-	for i, track := range lib.Tracks {
-		trackPaths[i] = track.Path
-	}
-
-	return trackPaths, nil
-}
-
-// SetCurrentLibrary 设置当前音乐库（原子操作）
-func (lm *LibraryManager) SetCurrentLibrary(name string) {
+// CompactLibraries 压缩所有音乐库文件（移除空字段和多余空白）
+func (lm *LibraryManager) CompactLibraries() (int, error) {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
-	lm.currentLib = name
+
+	compactedCount := 0
+
+	for name, lib := range lm.libraries {
+		log.Printf("🗜️ 正在压缩音乐库：%s...", name)
+
+		// 重新保存以应用新的紧凑格式
+		if err := lm.saveLibrary(lib); err != nil {
+			log.Printf("⚠️ 压缩音乐库 %s 失败：%v", name, err)
+			continue
+		}
+
+		compactedCount++
+		log.Printf("✓ 音乐库 %s 压缩完成", name)
+	}
+
+	log.Printf("✓ 压缩完成：共处理 %d 个音乐库", compactedCount)
+	return compactedCount, nil
 }
