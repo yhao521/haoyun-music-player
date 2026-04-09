@@ -635,6 +635,14 @@ func (m *MusicService) ClearMetadataCache() {
 	}
 }
 
+// CompactLibraries 压缩所有音乐库文件（移除空字段和多余空白）
+func (m *MusicService) CompactLibraries() (int, error) {
+	if m.libraryManager == nil {
+		return 0, fmt.Errorf("音乐库管理器未初始化")
+	}
+	return m.libraryManager.CompactLibraries()
+}
+
 // Shutdown 关闭服务
 func (m *MusicService) Shutdown() error {
 	m.audioPlayer.Stop()

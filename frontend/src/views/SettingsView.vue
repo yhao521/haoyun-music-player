@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from "vue";
 import { t, setLocale, getLocale, type Locale } from "../i18n";
 import { Events } from "@wailsio/runtime";
+import { CompactLibraries } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
 
 // 当前语言
 const currentLanguage = ref<Locale>(getLocale());
@@ -9,6 +10,10 @@ const currentLanguage = ref<Locale>(getLocale());
 // 重启提示
 const showRestartTip = ref(false);
 const restartMessage = ref("");
+
+// 压缩音乐库状态
+const isCompacting = ref(false);
+const compactResult = ref("");
 
 // 设置项状态
 const settings = ref({
@@ -66,6 +71,40 @@ const closeRestartTip = () => {
 const restartApp = () => {
   if (Events.Emit) {
     Events.Emit("restartApp", {});
+  }
+};
+
+// 压缩音乐库文件
+const compactLibraries = async () => {
+  if (isCompacting.value) return;
+
+  isCompacting.value = true;
+  compactResult.value = "";
+
+  try {
+    // 调用后端 API
+    const response = await CompactLibraries();
+
+    if (response && response !== undefined) {
+      const count = response;
+      compactResult.value = t("settings.compacted").replace(
+        "{count}",
+        count.toString(),
+      );
+      console.log(`✓ 压缩完成：${count} 个音乐库`);
+    } else {
+      compactResult.value = "压缩失败，请查看日志";
+    }
+  } catch (error) {
+    console.error("压缩音乐库失败:", error);
+    compactResult.value = "压缩失败：" + error;
+  } finally {
+    isCompacting.value = false;
+
+    // 5秒后清除结果消息
+    setTimeout(() => {
+      compactResult.value = "";
+    }, 5000);
   }
 };
 
@@ -310,6 +349,31 @@ onMounted(() => {
           <p class="setting-description">
             {{ t("settings.enableMediaKeysDesc") }}
           </p>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2 class="section-title">{{ t("settings.storage") }}</h2>
+
+        <div class="setting-item">
+          <label class="setting-label">{{
+            t("settings.compactLibraries")
+          }}</label>
+          <p class="setting-description">
+            {{ t("settings.compactLibrariesDesc") }}
+          </p>
+          <button
+            class="action-btn"
+            @click="compactLibraries"
+            :disabled="isCompacting"
+          >
+            {{
+              isCompacting
+                ? t("settings.compacting")
+                : t("settings.compactLibraries")
+            }}
+          </button>
+          <p v-if="compactResult" class="result-message">{{ compactResult }}</p>
         </div>
       </div>
 
@@ -636,6 +700,56 @@ onMounted(() => {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.5;
+}
+
+/* 操作按钮样式 */
+.action-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4fc3f7 0%, #29b6f6 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 12px;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.result-message {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: 6px;
+  color: #81c784;
+  font-size: 13px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 滚动条样式 */

@@ -50,6 +50,8 @@ func init() {
 	application.RegisterEvent[int]("currentLyricLineChanged")            // 添加当前歌词行变化事件
 	// 通知事件未成功
 	application.RegisterEvent[map[string]interface{}]("showNotification") // 添加系统通知事件
+	// 存储优化事件
+	application.RegisterEvent[map[string]interface{}]("compactLibraries") // 压缩音乐库文件
 }
 
 func main() {
@@ -1497,6 +1499,25 @@ func main() {
 		// 退出当前应用（外部脚本或系统会重新启动）
 		log.Println("正在退出应用...")
 		app.Quit()
+	})
+
+	// 监听压缩音乐库请求
+	app.Event.On("compactLibraries", func(event *application.CustomEvent) {
+		log.Println("🗜️ 收到压缩音乐库请求...")
+		
+		count, err := musicService.CompactLibraries()
+		if err != nil {
+			log.Printf("⚠️ 压缩音乐库失败: %v", err)
+			app.Event.Emit("compactLibraries:response", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+		
+		log.Printf("✓ 压缩完成：共处理 %d 个音乐库", count)
+		app.Event.Emit("compactLibraries:response", map[string]interface{}{
+			"count": count,
+		})
 	})
 
 	err := app.Run()

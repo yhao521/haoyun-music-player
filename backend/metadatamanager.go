@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode/utf16"
 )
 
 // MetadataManager 元数据管理器
@@ -203,11 +204,9 @@ func (mm *MetadataManager) decodeTextFrame(data []byte) string {
 	case 0: // ISO-8859-1
 		text = string(textData)
 	case 1: // UTF-16 with BOM
-		if len(textData) >= 2 {
-			text = string(textData[2:]) // 简单处理，跳过 BOM
-		}
+		text = mm.decodeUTF16(textData)
 	case 2: // UTF-16BE
-		text = string(textData)
+		text = mm.decodeUTF16BE(textData)
 	case 3: // UTF-8
 		text = string(textData)
 	default:
@@ -217,6 +216,86 @@ func (mm *MetadataManager) decodeTextFrame(data []byte) string {
 	// 去除空字符
 	text = strings.TrimRight(text, "\x00")
 	return strings.TrimSpace(text)
+}
+
+// decodeUTF16 解码 UTF-16 编码（带 BOM）
+func (mm *MetadataManager) decodeUTF16(data []byte) string {
+	if len(data) < 2 {
+		return ""
+	}
+
+	// 检查 BOM
+	bom := binary.LittleEndian.Uint16(data[:2])
+	var utf16Bytes []uint16
+	
+	if bom == 0xFEFF {
+		// Little Endian
+		utf16Bytes = mm.decodeUTF16LE(data[2:])
+	} else if bom == 0xFFFE {
+		// Big Endian
+		utf16Bytes = mm.decodeUTF16BEBytes(data[2:])
+	} else {
+		// 没有 BOM，默认 Little Endian
+		utf16Bytes = mm.decodeUTF16LE(data)
+	}
+
+	if len(utf16Bytes) == 0 {
+		return ""
+	}
+
+	// 转换 UTF-16 到 UTF-8
+	runes := utf16.Decode(utf16Bytes)
+	return string(runes)
+}
+
+// decodeUTF16LE 解码 Little Endian UTF-16
+func (mm *MetadataManager) decodeUTF16LE(data []byte) []uint16 {
+	if len(data)%2 != 0 {
+		data = data[:len(data)-1] // 确保偶数长度
+	}
+
+	var utf16Bytes []uint16
+	for i := 0; i < len(data); i += 2 {
+		if i+1 >= len(data) {
+			break
+		}
+		char := binary.LittleEndian.Uint16(data[i : i+2])
+		if char == 0 {
+			break // 遇到空字符停止
+		}
+		utf16Bytes = append(utf16Bytes, char)
+	}
+	return utf16Bytes
+}
+
+// decodeUTF16BE 解码 Big Endian UTF-16
+func (mm *MetadataManager) decodeUTF16BE(data []byte) string {
+	utf16Bytes := mm.decodeUTF16BEBytes(data)
+	if len(utf16Bytes) == 0 {
+		return ""
+	}
+	runes := utf16.Decode(utf16Bytes)
+	return string(runes)
+}
+
+// decodeUTF16BEBytes 解码 Big Endian UTF-16 字节数组
+func (mm *MetadataManager) decodeUTF16BEBytes(data []byte) []uint16 {
+	if len(data)%2 != 0 {
+		data = data[:len(data)-1] // 确保偶数长度
+	}
+
+	var utf16Bytes []uint16
+	for i := 0; i < len(data); i += 2 {
+		if i+1 >= len(data) {
+			break
+		}
+		char := binary.BigEndian.Uint16(data[i : i+2])
+		if char == 0 {
+			break // 遇到空字符停止
+		}
+		utf16Bytes = append(utf16Bytes, char)
+	}
+	return utf16Bytes
 }
 
 // readID3v1 读取 ID3v1 标签（文件末尾 128 字节）
