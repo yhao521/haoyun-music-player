@@ -231,8 +231,19 @@ type MP3Streamer struct {
 
 // NewMP3Streamer 创建 MP3 流式读取器
 func NewMP3Streamer(file *os.File) (*MP3Streamer, error) {
-	// 使用 go-mp3 创建解码器（流式解码）
-	decoder, err := mp3.NewDecoder(file)
+	// 使用 defer/recover 捕获 go-mp3 可能触发的 Panic
+	var decoder *mp3.Decoder
+	var err error
+	
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("go-mp3 解码器初始化时发生崩溃: %v", r)
+			}
+		}()
+		decoder, err = mp3.NewDecoder(file)
+	}()
+
 	if err != nil {
 		return nil, fmt.Errorf("MP3 解码器初始化失败：%w", err)
 	}
