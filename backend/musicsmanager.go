@@ -17,7 +17,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// createTrackInfo 从文件路径创建 TrackInfo
+// createTrackInfo 从文件路径创建 TrackInfo（基础版本，不使用音乐库）
 func createTrackInfo(path string) TrackInfo {
 	filename := filepath.Base(path)
 	title := strings.TrimSuffix(filename, filepath.Ext(filename))
@@ -26,20 +26,42 @@ func createTrackInfo(path string) TrackInfo {
 		Path:     path,
 		Filename: filename,
 		Title:    title,
-		Artist:   "", // 暂时为空，后续可从 ID3 标签读取
+		Artist:   "",
 		Album:    "",
-		Duration: 0, // TODO: 从音频文件中读取
+		Duration: 0,
 		Size:     0,
+		LyricPath: "",
 	}
+}
+
+// createTrackInfoFromLibrary 从音乐库获取完整的 TrackInfo（优先使用扫描结果）
+func createTrackInfoFromLibrary(path string, libraryManager *LibraryManager) TrackInfo {
+	// 策略 1: 尝试从音乐库中获取已扫描的信息
+	if libraryManager != nil {
+		currentLib := libraryManager.GetCurrentLibrary()
+		if currentLib != nil {
+			for _, track := range currentLib.Tracks {
+				if track.Path == path {
+					log.Printf("✓ 从音乐库获取 TrackInfo：%s - %s", track.Artist, track.Title)
+					return track
+				}
+			}
+		}
+	}
+	
+	// 策略 2: 降级到基本信息
+	log.Printf("⚠️ 音乐库中未找到 %s，使用基本信息", path)
+	return createTrackInfo(path)
 }
 
 // PlaylistManager 播放列表管理
 type PlaylistManager struct {
-	mu       sync.RWMutex
-	playlist []string
-	current  int
-	app      *application.App
-	playMode string // 播放模式：order(顺序), loop(循环), single(单曲循环), random(随机)
+	mu              sync.RWMutex
+	playlist        []string
+	current         int
+	app             *application.App
+	playMode        string           // 播放模式：order(顺序), loop(循环), single(单曲循环), random(随机)
+	libraryManager  *LibraryManager  // 音乐库管理器（用于获取元数据）
 }
 
 // NewPlaylistManager 创建播放列表管理器
@@ -49,6 +71,11 @@ func NewPlaylistManager() *PlaylistManager {
 		current:  -1,
 		playMode: "loop", // 默认为循环播放
 	}
+}
+
+// SetLibraryManager 设置音乐库管理器
+func (pm *PlaylistManager) SetLibraryManager(lm *LibraryManager) {
+	pm.libraryManager = lm
 }
 
 // SetApp 设置应用实例
@@ -112,7 +139,8 @@ func (pm *PlaylistManager) PlayIndex(index int) error {
 	path := pm.playlist[index]
 
 	if pm.app != nil {
-		trackInfo := createTrackInfo(path)
+		// 使用音乐库获取完整的 TrackInfo
+		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		log.Printf("🎵 PlaylistManager.PlayIndex: 触发 currentTrackChanged 事件：%+v", trackInfo)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
@@ -150,7 +178,8 @@ func (pm *PlaylistManager) Next() error {
 	path := pm.playlist[pm.current]
 
 	if pm.app != nil {
-		trackInfo := createTrackInfo(path)
+		// 使用音乐库获取完整的 TrackInfo
+		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 
@@ -186,7 +215,8 @@ func (pm *PlaylistManager) Previous() error {
 	path := pm.playlist[pm.current]
 
 	if pm.app != nil {
-		trackInfo := createTrackInfo(path)
+		// 使用音乐库获取完整的 TrackInfo
+		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 

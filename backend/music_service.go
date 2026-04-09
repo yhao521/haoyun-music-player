@@ -43,6 +43,9 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.libraryManager.SetApp(app)
 	m.historyManager.SetApp(app)
 	
+	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
+	m.playlistManager.SetLibraryManager(m.libraryManager)
+	
 	// 监听播放结束事件，根据播放模式决定是否自动播放下一首
 	app.Event.On("playbackEnded", func(event *application.CustomEvent) {
 		log.Println("🎵 收到 playbackEnded 事件，检查是否需要自动播放下一首")
@@ -157,9 +160,9 @@ func (m *MusicService) Play() error {
 
 	currentPath := playlist[currentIndex]
 	
-	// 异步记录播放历史
+	// 异步记录播放历史（使用音乐库获取完整元数据）
 	go func() {
-		trackInfo := createTrackInfo(currentPath)
+		trackInfo := createTrackInfoFromLibrary(currentPath, m.libraryManager)
 		m.historyManager.AddToHistory(trackInfo)
 	}()
 	
