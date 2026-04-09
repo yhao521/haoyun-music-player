@@ -52,6 +52,8 @@ func init() {
 	application.RegisterEvent[map[string]interface{}]("showNotification") // 添加系统通知事件
 	// 存储优化事件
 	application.RegisterEvent[map[string]interface{}]("compactLibraries") // 压缩音乐库文件
+	// 播放模式变化事件
+	application.RegisterEvent[string]("playModeChanged") // 播放模式变化通知
 }
 
 func main() {
@@ -298,46 +300,30 @@ func main() {
 
 	playModeOrder = application.NewMenuItem("  " + t("playMode.order"))
 	playModeOrder.OnClick(func(ctx *application.Context) {
-		musicService.SetPlayMode("order")
-		log.Println("✓ 切换到顺序播放")
-		// 更新菜单标签
-		playModeOrder.SetLabel("✓ " + t("playMode.order"))
-		playModeLoop.SetLabel("  " + t("playMode.loop"))
-		playModeRandom.SetLabel("  " + t("playMode.random"))
-		playModeSingle.SetLabel("  " + t("playMode.single"))
+		if err := musicService.SetPlayMode("order"); err != nil {
+			log.Printf("切换播放模式失败: %v", err)
+		}
 	})
 
 	playModeLoop = application.NewMenuItem("✓ " + t("playMode.loop"))
 	playModeLoop.OnClick(func(ctx *application.Context) {
-		musicService.SetPlayMode("loop")
-		log.Println("✓ 切换到循环播放")
-		// 更新菜单标签
-		playModeOrder.SetLabel("  " + t("playMode.order"))
-		playModeLoop.SetLabel("✓ " + t("playMode.loop"))
-		playModeRandom.SetLabel("  " + t("playMode.random"))
-		playModeSingle.SetLabel("  " + t("playMode.single"))
+		if err := musicService.SetPlayMode("loop"); err != nil {
+			log.Printf("切换播放模式失败: %v", err)
+		}
 	})
 
 	playModeRandom = application.NewMenuItem("  " + t("playMode.random"))
 	playModeRandom.OnClick(func(ctx *application.Context) {
-		musicService.SetPlayMode("random")
-		log.Println("✓ 切换到随机播放")
-		// 更新菜单标签
-		playModeOrder.SetLabel("  " + t("playMode.order"))
-		playModeLoop.SetLabel("  " + t("playMode.loop"))
-		playModeRandom.SetLabel("✓ " + t("playMode.random"))
-		playModeSingle.SetLabel("  " + t("playMode.single"))
+		if err := musicService.SetPlayMode("random"); err != nil {
+			log.Printf("切换播放模式失败: %v", err)
+		}
 	})
 
 	playModeSingle = application.NewMenuItem("  " + t("playMode.single"))
 	playModeSingle.OnClick(func(ctx *application.Context) {
-		musicService.SetPlayMode("random")
-		log.Println("✓ 切换到单曲循环")
-		// 更新菜单标签
-		playModeOrder.SetLabel("  " + t("playMode.order"))
-		playModeLoop.SetLabel("  " + t("playMode.loop"))
-		playModeRandom.SetLabel("✓ " + t("playMode.random"))
-		playModeSingle.SetLabel("✓ " + t("playMode.single"))
+		if err := musicService.SetPlayMode("single"); err != nil {
+			log.Printf("切换播放模式失败: %v", err)
+		}
 	})
 
 	playModeMenu := application.NewMenuFromItems(
@@ -1018,10 +1004,80 @@ func main() {
 		updateNowPlayingItem()
 	})
 
+	// 监听播放模式变化事件，同步更新托盘菜单
+	app.Event.On("playModeChanged", func(event *application.CustomEvent) {
+		if mode, ok := event.Data.(string); ok {
+			log.Printf("✓ 收到播放模式变化事件：%s", mode)
+			
+			// 更新托盘菜单中的播放模式子菜单项标签
+			playModeOrder.SetLabel(func() string {
+				if mode == "order" {
+					return "✓ " + t("playMode.order")
+				}
+				return "  " + t("playMode.order")
+			}())
+			
+			playModeLoop.SetLabel(func() string {
+				if mode == "loop" {
+					return "✓ " + t("playMode.loop")
+				}
+				return "  " + t("playMode.loop")
+			}())
+			
+			playModeRandom.SetLabel(func() string {
+				if mode == "random" {
+					return "✓ " + t("playMode.random")
+				}
+				return "  " + t("playMode.random")
+			}())
+			
+			playModeSingle.SetLabel(func() string {
+				if mode == "single" {
+					return "✓ " + t("playMode.single")
+				}
+				return "  " + t("playMode.single")
+			}())
+			
+			log.Printf("✓ 托盘菜单播放模式已更新为：%s", mode)
+		}
+	})
+
 	// 延迟初始化（等待服务完全启动）
 	go func() {
 		time.Sleep(500 * time.Millisecond)
 		updateNowPlayingItem()
+		
+		// 初始化时也获取一次当前播放模式，确保托盘菜单状态正确
+		if currentMode, err := musicService.GetPlayMode(); err == nil {
+			log.Printf("✓ 初始化托盘菜单播放模式：%s", currentMode)
+			playModeOrder.SetLabel(func() string {
+				if currentMode == "order" {
+					return "✓ " + t("playMode.order")
+				}
+				return "  " + t("playMode.order")
+			}())
+			
+			playModeLoop.SetLabel(func() string {
+				if currentMode == "loop" {
+					return "✓ " + t("playMode.loop")
+				}
+				return "  " + t("playMode.loop")
+			}())
+			
+			playModeRandom.SetLabel(func() string {
+				if currentMode == "random" {
+					return "✓ " + t("playMode.random")
+				}
+				return "  " + t("playMode.random")
+			}())
+			
+			playModeSingle.SetLabel(func() string {
+				if currentMode == "single" {
+					return "✓ " + t("playMode.single")
+				}
+				return "  " + t("playMode.single")
+			}())
+		}
 	}()
 
 	// 交互事件

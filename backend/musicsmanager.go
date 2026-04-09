@@ -241,6 +241,14 @@ func (pm *PlaylistManager) SetPlayMode(mode string) error {
 
 	pm.playMode = mode
 	log.Printf("播放模式设置为：%s", mode)
+	
+	// 发送播放模式变化事件，通知所有监听者（前端和托盘菜单）
+	if pm.app != nil {
+		go func() {
+			pm.app.Event.Emit("playModeChanged", mode)
+		}()
+	}
+	
 	return nil
 }
 

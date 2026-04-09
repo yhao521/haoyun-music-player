@@ -378,6 +378,17 @@ const listenToEvents = () => {
     }
   });
 
+  // 监听播放模式变化事件（从托盘菜单或其他地方触发）
+  Events.On("playModeChanged", (mode: any) => {
+    console.log("playModeChanged", mode);
+    if (mode && typeof mode.data === "string") {
+      playMode.value = mode.data;
+      console.log(
+        `✓ 播放模式已同步为：${playModeNames[playMode.value as keyof typeof playModeNames]()}`,
+      );
+    }
+  });
+
   console.log("Music Player initialized");
 };
 
@@ -401,6 +412,7 @@ const cleanupEvents = () => {
   Events.Off("playbackProgress");
   Events.Off("playlistUpdated");
   Events.Off("currentTrackChanged");
+  Events.Off("playModeChanged");
 };
 
 // 生命周期
