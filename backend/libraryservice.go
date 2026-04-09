@@ -45,6 +45,7 @@ type LibraryManager struct {
 	mu              sync.RWMutex
 	libDir          string
 	metadataManager *MetadataManager // 元数据管理器
+	tracksByPath    map[string]*TrackInfo // 路径索引：path -> TrackInfo，用于O(1)查找
 }
 
 // NewLibraryManager 创建音乐库管理器
@@ -82,6 +83,9 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
+	// 初始化路径索引
+	lm.tracksByPath = make(map[string]*TrackInfo)
+
 	files, err := os.ReadDir(lm.libDir)
 	if err != nil {
 		return err
@@ -96,6 +100,10 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 				continue
 			}
 			lm.libraries[libName] = lib
+			
+			// 构建该音乐库的路径索引
+			lm.buildTracksIndexForLibrary(lib)
+			
 			log.Printf("✓ 加载音乐库：%s (%d 首歌曲)", libName, len(lib.Tracks))
 		}
 	}
@@ -189,6 +197,9 @@ func (lm *LibraryManager) AddLibrary(name, path string) error {
 
 	// 添加到 libraries map
 	lm.libraries[name] = lib
+	
+	// 构建该音乐库的路径索引
+	lm.buildTracksIndexForLibrary(lib)
 
 	// 设置为当前库
 	lm.currentLib = name
@@ -310,6 +321,9 @@ func (lm *LibraryManager) RefreshLibrary() error {
 
 	lib.Tracks = tracks
 	lib.UpdatedAt = time.Now()
+	
+	// 重建该音乐库的路径索引
+	lm.buildTracksIndexForLibrary(lib)
 
 	// 保存到 JSON 文件
 	if err := lm.saveLibrary(lib); err != nil {
@@ -377,6 +391,37 @@ func (lm *LibraryManager) RenameLibrary(newName string) error {
 func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 	// 使用新的带元数据的扫描方法
 	return lm.scanDirectoryWithMetadata(dirPath)
+}
+
+// buildTracksIndexForLibrary 为指定音乐库构建路径索引（必须在持有锁的情况下调用）
+func (lm *LibraryManager) buildTracksIndexForLibrary(lib *MusicLibrary) {
+	if lm.tracksByPath == nil {
+		lm.tracksByPath = make(map[string]*TrackInfo)
+	}
+	
+	// 清除该音乐库的旧索引
+	for path := range lm.tracksByPath {
+		// 简单策略：清空所有索引后重建
+		// 更精细的策略可以只删除属于该音乐库的路径
+		delete(lm.tracksByPath, path)
+	}
+	
+	// 重新构建索引
+	for i := range lib.Tracks {
+		lm.tracksByPath[lib.Tracks[i].Path] = &lib.Tracks[i]
+	}
+}
+
+// GetTrackByPath 通过路径快速获取 TrackInfo（O(1) 时间复杂度）
+func (lm *LibraryManager) GetTrackByPath(path string) *TrackInfo {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	
+	if lm.tracksByPath == nil {
+		return nil
+	}
+	
+	return lm.tracksByPath[path]
 }
 
 // GetCurrentLibraryTracks 获取当前音乐库的所有音轨

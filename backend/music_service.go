@@ -428,14 +428,12 @@ func (m *MusicService) LoadCurrentLibrary() error {
 		return fmt.Errorf("音乐库中没有音轨")
 	}
 
-	// 清空当前播放列表
+	// 清空当前播放列表（发送一次事件）
 	m.ClearPlaylist()
 
-	// 将所有音轨添加到播放列表
-	for _, track := range tracks {
-		if err := m.AddToPlaylist(track); err != nil {
-			log.Printf("添加音轨失败 %s: %v", track, err)
-		}
+	// 批量添加所有音轨到播放列表（只发送一次事件）
+	if err := m.playlistManager.AddToPlaylistBatch(tracks); err != nil {
+		log.Printf("批量添加音轨失败：%v", err)
 	}
 
 	// 播放第一首
