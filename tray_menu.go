@@ -623,14 +623,15 @@ func loadLibraryToPlaylist() {
 		"type":    "info",
 	})
 
+	// 清空当前播放列表（发送一次事件）
 	musicService.ClearPlaylist()
 
-	for _, track := range tracks {
-		if err := musicService.AddToPlaylist(track); err != nil {
-			log.Printf("添加音轨失败 %s: %v", track, err)
-		}
+	// 批量添加所有音轨到播放列表（只发送一次事件）
+	if err := musicService.GetPlaylistManager().AddToPlaylistBatch(tracks); err != nil {
+		log.Printf("批量添加音轨失败：%v", err)
 	}
 
+	// 播放第一首
 	if len(tracks) > 0 {
 		if err := musicService.PlayIndex(0); err != nil {
 			log.Printf("播放失败: %v", err)

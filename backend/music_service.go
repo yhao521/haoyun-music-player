@@ -641,6 +641,11 @@ func (m *MusicService) CompactLibraries() (int, error) {
 	return m.libraryManager.CompactLibraries()
 }
 
+// GetPlaylistManager 获取播放列表管理器（用于批量操作）
+func (m *MusicService) GetPlaylistManager() *PlaylistManager {
+	return m.playlistManager
+}
+
 // Shutdown 关闭服务
 func (m *MusicService) Shutdown() error {
 	m.audioPlayer.Stop()
