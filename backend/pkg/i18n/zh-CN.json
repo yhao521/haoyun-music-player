@@ -12,7 +12,7 @@
     "keepAwake": "保持系统唤醒",
     "autoLaunch": "开机启动",
     "settings": "设置",
-    "version": "版本 0.5.0",
+    "version": "版本 %s",
     "quit": "退出",
     "showMainWindow": "显示主窗口",
     "file": "文件",

@@ -12,7 +12,7 @@
     "keepAwake": "Keep System Awake",
     "autoLaunch": "Auto Launch",
     "settings": "Settings",
-    "version": "Version 0.5.0",
+    "version": "Version %s",
     "quit": "Quit",
     "showMainWindow": "Show Main Window",
     "file": "File",
