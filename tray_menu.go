@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/yhao521/wailsMusicPlay/backend"
 )
 
 // 托盘菜单相关变量
@@ -40,6 +40,10 @@ var (
 
 	// 音乐库菜单
 	musicLibMenu *application.Menu
+	
+	// 防重复提交标志
+	isAddingLibrary   bool
+	isRefreshingLibrary bool
 )
 
 // createTrayAndMenu 创建系统托盘和菜单
@@ -376,11 +380,19 @@ func updatePlayModeMenuLabels(mode string) {
 // buildMusicLibMenu 构建音乐库菜单
 func buildMusicLibMenu() {
 	addLibItem := application.NewMenuItem(t("library.addNew"))
+	if isAddingLibrary {
+		addLibItem.SetEnabled(false)
+		addLibItem.SetLabel(t("library.scanning"))
+	}
 	addLibItem.OnClick(func(ctx *application.Context) {
 		handleAddLibrary()
 	})
 
 	refreshLibItem := application.NewMenuItem(t("library.refreshCurrent"))
+	if isRefreshingLibrary {
+		refreshLibItem.SetEnabled(false)
+		refreshLibItem.SetLabel(t("library.scanning"))
+	}
 	refreshLibItem.SetAccelerator("CmdOrCtrl+R")
 	refreshLibItem.OnClick(func(ctx *application.Context) {
 		handleRefreshLibrary()
@@ -390,6 +402,7 @@ func buildMusicLibMenu() {
 	renameLibItem.OnClick(func(ctx *application.Context) {
 		log.Println(t("library.renameCurrent"))
 	})
+	renameLibItem.SetEnabled(false)
 
 	deleteLibItem := application.NewMenuItem(t("library.deleteCurrent"))
 	deleteLibItem.OnClick(func(ctx *application.Context) {
@@ -440,10 +453,22 @@ func buildMusicLibMenu() {
 
 // handleAddLibrary 处理添加音乐库
 func handleAddLibrary() {
+	// 防止重复提交
+	if isAddingLibrary {
+		log.Println("⚠️ 添加音乐库操作正在进行中,忽略重复请求")
+		return
+	}
+	
+	// 立即设置标志并更新菜单,禁用按钮
+	isAddingLibrary = true
+	rebuildTrayMenu()
+	
 	log.Println(t("library.addNew"))
 
 	if musicService == nil {
 		log.Println("❌ musicService 为 nil")
+		isAddingLibrary = false
+		rebuildTrayMenu()
 		return
 	}
 
@@ -454,17 +479,22 @@ func handleAddLibrary() {
 	})
 
 	if err := musicService.AddLibrary(); err != nil {
-		log.Printf("添加音乐库失败：%v", err)
+		log.Printf("添加音乐库失败:%v", err)
 		app.Event.Emit("showNotification", map[string]interface{}{
 			"title":   t("notification.error"),
 			"message": fmt.Sprintf("添加音乐库失败: %v", err),
 			"type":    "error",
 		})
+		isAddingLibrary = false
+		rebuildTrayMenu()
 		return
 	}
 
-	log.Println("✓ 音乐库添加成功，刷新菜单")
-	buildMusicLibMenu()
+	log.Println("✓ 音乐库添加成功,刷新菜单")
+	
+	// 重置标志并重建菜单
+	isAddingLibrary = false
+	rebuildTrayMenu()
 
 	go func() {
 		time.Sleep(2 * time.Second)
@@ -474,9 +504,21 @@ func handleAddLibrary() {
 
 // handleRefreshLibrary 处理刷新音乐库
 func handleRefreshLibrary() {
+	// 防止重复提交
+	if isRefreshingLibrary {
+		log.Println("⚠️ 刷新音乐库操作正在进行中,忽略重复请求")
+		return
+	}
+	
+	// 立即设置标志并更新菜单,禁用按钮
+	isRefreshingLibrary = true
+	rebuildTrayMenu()
+	
 	log.Println(t("library.refreshCurrent"))
 
 	if musicService == nil {
+		isRefreshingLibrary = false
+		rebuildTrayMenu()
 		return
 	}
 
@@ -488,6 +530,8 @@ func handleRefreshLibrary() {
 			"message": "当前没有音乐库",
 			"type":    "info",
 		})
+		isRefreshingLibrary = false
+		rebuildTrayMenu()
 		return
 	}
 
@@ -499,15 +543,21 @@ func handleRefreshLibrary() {
 
 	go func() {
 		if err := musicService.RefreshLibrary(); err != nil {
-			log.Printf("刷新音乐库失败：%v", err)
+			log.Printf("刷新音乐库失败:%v", err)
 			app.Event.Emit("showNotification", map[string]interface{}{
 				"title":   t("notification.error"),
 				"message": fmt.Sprintf("刷新音乐库失败: %v", err),
 				"type":    "error",
 			})
+			isRefreshingLibrary = false
+			rebuildTrayMenu()
 			return
 		}
 
+		// 操作完成后重置标志并重建菜单
+		isRefreshingLibrary = false
+		rebuildTrayMenu()
+		
 		loadLibraryToPlaylist()
 	}()
 }
@@ -521,22 +571,68 @@ func handleDeleteLibrary() {
 		return
 	}
 
+	// 直接获取当前音乐库的名称,而不是对象引用
 	currentLib := musicService.GetCurrentLibrary()
 	if currentLib == nil {
 		log.Println("当前没有音乐库")
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.info"),
+			"message": "当前没有音乐库",
+			"type":    "info",
+		})
 		return
 	}
 
 	libName := currentLib.Name
 	log.Printf("⚠️ 准备删除音乐库：%s", libName)
 
+	// 验证音乐库确实存在
+	allLibs := musicService.GetLibraries()
+	found := false
+	for _, name := range allLibs {
+		if name == libName {
+			found = true
+			break
+		}
+	}
+	
+	if !found {
+		log.Printf("⚠️ 音乐库 %s 在列表中不存在,可能已被删除", libName)
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.error"),
+			"message": fmt.Sprintf("音乐库 %s 不存在", libName),
+			"type":    "error",
+		})
+		rebuildTrayMenu()
+		return
+	}
+
+	// 发送删除提示
+	app.Event.Emit("showNotification", map[string]interface{}{
+		"title":   t("notification.info"),
+		"message": fmt.Sprintf("正在删除音乐库: %s", libName),
+		"type":    "info",
+	})
+
 	if err := musicService.DeleteLibrary(libName); err != nil {
 		log.Printf("删除音乐库失败：%v", err)
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.error"),
+			"message": fmt.Sprintf("删除音乐库失败: %v", err),
+			"type":    "error",
+		})
 		return
 	}
 
 	log.Printf("✓ 已删除音乐库：%s", libName)
-	buildMusicLibMenu()
+	app.Event.Emit("showNotification", map[string]interface{}{
+		"title":   t("notification.success"),
+		"message": fmt.Sprintf("已成功删除音乐库: %s", libName),
+		"type":    "success",
+	})
+
+	// 立即重建整个托盘菜单以确保所有层级都更新
+	rebuildTrayMenu()
 }
 
 // handleSwitchLibrary 处理切换音乐库
