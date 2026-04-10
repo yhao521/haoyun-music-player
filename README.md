@@ -11,7 +11,7 @@
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
-[🌐 官方网站](https://yhao521.github.io/haoyun-music-player/) • [✨ 功能特性](./FEATURES.md) • [快速开始](./QUICKSTART.md) • [实现文档](./IMPLEMENTATION.md) • [键盘快捷键](./KEYBOARD_SHORTCUTS.md) • [API 指南](./API_GUIDE.md) • [多语言支持](./I18N_QUICKSTART.md) • [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md)
+[🌐 官方网站](https://yhao521.github.io/haoyun-music-player/) • [✨ 功能特性](./docs/FEATURES.md) • [快速开始](./docs/QUICKSTART.md) • [键盘快捷键](./docs/KEYBOARD_SHORTCUTS.md) • [API 指南](./docs/API_GUIDE.md) • [FFmpeg 指南](./docs/FFMPEG_GUIDE.md) • [国际化](./docs/I18N_QUICKSTART.md) • [完整文档](./docs/)
 
 </div>
 
@@ -334,33 +334,113 @@ haoyun-music-player/
 
 ## 📚 文档
 
-### 用户文档
+完整的项目文档已整理到 [`docs/`](./docs/) 目录。以下是主要文档的分类索引：
 
-- [快速开始指南](./QUICKSTART.md) - 5 分钟上手
-- [键盘快捷键](./KEYBOARD_SHORTCUTS.md) - 完整快捷键列表
-- [故障排除](./TROUBLESHOOTING.md) - 常见问题解决
-- [自动化发布](./GITHUB_ACTIONS_QUICKSTART.md) - GitHub Actions 快速指南 ⭐
+### 🚀 快速开始
 
-### 开发文档
+- [快速开始指南](./docs/QUICKSTART.md) - 5 分钟上手
+- [依赖安装](./docs/DEPENDENCY_AUTO_INSTALL.md) - 自动依赖管理
+- [故障排除](./docs/TROUBLESHOOTING.md) - 常见问题解决
 
-- [实现文档](./IMPLEMENTATION.md) - 功能实现细节
-- [API 指南](./API_GUIDE.md) - 后端 API 使用说明
-- [后端设计](./BACKEND_DESIGN.md) - 架构设计详解
-- [Wails 绑定](./WAILS_BINDINGS.md) - 前后端通信机制
-- [GitHub Actions 详细指南](./GITHUB_ACTIONS_RELEASE.md) - CI/CD 配置说明
-- [GitHub Actions 工作流程](./GITHUB_ACTIONS_WORKFLOW.md) - 可视化流程图
-- [部署检查清单](./GITHUB_ACTIONS_CHECKLIST.md) - 发布前必读
+### ✨ 功能特性
 
-### 特性文档
+- [功能总览](./docs/FEATURES.md) - 完整功能列表
+- [键盘快捷键](./docs/KEYBOARD_SHORTCUTS.md) - 完整快捷键列表
+- [音乐信息显示](./docs/MUSIC_INFO_DISPLAY.md)
+- [正在播放功能](./docs/NOW_PLAYING_FEATURE.md)
+- [媒体键支持](./docs/MEDIA_KEYS_GUIDE.md)
+- [收藏功能](./docs/FAVORITES_FEATURE.md)
+- [设置功能](./docs/SETTINGS_FEATURE.md)
+- [音频时长显示](./docs/AUDIO_DURATION_FEATURE.md)
 
-- [音乐信息显示](./MUSIC_INFO_DISPLAY.md)
-- [正在播放功能](./NOW_PLAYING_FEATURE.md)
-- [媒体键支持](./MEDIA_KEYS_GUIDE.md)
-- [托盘修复说明](./TRAY_FIX.md)
-- [扬声器修复](./SPEAKER_FIX.md)
-- [FFmpeg 音频解码](./FFMPEG_GUIDE.md) - 广泛的音频格式支持
-- [新功能实现](./NEW_FEATURES.md) - 播放历史、歌词、专辑封面
-- [Bug 修复记录](./BUGFIX_MENU_CRASH.md) - 菜单空指针错误修复
+### 🎵 音乐库与元数据
+
+- [音乐库元数据扫描](./docs/LIBRARY_METADATA_SCAN.md)
+- [元数据缓存优化](./docs/METADATA_CACHE_OPTIMIZATION.md)
+- [元数据实现总结](./docs/METADATA_IMPLEMENTATION_SUMMARY.md)
+- [元数据使用指南](./docs/METADATA_USAGE_GUIDE.md)
+- [播放列表元数据集成](./docs/PLAYLIST_METADATA_INTEGRATION.md)
+
+### 📝 歌词功能
+
+- [歌词下载功能](./docs/LYRICS_DOWNLOAD_FEATURE.md)
+- [多源歌词增强](./docs/MULTI_SOURCE_LYRICS_ENHANCEMENT.md)
+- [lrclib.net 增强完成](./docs/LRCLIB_ENHANCEMENT_COMPLETE.md)
+- [模糊匹配优化完成](./docs/FUZZY_MATCHING_OPTIMIZATION_COMPLETE.md)
+- [歌词 API 评估](./docs/LYRICS_API_EVALUATION.md)
+
+### 🔊 音频解码
+
+- [FFmpeg 音频解码](./docs/FFMPEG_GUIDE.md) - 广泛的音频格式支持
+- [FFmpeg 集成总结](./docs/FFMPEG_INTEGRATION_SUMMARY.md)
+- [FFmpeg 快速参考](./docs/FFMPEG_QUICKREF.md)
+- [MP3 时长修复](./docs/MP3_DURATION_FIX.md)
+
+### 🌍 国际化 (i18n)
+
+- [国际化实施](./docs/I18N_IMPLEMENTATION.md)
+- [国际化快速开始](./docs/I18N_QUICKSTART.md)
+- [国际化完成报告](./docs/I18N_COMPLETION_REPORT.md)
+- [国际化测试指南](./docs/I18N_TESTING_GUIDE.md)
+
+### 🛠️ 开发文档
+
+- [实现文档](./docs/IMPLEMENTATION.md) - 功能实现细节
+- [实现总结](./docs/IMPLEMENTATION_SUMMARY.md)
+- [后端设计](./docs/BACKEND_DESIGN.md) - 架构设计详解
+- [代码结构](./docs/CODE_STRUCTURE.md)
+- [API 指南](./docs/API_GUIDE.md) - 后端 API 使用说明
+- [Wails 绑定](./docs/WAILS_BINDINGS.md) - 前后端通信机制
+- [重构总结](./docs/REFACTORING_SUMMARY.md)
+
+### ⚙️ 配置与持久化
+
+- [配置持久化](./docs/CONFIG_PERSISTENCE.md)
+- [配置加载修复](./docs/CONFIG_LOADING_FIX.md)
+
+### 🚀 CI/CD 与部署
+
+- [GitHub Actions 快速开始](./docs/GITHUB_ACTIONS_QUICKSTART.md) ⭐
+- [GitHub Actions 详细指南](./docs/GITHUB_ACTIONS_RELEASE.md)
+- [GitHub Actions 工作流程](./docs/GITHUB_ACTIONS_WORKFLOW.md)
+- [GitHub Actions 总结](./docs/GITHUB_ACTIONS_SUMMARY.md)
+- [GitHub Actions 索引](./docs/GITHUB_ACTIONS_INDEX.md)
+- [部署检查清单](./docs/GITHUB_ACTIONS_CHECKLIST.md)
+- [GitHub Pages 指南](./docs/GITHUB_PAGES_GUIDE.md)
+- [GitHub Pages 总结](./docs/GITHUB_PAGES_SUMMARY.md)
+- [网站部署](./docs/WEBSITE.md)
+- [Linux CI 修复](./docs/LINUX_CI_PKGCONFIG_FIX.md)
+
+### 🔧 Bug 修复与优化
+
+- [Bug 修复记录](./docs/BUGFIX_MENU_CRASH.md) - 菜单空指针错误修复
+- [托盘修复说明](./docs/TRAY_FIX.md)
+- [托盘菜单时序修复](./docs/TRAY_MENU_TIMING_FIX.md)
+- [托盘菜单更新修复](./docs/TRAY_MENU_UPDATE_FIX.md)
+- [扬声器修复](./docs/SPEAKER_FIX.md)
+- [运行时内存优化](./docs/RUNTIME_MEMORY_OPTIMIZATION.md)
+- [运行时内存优化快速参考](./docs/RUNTIME_MEMORY_OPTIMIZATION_QUICKREF.md)
+- [通知调试指南](./docs/NOTIFICATION_DEBUG_GUIDE.md)
+- [库通知功能](./docs/LIBRARY_NOTIFICATION.md)
+- [库通知总结](./docs/LIBRARY_NOTIFICATION_SUMMARY.md)
+
+### 📋 其他文档
+
+- [新功能实现](./docs/NEW_FEATURES.md) - 播放历史、歌词、专辑封面
+- [快速参考](./docs/QUICK_REFERENCE.md)
+- [新功能快速参考](./docs/QUICK_REFERENCE_NEW_FEATURES.md)
+- [许可证变更完成](./docs/LICENSE_CHANGE_COMPLETE.md)
+- [依赖安装验证](./docs/DEPENDENCY_INSTALL_VERIFICATION.md)
+- [依赖安装状态](./docs/DEPENDENCY_INSTALL_STATUS.md)
+- [依赖安装快速参考](./docs/QUICKREF_DEPENDENCY_INSTALL.md)
+- [测试收藏功能](./docs/TEST_FAVORITES.md)
+- [测试 FFmpeg](./docs/TEST_FFMPEG_README.md)
+- [托盘更新](./docs/TRAY_UPDATE.md)
+- [Wails 通知 API 状态](./docs/WAILS_NOTIFICATION_API_STATUS.md)
+
+---
+
+**💡 提示**: 所有技术文档均位于 [`docs/`](./docs/) 目录，便于管理和查阅。
 
 ## 🧪 FFmpeg 测试
 
