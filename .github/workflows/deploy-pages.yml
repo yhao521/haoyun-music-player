@@ -28,54 +28,71 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
       
-      - name: Copy documentation files to docs folder
+      - name: Prepare documentation files
         run: |
-          # Copy all markdown files to docs folder for GitHub Pages
-          cp README.md docs/
-          cp WEBSITE.md docs/
-          cp FEATURES.md docs/
-          cp QUICKSTART.md docs/ 2>/dev/null || true
-          cp KEYBOARD_SHORTCUTS.md docs/ 2>/dev/null || true
-          cp I18N_QUICKSTART.md docs/ 2>/dev/null || true
-          cp FFMPEG_GUIDE.md docs/ 2>/dev/null || true
-          cp TROUBLESHOOTING.md docs/ 2>/dev/null || true
-          cp BACKEND_DESIGN.md docs/ 2>/dev/null || true
-          cp API_GUIDE.md docs/ 2>/dev/null || true
-          cp IMPLEMENTATION.md docs/ 2>/dev/null || true
-          cp NEW_FEATURES.md docs/ 2>/dev/null || true
-          cp FAVORITES_FEATURE.md docs/ 2>/dev/null || true
-          cp MUSIC_INFO_DISPLAY.md docs/ 2>/dev/null || true
-          cp MEDIA_KEYS_GUIDE.md docs/ 2>/dev/null || true
-          cp DEPENDENCY_AUTO_INSTALL.md docs/ 2>/dev/null || true
-          cp GITHUB_ACTIONS_QUICKSTART.md docs/ 2>/dev/null || true
+          # All markdown files are already in docs/ folder
+          # No need to copy from root directory
           
-          # Create a simple navigation file
+          # Create a simple navigation index file
           cat > docs/DOCS_INDEX.md << 'EOF'
           # 📚 文档索引
-          
-          所有文档已复制到 `docs/` 文件夹，可以通过以下链接访问：
-          
-          ## 用户指南
-          - [README](./README.md)
-          - [快速开始](./QUICKSTART.md)
+
+          欢迎访问好运音乐播放器文档中心！
+
+          ## 🎯 快速开始
+          - [项目主页](./README.md)
+          - [官方网站](./WEBSITE.md)
+          - [功能特性](./FEATURES.md)
+          - [快速入门](./QUICKSTART.md)
+
+          ## ⌨️ 使用指南
           - [键盘快捷键](./KEYBOARD_SHORTCUTS.md)
+          - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
           - [多语言支持](./I18N_QUICKSTART.md)
-          - [FFmpeg 安装](./FFMPEG_GUIDE.md)
-          - [故障排除](./TROUBLESHOOTING.md)
-          
-          ## 开发者文档
+          - [设置功能](./SETTINGS_FEATURE.md)
+
+          ## 🔧 技术文档
           - [架构设计](./BACKEND_DESIGN.md)
           - [API 指南](./API_GUIDE.md)
           - [实现细节](./IMPLEMENTATION.md)
-          - [依赖管理](./DEPENDENCY_AUTO_INSTALL.md)
-          - [CI/CD 流程](./GITHUB_ACTIONS_QUICKSTART.md)
-          
-          ## 特性文档
-          - [新功能介绍](./NEW_FEATURES.md)
+          - [代码结构](./CODE_STRUCTURE.md)
+          - [Wails 绑定](./WAILS_BINDINGS.md)
+
+          ## 🎵 核心功能
+          - [音乐库元数据扫描](./LIBRARY_METADATA_SCAN.md)
+          - [播放列表元数据集成](./PLAYLIST_METADATA_INTEGRATION.md)
+          - [元数据缓存优化](./METADATA_CACHE_OPTIMIZATION.md)
+          - [歌词下载功能](./LYRICS_DOWNLOAD_FEATURE.md)
+          - [多源歌词增强](./MULTI_SOURCE_LYRICS_ENHANCEMENT.md)
+          - [模糊匹配优化](./FUZZY_MATCHING_OPTIMIZATION_COMPLETE.md)
           - [喜爱音乐功能](./FAVORITES_FEATURE.md)
+          - [正在播放显示](./NOW_PLAYING_FEATURE.md)
           - [音乐信息显示](./MUSIC_INFO_DISPLAY.md)
-          - [媒体键支持](./MEDIA_KEYS_GUIDE.md)
-          - [功能特性详解](./FEATURES.md)
+
+          ## 📦 依赖与构建
+          - [依赖自动安装](./DEPENDENCY_AUTO_INSTALL.md)
+          - [FFmpeg 安装指南](./FFMPEG_GUIDE.md)
+          - [FFmpeg 集成总结](./FFMPEG_INTEGRATION_SUMMARY.md)
+          - [CI/CD 工作流](./GITHUB_ACTIONS_WORKFLOW.md)
+          - [GitHub Actions 快速开始](./GITHUB_ACTIONS_QUICKSTART.md)
+          - [发布流程](./GITHUB_ACTIONS_RELEASE.md)
+
+          ## 🐛 故障排除
+          - [常见问题](./TROUBLESHOOTING.md)
+          - [通知调试指南](./NOTIFICATION_DEBUG_GUIDE.md)
+          - [配置加载修复](./CONFIG_LOADING_FIX.md)
+          - [托盘菜单修复](./TRAY_FIX.md)
+
+          ## 📝 更新日志
+          - [新功能介绍](./NEW_FEATURES.md)
+          - [实现总结](./IMPLEMENTATION_SUMMARY.md)
+          - [重构总结](./REFACTORING_SUMMARY.md)
+          - [许可证变更](./LICENSE_CHANGE_COMPLETE.md)
+
+          ## 🔗 相关链接
+          - [GitHub Pages 指南](./GITHUB_PAGES_GUIDE.md)
+          - [部署文档](./DEPLOYMENT.md)
+          - [测试指南](./TEST_FAVORITES.md)
           EOF
       
       - name: Upload artifact
