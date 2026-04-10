@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9-blue)
 ![Go](https://img.shields.io/badge/Go-1.25+-00ADD8)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![License](https://img.shields.io/badge/License-Apache--2.0-green)
 
 **基于 Wails 3 + Vue 3 + TypeScript 的现代化菜单栏音乐播放器**
 
@@ -469,7 +469,9 @@ const tracks = ref<TrackInfo[]>([])
 
 ## 📄 许可证
 
-Apache 2.0 License - 详见 [LICENSE](./LICENSE) 文件
+Apache License, Version 2.0 - 详见 [LICENSE](./LICENSE) 文件
+
+本项目采用宽松的 Apache 2.0 许可证,允许商业使用、修改、分发和专利授权,只需保留版权声明和许可证副本。
 
 ## 🙏 致谢
 

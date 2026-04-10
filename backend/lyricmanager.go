@@ -19,9 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/guohuiyuan/music-lib/kugou"
-	"github.com/guohuiyuan/music-lib/netease"
-	"github.com/guohuiyuan/music-lib/qq"
 	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
 )
 
@@ -557,125 +554,93 @@ func (lm *LyricManager) downloadFromQQMusic(title, artist string) (string, error
 	return "", fmt.Errorf("QQ 音乐歌词为空")
 }
 
-// downloadFromMusicLib 使用 music-lib 从多个平台下载歌词
-func (lm *LyricManager) downloadFromMusicLib(title, artist string) (string, error) {
-	log.Printf("  🎵 尝试从 music-lib 搜索: %s - %s", artist, title)
+// downloadFromAuralive 从 Auralive Lyrics API 下载歌词
+func (lm *LyricManager) downloadFromAuralive(title, artist string) (string, error) {
+	log.Printf("  🎵 尝试从 Auralive Lyrics API 搜索: %s - %s", artist, title)
 
-	// 定义要尝试的平台列表(按优先级排序)
-	type platformConfig struct {
-		name      string
-		searchFn  func(string) ([]interface{}, error) // 简化为 interface{} 以适配不同返回类型
-		getLyrics func(interface{}) (string, error)
-	}
+	// Auralive Lyrics API 端点 (使用公共实例)
+	// API 文档: https://github.com/auralive/lyrics-api
+	apiBase := "https://api.auralive.net"
+	
+	// 构建搜索 URL
+	searchURL := fmt.Sprintf("%s/api/v1/lyrics/search?title=%s&artist=%s",
+		apiBase,
+		urlEncode(title),
+		urlEncode(artist))
 
-	// 由于不同平台的 API 签名略有差异,我们分别处理
-	platforms := []struct {
-		name      string
-		searchStr string
-	}{
-		{"网易云音乐", fmt.Sprintf("%s %s", title, artist)},
-		{"QQ 音乐", fmt.Sprintf("%s %s", title, artist)},
-		{"酷狗音乐", fmt.Sprintf("%s %s", title, artist)},
-	}
-
-	var lastErr error
-	for _, platform := range platforms {
-		log.Printf("    📡 尝试 %s...", platform.name)
-
-		var lyrics string
-		var err error
-
-		switch platform.name {
-		case "网易云音乐":
-			lyrics, err = lm.tryNetease(platform.searchStr)
-		case "QQ 音乐":
-			lyrics, err = lm.tryQQ(platform.searchStr)
-		case "酷狗音乐":
-			lyrics, err = lm.tryKugou(platform.searchStr)
-		}
-
-		if err == nil && lyrics != "" {
-			log.Printf("    ✓ %s 歌词下载成功", platform.name)
-			return lyrics, nil
-		}
-
-		if err != nil {
-			log.Printf("    ❌ %s 失败: %v", platform.name, err)
-			lastErr = err
-		}
-	}
-
-	return "", fmt.Errorf("music-lib 所有平台均失败: %w", lastErr)
-}
-
-// tryNetease 尝试从网易云获取歌词
-func (lm *LyricManager) tryNetease(keyword string) (string, error) {
-	songs, err := netease.Search(keyword)
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", searchURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("网易云搜索失败: %w", err)
+		return "", fmt.Errorf("创建 Auralive 请求失败: %w", err)
 	}
 
-	if len(songs) == 0 {
-		return "", fmt.Errorf("网易云未找到歌曲")
+	req.Header.Set("User-Agent", "HaoyunMusicPlayer/1.0")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("Auralive 请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return "", fmt.Errorf("Auralive 未找到歌词")
+		}
+		return "", fmt.Errorf("Auralive API 返回错误状态码: %d", resp.StatusCode)
+	}
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取 Auralive 响应失败: %w", err)
+	}
+
+	// 解析 JSON 响应
+	var result AuraliveResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("解析 Auralive 响应失败: %w", err)
+	}
+
+	// 检查是否有结果
+	if len(result.Data) == 0 {
+		return "", fmt.Errorf("Auralive 未找到匹配的歌曲")
 	}
 
 	// 获取第一首匹配歌曲的歌词
-	lyrics, err := netease.GetLyrics(&songs[0])
-	if err != nil {
-		return "", fmt.Errorf("网易云获取歌词失败: %w", err)
+	bestMatch := result.Data[0]
+	
+	// 优先使用同步歌词,否则使用普通歌词
+	lyricsContent := bestMatch.SyncedLyrics
+	if lyricsContent == "" {
+		lyricsContent = bestMatch.PlainLyrics
 	}
 
-	if lyrics == "" {
-		return "", fmt.Errorf("网易云歌词为空")
+	if lyricsContent == "" {
+		return "", fmt.Errorf("Auralive 歌词为空")
 	}
 
-	return lyrics, nil
+	log.Printf("  ✓ Auralive Lyrics API 歌词下载成功")
+	return lyricsContent, nil
 }
 
-// tryQQ 尝试从 QQ 音乐获取歌词
-func (lm *LyricManager) tryQQ(keyword string) (string, error) {
-	songs, err := qq.Search(keyword)
-	if err != nil {
-		return "", fmt.Errorf("QQ 音乐搜索失败: %w", err)
-	}
-
-	if len(songs) == 0 {
-		return "", fmt.Errorf("QQ 音乐未找到歌曲")
-	}
-
-	lyrics, err := qq.GetLyrics(&songs[0])
-	if err != nil {
-		return "", fmt.Errorf("QQ 音乐获取歌词失败: %w", err)
-	}
-
-	if lyrics == "" {
-		return "", fmt.Errorf("QQ 音乐歌词为空")
-	}
-
-	return lyrics, nil
+// AuraliveResponse Auralive Lyrics API 响应结构
+type AuraliveResponse struct {
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []AuraliveResult `json:"data"`
 }
 
-// tryKugou 尝试从酷狗音乐获取歌词
-func (lm *LyricManager) tryKugou(keyword string) (string, error) {
-	songs, err := kugou.Search(keyword)
-	if err != nil {
-		return "", fmt.Errorf("酷狗搜索失败: %w", err)
-	}
-
-	if len(songs) == 0 {
-		return "", fmt.Errorf("酷狗未找到歌曲")
-	}
-
-	lyrics, err := kugou.GetLyrics(&songs[0])
-	if err != nil {
-		return "", fmt.Errorf("酷狗获取歌词失败: %w", err)
-	}
-
-	if lyrics == "" {
-		return "", fmt.Errorf("酷狗歌词为空")
-	}
-
-	return lyrics, nil
+// AuraliveResult Auralive 搜索结果
+type AuraliveResult struct {
+	ID            string `json:"id"`
+	Title         string `json:"title"`
+	Artist        string `json:"artist"`
+	Album         string `json:"album"`
+	Duration      int    `json:"duration"`
+	SyncedLyrics  string `json:"synced_lyrics"`  // 同步歌词(LRC格式)
+	PlainLyrics   string `json:"plain_lyrics"`   // 普通歌词
+	MatchScore    float64 `json:"match_score"`   // 匹配度分数
 }
 
 // decodeBase64Gzip 解码 Base64 编码的 Gzip 压缩数据
@@ -736,7 +701,7 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 		},
 		{"网易云音乐", lm.downloadFromNetease},
 		{"QQ 音乐", lm.downloadFromQQMusic},
-		{"music-lib (多平台)", lm.downloadFromMusicLib}, // 新增: music-lib 作为第4个源
+		{"Auralive Lyrics", lm.downloadFromAuralive}, // 新增: Auralive Lyrics API
 	}
 
 	var lastErr error
