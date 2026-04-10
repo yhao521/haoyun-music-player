@@ -669,6 +669,16 @@ func (m *MusicService) OrganizeLibrary() error {
 	return m.organizeService.OrganizeLibrary()
 }
 
+// DownloadLyricsForLibrary 为当前音乐库下载歌词
+func (m *MusicService) DownloadLyricsForLibrary() (successCount, failCount, skipCount int, errors []string) {
+	return m.organizeService.DownloadLyricsForLibrary()
+}
+
+// GetLyricManager 获取歌词管理器
+func (m *MusicService) GetLyricManager() *LyricManager {
+	return m.lyricManager
+}
+
 // GetOrganizeService 获取整理音乐服务
 func (m *MusicService) GetOrganizeService() *OrganizeService {
 	return m.organizeService

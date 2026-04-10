@@ -476,6 +476,16 @@ func buildOrganizeMenu() {
 		handleSplitLyricsAndMusic()
 	})
 
+	// 下载歌词菜单项
+	downloadLyricsItem := application.NewMenuItem(t("organize.downloadLyrics"))
+	if isOrganizingLibrary {
+		downloadLyricsItem.SetEnabled(false)
+		downloadLyricsItem.SetLabel(t("organize.processing"))
+	}
+	downloadLyricsItem.OnClick(func(ctx *application.Context) {
+		handleDownloadLyrics()
+	})
+
 	// TODO: 未来可以添加更多整理功能
 	// - 移动音乐文件到新目录
 	// - 清理重复文件
@@ -483,6 +493,7 @@ func buildOrganizeMenu() {
 
 	organizeMenuItems := []*application.MenuItem{
 		splitLyricsItem,
+		downloadLyricsItem,
 	}
 
 	if len(organizeMenuItems) > 0 {
@@ -561,6 +572,74 @@ func handleSplitLyricsAndMusic() {
 		})
 
 		log.Printf("✓ 歌词和音乐文件拆分完成")
+	}()
+}
+
+// handleDownloadLyrics 处理下载歌词
+func handleDownloadLyrics() {
+	// 防止重复提交
+	if isOrganizingLibrary {
+		log.Println("⚠️ 整理音乐操作正在进行中,忽略重复请求")
+		return
+	}
+
+	// 立即设置标志并更新菜单
+	isOrganizingLibrary = true
+	rebuildTrayMenu()
+
+	log.Println(t("organize.downloadLyrics"))
+
+	if musicService == nil {
+		log.Println("❌ musicService 为 nil")
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+		return
+	}
+
+	currentLib := musicService.GetCurrentLibrary()
+	if currentLib == nil {
+		log.Println("当前没有音乐库")
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.info"),
+			"message": "当前没有音乐库",
+			"type":    "info",
+		})
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+		return
+	}
+
+	app.Event.Emit("showNotification", map[string]interface{}{
+		"title":   t("notification.info"),
+		"message": t("organize.downloadingLyrics"),
+		"type":    "info",
+	})
+
+	// 在后台执行下载操作
+	go func() {
+		// 调用后端的下载歌词方法
+		successCount, failCount, skipCount, errors := musicService.DownloadLyricsForLibrary()
+
+		// 操作完成后重置标志并重建菜单
+		isOrganizingLibrary = false
+		rebuildTrayMenu()
+
+		// 显示结果
+		if len(errors) > 0 {
+			log.Printf("⚠️ 部分歌词下载失败:")
+			for _, errMsg := range errors {
+				log.Printf("  - %s", errMsg)
+			}
+		}
+
+		message := fmt.Sprintf(t("organize.downloadSuccess"), successCount, failCount, skipCount)
+		app.Event.Emit("showNotification", map[string]interface{}{
+			"title":   t("notification.success"),
+			"message": message,
+			"type":    "success",
+		})
+
+		log.Printf("✓ 歌词下载完成：成功 %d, 失败 %d, 跳过 %d", successCount, failCount, skipCount)
 	}()
 }
 

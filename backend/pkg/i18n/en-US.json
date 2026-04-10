@@ -54,9 +54,13 @@
   },
   "organize": {
     "splitLyrics": "Split Lyrics and Music Files",
+    "downloadLyrics": "Download Lyrics from Internet",
     "processing": "Processing...",
     "splittingLyrics": "Splitting lyrics and music files...",
-    "splitSuccess": "Lyrics and music files split successfully"
+    "splitSuccess": "Lyrics and music files split successfully",
+    "downloadingLyrics": "Downloading lyrics from lrclib.net...",
+    "downloadSuccess": "Lyrics download completed: %d succeeded, %d failed, %d skipped",
+    "downloadFailed": "Lyrics download failed"
   },
   "notification": {
     "success": "Success",

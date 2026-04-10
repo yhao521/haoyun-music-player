@@ -54,9 +54,13 @@
   },
   "organize": {
     "splitLyrics": "拆分歌词和音乐文件",
+    "downloadLyrics": "从网络下载歌词",
     "processing": "处理中...",
     "splittingLyrics": "正在拆分歌词和音乐文件...",
-    "splitSuccess": "歌词和音乐文件拆分完成"
+    "splitSuccess": "歌词和音乐文件拆分完成",
+    "downloadingLyrics": "正在从 lrclib.net 下载歌词...",
+    "downloadSuccess": "歌词下载完成：成功 %d 首，失败 %d 首，跳过 %d 首",
+    "downloadFailed": "歌词下载失败"
   },
   "notification": {
     "success": "成功",

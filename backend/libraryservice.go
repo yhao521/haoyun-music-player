@@ -686,3 +686,8 @@ func (lm *LibraryManager) clearTracksIndexForLibrary(lib *MusicLibrary) {
 		delete(lm.tracksByPath, track.Path)
 	}
 }
+
+// GetMetadataManager 获取元数据管理器
+func (lm *LibraryManager) GetMetadataManager() *MetadataManager {
+	return lm.metadataManager
+}

@@ -11,12 +11,14 @@ import (
 // OrganizeService 整理音乐服务
 type OrganizeService struct {
 	libraryManager *LibraryManager // 音乐库管理
+	lyricManager   *LyricManager   // 歌词管理
 }
 
 // NewOrganizeService 创建整理音乐服务实例
 func NewOrganizeService() *OrganizeService {
 	return &OrganizeService{
 		libraryManager: NewLibraryManager(),
+		lyricManager:   NewLyricManager(),
 	}
 }
 
@@ -25,7 +27,12 @@ func (s *OrganizeService) SetLibraryManager(lm *LibraryManager) {
 	s.libraryManager = lm
 }
 
-// OrganizeLibrary 整理音乐库：将音乐文件和歌词文件分别移动到子目录
+// SetLyricManager 设置歌词管理器
+func (s *OrganizeService) SetLyricManager(lm *LyricManager) {
+	s.lyricManager = lm
+}
+
+// OrganizeLibrary 整理音乐库:将音乐文件和歌词文件分别移动到子目录
 func (s *OrganizeService) OrganizeLibrary() error {
 	currentLib := s.libraryManager.GetCurrentLibrary()
 	if currentLib == nil {
@@ -98,6 +105,31 @@ func (s *OrganizeService) OrganizeLibrary() error {
 	}
 
 	return nil
+}
+
+// DownloadLyricsForLibrary 为当前音乐库下载歌词
+func (s *OrganizeService) DownloadLyricsForLibrary() (successCount, failCount, skipCount int, errors []string) {
+	currentLib := s.libraryManager.GetCurrentLibrary()
+	if currentLib == nil {
+		errors = append(errors, "当前没有音乐库")
+		return
+	}
+
+	if currentLib.Path == "" {
+		errors = append(errors, "音乐库路径为空")
+		return
+	}
+
+	libPath := currentLib.Path
+	log.Printf("🎵 开始为音乐库下载歌词：%s (路径：%s)", currentLib.Name, libPath)
+
+	// 获取元数据管理器
+	metadataManager := s.libraryManager.GetMetadataManager()
+
+	// 调用 LyricManager 的批量下载方法
+	successCount, failCount, skipCount, errors = s.lyricManager.DownloadLyricsForLibrary(libPath, metadataManager)
+
+	return
 }
 
 // walkAndOrganize 递归遍历目录并整理文件

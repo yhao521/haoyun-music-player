@@ -112,6 +112,12 @@ func initializeApp() error {
 		return fmt.Errorf("初始化音乐服务失败：%w", err)
 	}
 
+	// 设置 OrganizeService 的 LyricManager 引用
+	if organizeService := musicService.GetOrganizeService(); organizeService != nil {
+		organizeService.SetLyricManager(musicService.GetLyricManager())
+		log.Println("✓ OrganizeService 已关联 LyricManager")
+	}
+
 	log.Println("✅ 应用初始化完成")
 	return nil
 }
