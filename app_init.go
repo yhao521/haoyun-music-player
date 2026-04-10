@@ -29,7 +29,6 @@ type TrackInfo = backend.TrackInfo
 var (
 	app              *application.App
 	musicService     *backend.MusicService
-	mediaKeyService  *backend.MediaKeyService
 	depManager       *backend.DependencyManager
 	configManager    *config.ConfigManager
 	translator       *i18n.Translator
@@ -86,13 +85,9 @@ func initializeApp() error {
 	depManager = backend.NewDependencyManager()
 	log.Println("✓ 依赖管理器已初始化")
 
-	// 创建统一的音乐服务
+	// 创建统一的音乐服务（包含媒体键服务）
 	musicService = backend.NewMusicService()
-	log.Println("✓ 音乐服务已创建")
-
-	// 创建媒体键服务
-	mediaKeyService = backend.NewMediaKeyService()
-	log.Println("✓ 媒体键服务已创建")
+	log.Println("✓ 音乐服务已创建（包含媒体键服务）")
 
 	// 创建 Wails 应用
 	app = application.New(application.Options{
@@ -100,7 +95,6 @@ func initializeApp() error {
 		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
 			application.NewService(musicService),
-			application.NewService(mediaKeyService),
 			application.NewService(depManager),
 		},
 		Assets: application.AssetOptions{
@@ -112,17 +106,10 @@ func initializeApp() error {
 	})
 
 	musicService.SetApp(app)
-	mediaKeyService.SetApp(app)
-	mediaKeyService.SetMusicService(musicService)
 
-	// 初始化音乐服务
+	// 初始化音乐服务（内部会自动注册媒体键）
 	if err := musicService.Init(); err != nil {
 		return fmt.Errorf("初始化音乐服务失败：%w", err)
-	}
-
-	// 注册系统媒体键
-	if err := mediaKeyService.RegisterMediaKeys(); err != nil {
-		log.Printf("⚠️ 注册媒体键失败: %v (应用将继续运行)", err)
 	}
 
 	// 设置 OrganizeService 的 LyricManager 引用

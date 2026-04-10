@@ -24,11 +24,12 @@ type MusicService struct {
 	lyricManager    *LyricManager    // 歌词管理
 	coverManager    *CoverManager    // 专辑封面管理
 	metadataManager *MetadataManager // 元数据管理器
+	mediaKeyService *MediaKeyService // 媒体键服务
 }
 
 // NewMusicService 创建音乐服务实例
 func NewMusicService() *MusicService {
-	return &MusicService{
+	ms := &MusicService{
 		audioPlayer:     NewAudioPlayer(),
 		playlistManager: NewPlaylistManager(),
 		libraryManager:  NewLibraryManager(),
@@ -37,7 +38,13 @@ func NewMusicService() *MusicService {
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
 		metadataManager: NewMetadataManager(),
+		mediaKeyService: NewMediaKeyService(),
 	}
+	
+	// 设置媒体键服务的引用
+	ms.mediaKeyService.SetMusicService(ms)
+	
+	return ms
 }
 
 // SetApp 设置应用实例
@@ -48,6 +55,7 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.libraryManager.SetApp(app)
 	m.organizeService.SetLibraryManager(m.libraryManager)
 	m.historyManager.SetApp(app)
+	m.mediaKeyService.SetApp(app)
 
 	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
 	m.playlistManager.SetLibraryManager(m.libraryManager)
@@ -133,6 +141,11 @@ func (m *MusicService) Init() error {
 	// 初始化专辑封面管理器
 	if err := m.coverManager.Init(); err != nil {
 		log.Printf("⚠️ 初始化专辑封面管理器失败：%v", err)
+	}
+
+	// 注册系统媒体键
+	if err := m.mediaKeyService.RegisterMediaKeys(); err != nil {
+		log.Printf("⚠️ 注册媒体键失败: %v (应用将继续运行)", err)
 	}
 
 	log.Println("✓ 所有服务初始化完成")
@@ -660,6 +673,21 @@ func (m *MusicService) GetPlaylistManager() *PlaylistManager {
 	return m.playlistManager
 }
 
+// GetLyricManager 获取歌词管理器
+func (m *MusicService) GetLyricManager() *LyricManager {
+	return m.lyricManager
+}
+
+// GetOrganizeService 获取整理音乐服务
+func (m *MusicService) GetOrganizeService() *OrganizeService {
+	return m.organizeService
+}
+
+// GetMediaKeyService 获取媒体键服务
+func (m *MusicService) GetMediaKeyService() *MediaKeyService {
+	return m.mediaKeyService
+}
+
 // Shutdown 关闭服务
 func (m *MusicService) Shutdown() error {
 	m.audioPlayer.Stop()
@@ -674,14 +702,4 @@ func (m *MusicService) OrganizeLibrary() error {
 // DownloadLyricsForLibrary 为当前音乐库下载歌词
 func (m *MusicService) DownloadLyricsForLibrary() (successCount, failCount, skipCount int, errors []string) {
 	return m.organizeService.DownloadLyricsForLibrary()
-}
-
-// GetLyricManager 获取歌词管理器
-func (m *MusicService) GetLyricManager() *LyricManager {
-	return m.lyricManager
-}
-
-// GetOrganizeService 获取整理音乐服务
-func (m *MusicService) GetOrganizeService() *OrganizeService {
-	return m.organizeService
 }

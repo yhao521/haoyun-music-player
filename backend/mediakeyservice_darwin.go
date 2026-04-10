@@ -22,8 +22,8 @@ extern void handleMediaPlayPause();
 extern void handleMediaNext();
 extern void handleMediaPrevious();
 
-// 媒体键回调函数
-OSStatus mediaKeyCallback(EventHandlerCallRef nextHandler, EventRef event, void* userData) {
+// 媒体键回调函数 (声明为 static 避免符号冲突)
+static OSStatus mediaKeyCallback(EventHandlerCallRef nextHandler, EventRef event, void* userData) {
 	UInt32 keyCode;
 	GetEventParameter(event, kEventParamKeyCode, typeUInt32, NULL, sizeof(keyCode), NULL, &keyCode);
 	
@@ -51,8 +51,8 @@ OSStatus mediaKeyCallback(EventHandlerCallRef nextHandler, EventRef event, void*
 	return noErr;
 }
 
-// 注册媒体键
-int register_media_keys() {
+// 注册媒体键 (声明为 static 避免符号冲突)
+static int register_media_keys() {
 	if (g_mediaKeyHandler != NULL) {
 		return 0; // 已注册
 	}
@@ -83,8 +83,8 @@ int register_media_keys() {
 	return 0;
 }
 
-// 注销媒体键
-void unregister_media_keys() {
+// 注销媒体键 (声明为 static 避免符号冲突)
+static void unregister_media_keys() {
 	if (g_mediaKeyHandler != NULL) {
 		RemoveEventHandler(g_mediaKeyHandler);
 		g_mediaKeyHandler = NULL;
