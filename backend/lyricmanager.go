@@ -847,6 +847,76 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 	return fmt.Errorf("所有歌词源均失败: %w", lastErr)
 }
 
+// DownloadLyricWithFallbackToDir 使用多个源下载歌词并保存到指定目录(带降级策略)
+func (lm *LyricManager) DownloadLyricWithFallbackToDir(trackPath, lyricsDir string, title, artist, album string) error {
+	log.Printf("🎵 开始多源歌词下载: %s - %s", artist, title)
+
+	// 定义歌词源列表(按优先级排序)
+	type lyricSource struct {
+		name       string
+		downloadFn func(string, string) (string, error)
+	}
+
+	sources := []lyricSource{
+		{
+			name: "lrclib.net (增强版)",
+			downloadFn: func(t, a string) (string, error) {
+				// 使用增强版方法(包含智能搜索+模糊匹配)
+				err := lm.DownloadLyricFromLRCLibEnhancedToDir(trackPath, lyricsDir, t, artist, album)
+				if err != nil {
+					return "", err
+				}
+				// 读取刚保存的文件内容
+				baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+				lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
+				content, err := os.ReadFile(lrcPath)
+				if err != nil {
+					return "", err
+				}
+				return string(content), nil
+			},
+		},
+		{"网易云音乐", lm.downloadFromNetease},
+		{"QQ 音乐", lm.downloadFromQQMusic},
+		{"Auralive Lyrics", lm.downloadFromAuralive}, // Auralive Lyrics API
+	}
+
+	var lastErr error
+	for _, source := range sources {
+		log.Printf("  📡 尝试从 %s 下载...", source.name)
+
+		lyrics, err := source.downloadFn(title, artist)
+		if err != nil {
+			log.Printf("  ❌ %s 失败: %v", source.name, err)
+			lastErr = err
+			continue
+		}
+
+		// 保存歌词到指定目录
+		baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+		lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
+
+		// 备份旧文件
+		if _, err := os.Stat(lrcPath); err == nil {
+			backupPath := lrcPath + ".bak"
+			os.Rename(lrcPath, backupPath)
+		}
+
+		// 写入新文件
+		if err := os.WriteFile(lrcPath, []byte(lyrics), 0644); err != nil {
+			log.Printf("  ❌ 保存歌词失败: %v", err)
+			lastErr = err
+			continue
+		}
+
+		log.Printf("  ✓ 从 %s 成功下载并保存歌词", source.name)
+		delete(lm.cache, trackPath)
+		return nil
+	}
+
+	return fmt.Errorf("所有歌词源均失败: %w", lastErr)
+}
+
 // downloadAndSaveFromLRCLib 从 lrclib 下载并保存歌词(不锁定)
 func (lm *LyricManager) downloadAndSaveFromLRCLib(trackPath, title, artist, album string) error {
 	// 构建搜索参数
@@ -946,6 +1016,14 @@ func isUnreserved(r rune) bool {
 func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataManager *MetadataManager) (successCount, failCount, skipCount int, errors []string) {
 	log.Printf("🎵 开始为音乐库下载歌词: %s", libraryPath)
 
+	// 创建 LIB_LYRIC 目录
+	lyricsDir := filepath.Join(libraryPath, "LIB_LYRIC")
+	if err := os.MkdirAll(lyricsDir, 0755); err != nil {
+		errors = append(errors, fmt.Sprintf("创建歌词目录失败: %v", err))
+		return
+	}
+	log.Printf("📁 歌词目录: %s", lyricsDir)
+
 	// 定义音乐文件扩展名
 	musicExtensions := map[string]bool{
 		".mp3":  true,
@@ -989,10 +1067,9 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 	for i, trackPath := range musicFiles {
 		log.Printf("[%d/%d] 处理: %s", i+1, len(musicFiles), filepath.Base(trackPath))
 
-		// 检查是否已有歌词文件
+		// 检查是否已有歌词文件（在 LIB_LYRIC 目录下）
 		baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-		dirPath := filepath.Dir(trackPath)
-		lrcPath := filepath.Join(dirPath, baseName+".lrc")
+		lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
 
 		if _, err := os.Stat(lrcPath); err == nil {
 			log.Printf("  ⏭️  跳过: 歌词文件已存在")
@@ -1038,8 +1115,8 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 			}
 		}
 
-		// 使用多源降级策略下载歌词
-		err := lm.DownloadLyricWithFallback(trackPath, title, artist, album)
+		// 使用多源降级策略下载歌词，直接保存到 LIB_LYRIC 目录
+		err := lm.DownloadLyricWithFallbackToDir(trackPath, lyricsDir, title, artist, album)
 		if err != nil {
 			log.Printf("  ❌ 失败: %v", err)
 			failCount++
@@ -1299,4 +1376,137 @@ func (lm *LyricManager) DownloadLyricFromLRCLibEnhanced(trackPath string, title,
 	delete(lm.cache, trackPath)
 
 	return nil
+}
+
+// DownloadLyricFromLRCLibEnhancedToDir 增强版 lrclib 下载(包含模糊搜索)，保存到指定目录
+func (lm *LyricManager) DownloadLyricFromLRCLibEnhancedToDir(trackPath, lyricsDir string, title, artist, album string) error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	log.Printf("🎵 [增强模式] 尝试从 lrclib.net 下载歌词: %s - %s", artist, title)
+
+	// 第一步: 尝试标准精确搜索(5种变体)
+	log.Printf("  📍 阶段 1: 精确搜索")
+	err := lm.downloadAndSaveFromLRCLibToDir(trackPath, lyricsDir, title, artist, album)
+	if err == nil {
+		log.Printf("  ✓ 精确搜索成功")
+		return nil
+	}
+
+	log.Printf("  ❌ 精确搜索失败: %v", err)
+	log.Printf("  📍 阶段 2: 模糊搜索")
+
+	// 第二步: 使用搜索 API 进行模糊匹配
+	result, err := lm.searchLRCLibWithFallback(title, artist)
+	if err != nil {
+		return fmt.Errorf("模糊搜索也失败: %w", err)
+	}
+
+	// 检查是否有歌词
+	lyricsContent := result.SyncedLyrics
+	if lyricsContent == "" {
+		lyricsContent = result.PlainLyrics
+	}
+
+	if lyricsContent == "" {
+		return fmt.Errorf("模糊搜索结果中无可用歌词")
+	}
+
+	// 保存歌词文件到指定目录
+	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+	lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
+
+	// 备份旧文件
+	if _, err := os.Stat(lrcPath); err == nil {
+		backupPath := lrcPath + ".bak"
+		if err := os.Rename(lrcPath, backupPath); err != nil {
+			log.Printf("⚠️ 备份旧歌词失败: %v", err)
+		} else {
+			log.Printf("✓ 已备份旧歌词到: %s", backupPath)
+		}
+	}
+
+	// 写入新歌词文件
+	if err := os.WriteFile(lrcPath, []byte(lyricsContent), 0644); err != nil {
+		return fmt.Errorf("保存歌词文件失败: %w", err)
+	}
+
+	log.Printf("✓ [模糊匹配] 歌词下载成功并保存到: %s", lrcPath)
+	log.Printf("  📊 匹配信息: 标题=\"%s\", 艺术家=\"%s\"", result.TrackName, result.ArtistName)
+
+	// 清除缓存
+	delete(lm.cache, trackPath)
+
+	return nil
+}
+
+// downloadAndSaveFromLRCLibToDir 从 lrclib 下载并保存歌词到指定目录(不锁定)
+func (lm *LyricManager) downloadAndSaveFromLRCLibToDir(trackPath, lyricsDir string, title, artist, album string) error {
+	// 构建搜索参数
+	params := make([]string, 0)
+	if title != "" {
+		params = append(params, fmt.Sprintf("track_name=%s", urlEncode(title)))
+	}
+	if artist != "" {
+		params = append(params, fmt.Sprintf("artist_name=%s", urlEncode(artist)))
+	}
+	if album != "" {
+		params = append(params, fmt.Sprintf("album_name=%s", urlEncode(album)))
+	}
+
+	if len(params) == 0 {
+		return fmt.Errorf("没有足够的信息来搜索歌词")
+	}
+
+	searchURL := fmt.Sprintf("https://lrclib.net/api/get?%s", strings.Join(params, "&"))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "HaoyunMusicPlayer/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return fmt.Errorf("未找到歌词")
+		}
+		return fmt.Errorf("API 返回错误状态码: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var result LRCLibResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return err
+	}
+
+	lyricsContent := result.SyncedLyrics
+	if lyricsContent == "" {
+		lyricsContent = result.PlainLyrics
+	}
+
+	if lyricsContent == "" {
+		return fmt.Errorf("未找到可用的歌词")
+	}
+
+	// 保存歌词文件到指定目录
+	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+	lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
+
+	if _, err := os.Stat(lrcPath); err == nil {
+		backupPath := lrcPath + ".bak"
+		os.Rename(lrcPath, backupPath)
+	}
+
+	return os.WriteFile(lrcPath, []byte(lyricsContent), 0644)
 }
