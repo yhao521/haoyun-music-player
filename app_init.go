@@ -19,7 +19,7 @@ const AppVersion = "0.0.28"
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed frontend/public/wails.png
+//go:embed build/tubiao.png
 var trayIcon []byte
 
 // TrackInfo 音乐文件信息（用于事件注册）
@@ -27,12 +27,12 @@ type TrackInfo = backend.TrackInfo
 
 // 全局变量声明（供其他模块使用）
 var (
-	app              *application.App
-	musicService     *backend.MusicService
-	depManager       *backend.DependencyManager
-	configManager    *config.ConfigManager
-	translator       *i18n.Translator
-	mainWindow       *application.WebviewWindow
+	app           *application.App
+	musicService  *backend.MusicService
+	depManager    *backend.DependencyManager
+	configManager *config.ConfigManager
+	translator    *i18n.Translator
+	mainWindow    *application.WebviewWindow
 )
 
 // t 翻译辅助函数
