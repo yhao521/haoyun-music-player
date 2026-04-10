@@ -787,10 +787,10 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 
 	sources := []lyricSource{
 		{
-			name: "lrclib.net",
+			name: "lrclib.net (增强版)",
 			downloadFn: func(t, a string) (string, error) {
-				// 先尝试直接下载并保存
-				err := lm.downloadAndSaveFromLRCLib(trackPath, t, artist, album)
+				// 使用增强版方法(包含智能搜索+模糊匹配)
+				err := lm.DownloadLyricFromLRCLibEnhanced(trackPath, t, artist, album)
 				if err != nil {
 					return "", err
 				}
@@ -807,7 +807,7 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 		},
 		{"网易云音乐", lm.downloadFromNetease},
 		{"QQ 音乐", lm.downloadFromQQMusic},
-		{"Auralive Lyrics", lm.downloadFromAuralive}, // 新增: Auralive Lyrics API
+		{"Auralive Lyrics", lm.downloadFromAuralive}, // Auralive Lyrics API
 	}
 
 	var lastErr error
@@ -1055,4 +1055,248 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 
 	log.Printf("✓ 歌词下载完成: 成功 %d, 失败 %d, 跳过 %d", successCount, failCount, skipCount)
 	return
+}
+
+// calculateSimilarity 计算两个字符串的相似度 (0.0 - 1.0)
+// 使用简化的 Levenshtein Distance 算法
+func calculateSimilarity(s1, s2 string) float64 {
+	s1 = strings.ToLower(strings.TrimSpace(s1))
+	s2 = strings.ToLower(strings.TrimSpace(s2))
+
+	if s1 == s2 {
+		return 1.0
+	}
+
+	if len(s1) == 0 || len(s2) == 0 {
+		return 0.0
+	}
+
+	// 如果一个是另一个的子串,给予较高分数
+	if strings.Contains(s1, s2) || strings.Contains(s2, s1) {
+		shorter := float64(len(s1))
+		longer := float64(len(s2))
+		if len(s1) > len(s2) {
+			shorter = float64(len(s2))
+			longer = float64(len(s1))
+		}
+		return shorter / longer * 0.9
+	}
+
+	// 计算编辑距离
+	distance := levenshteinDistance(s1, s2)
+	maxLen := float64(max(len(s1), len(s2)))
+
+	// 转换为相似度 (距离越小,相似度越高)
+	similarity := 1.0 - float64(distance)/maxLen
+
+	if similarity < 0.0 {
+		return 0.0
+	}
+	return similarity
+}
+
+// levenshteinDistance 计算两个字符串的 Levenshtein 编辑距离
+func levenshteinDistance(s1, s2 string) int {
+	if len(s1) == 0 {
+		return len(s2)
+	}
+	if len(s2) == 0 {
+		return len(s1)
+	}
+
+	// 创建矩阵
+	matrix := make([][]int, len(s1)+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len(s2)+1)
+		matrix[i][0] = i
+	}
+	for j := 0; j <= len(s2); j++ {
+		matrix[0][j] = j
+	}
+
+	// 填充矩阵
+	for i := 1; i <= len(s1); i++ {
+		for j := 1; j <= len(s2); j++ {
+			cost := 1
+			if s1[i-1] == s2[j-1] {
+				cost = 0
+			}
+
+			matrix[i][j] = min(
+				min(matrix[i-1][j]+1, matrix[i][j-1]+1), // 删除或插入
+				matrix[i-1][j-1]+cost,                    // 替换
+			)
+		}
+	}
+
+	return matrix[len(s1)][len(s2)]
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// max 返回两个整数中的较大值
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// searchLRCLibWithFallback 使用 lrclib 搜索 API 进行模糊搜索
+func (lm *LyricManager) searchLRCLibWithFallback(title, artist string) (*LRCLibResponse, error) {
+	log.Printf("  🔍 使用 lrclib 搜索 API 进行模糊搜索: %s - %s", artist, title)
+
+	// 构建搜索查询
+	query := fmt.Sprintf("%s %s", title, artist)
+	searchURL := fmt.Sprintf("https://lrclib.net/api/search?q=%s", urlEncode(query))
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建搜索请求失败: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "HaoyunMusicPlayer/1.0")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("搜索请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("搜索 API 返回错误状态码: %d", resp.StatusCode)
+	}
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取搜索响应失败: %w", err)
+	}
+
+	// 解析搜索结果数组
+	var results []LRCLibResponse
+	if err := json.Unmarshal(body, &results); err != nil {
+		return nil, fmt.Errorf("解析搜索结果失败: %w", err)
+	}
+
+	if len(results) == 0 {
+		return nil, fmt.Errorf("未找到任何匹配结果")
+	}
+
+	// 计算每个结果的相似度评分
+	type scoredResult struct {
+		result     LRCLibResponse
+		score      float64
+		titleScore float64
+		artistScore float64
+	}
+
+	var scoredResults []scoredResult
+	for _, result := range results {
+		// 计算标题相似度
+		titleScore := calculateSimilarity(title, result.TrackName)
+		// 计算艺术家相似度
+		artistScore := calculateSimilarity(artist, result.ArtistName)
+		
+		// 综合评分 (标题权重 60%, 艺术家权重 40%)
+		overallScore := titleScore*0.6 + artistScore*0.4
+
+		scoredResults = append(scoredResults, scoredResult{
+			result:      result,
+			score:       overallScore,
+			titleScore:  titleScore,
+			artistScore: artistScore,
+		})
+
+		log.Printf("    📊 候选: \"%s\" by %s (相似度: %.2f, 标题: %.2f, 艺术家: %.2f)",
+			result.TrackName, result.ArtistName, overallScore, titleScore, artistScore)
+	}
+
+	// 按评分排序
+	sort.Slice(scoredResults, func(i, j int) bool {
+		return scoredResults[i].score > scoredResults[j].score
+	})
+
+	// 选择最佳匹配 (评分 >= 0.7)
+	bestMatch := scoredResults[0]
+	if bestMatch.score < 0.7 {
+		log.Printf("  ⚠️ 最佳匹配评分过低 (%.2f),可能不准确", bestMatch.score)
+		// 仍然返回,但记录警告
+	}
+
+	log.Printf("  ✓ 选择最佳匹配: \"%s\" by %s (评分: %.2f)",
+		bestMatch.result.TrackName, bestMatch.result.ArtistName, bestMatch.score)
+
+	return &bestMatch.result, nil
+}
+
+// DownloadLyricFromLRCLibEnhanced 增强版 lrclib 下载(包含模糊搜索)
+func (lm *LyricManager) DownloadLyricFromLRCLibEnhanced(trackPath string, title, artist, album string) error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	log.Printf("🎵 [增强模式] 尝试从 lrclib.net 下载歌词: %s - %s", artist, title)
+
+	// 第一步: 尝试标准精确搜索(5种变体)
+	log.Printf("  📍 阶段 1: 精确搜索")
+	err := lm.DownloadLyricFromLRCLib(trackPath, title, artist, album)
+	if err == nil {
+		log.Printf("  ✓ 精确搜索成功")
+		return nil
+	}
+
+	log.Printf("  ❌ 精确搜索失败: %v", err)
+	log.Printf("  📍 阶段 2: 模糊搜索")
+
+	// 第二步: 使用搜索 API 进行模糊匹配
+	result, err := lm.searchLRCLibWithFallback(title, artist)
+	if err != nil {
+		return fmt.Errorf("模糊搜索也失败: %w", err)
+	}
+
+	// 检查是否有歌词
+	lyricsContent := result.SyncedLyrics
+	if lyricsContent == "" {
+		lyricsContent = result.PlainLyrics
+	}
+
+	if lyricsContent == "" {
+		return fmt.Errorf("模糊搜索结果中无可用歌词")
+	}
+
+	// 保存歌词文件
+	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+	dirPath := filepath.Dir(trackPath)
+	lrcPath := filepath.Join(dirPath, baseName+".lrc")
+
+	// 备份旧文件
+	if _, err := os.Stat(lrcPath); err == nil {
+		backupPath := lrcPath + ".bak"
+		if err := os.Rename(lrcPath, backupPath); err != nil {
+			log.Printf("⚠️ 备份旧歌词失败: %v", err)
+		} else {
+			log.Printf("✓ 已备份旧歌词到: %s", backupPath)
+		}
+	}
+
+	// 写入新歌词文件
+	if err := os.WriteFile(lrcPath, []byte(lyricsContent), 0644); err != nil {
+		return fmt.Errorf("保存歌词文件失败: %w", err)
+	}
+
+	log.Printf("✓ [模糊匹配] 歌词下载成功并保存到: %s", lrcPath)
+	log.Printf("  📊 匹配信息: 标题=\"%s\", 艺术家=\"%s\"", result.TrackName, result.ArtistName)
+
+	// 清除缓存
+	delete(lm.cache, trackPath)
+
+	return nil
 }
