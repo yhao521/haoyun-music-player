@@ -408,9 +408,7 @@ func (m *MusicService) GetCurrentLibraryTracks() ([]string, error) {
 		return nil, err
 	}
 	result := make([]string, len(tracks))
-	for i, track := range tracks {
-		result[i] = track // track 已经是 string 类型（Path）
-	}
+	copy(result, tracks)
 	return result, nil
 }
 
