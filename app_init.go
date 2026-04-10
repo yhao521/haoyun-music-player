@@ -27,12 +27,13 @@ type TrackInfo = backend.TrackInfo
 
 // 全局变量声明（供其他模块使用）
 var (
-	app           *application.App
-	musicService  *backend.MusicService
-	depManager    *backend.DependencyManager
-	configManager *config.ConfigManager
-	translator    *i18n.Translator
-	mainWindow    *application.WebviewWindow
+	app              *application.App
+	musicService     *backend.MusicService
+	mediaKeyService  *backend.MediaKeyService
+	depManager       *backend.DependencyManager
+	configManager    *config.ConfigManager
+	translator       *i18n.Translator
+	mainWindow       *application.WebviewWindow
 )
 
 // t 翻译辅助函数
@@ -89,12 +90,17 @@ func initializeApp() error {
 	musicService = backend.NewMusicService()
 	log.Println("✓ 音乐服务已创建")
 
+	// 创建媒体键服务
+	mediaKeyService = backend.NewMediaKeyService()
+	log.Println("✓ 媒体键服务已创建")
+
 	// 创建 Wails 应用
 	app = application.New(application.Options{
 		Name:        "Haoyun Music Player",
 		Description: "A menu bar music player built with Wails 3 + Vue 3",
 		Services: []application.Service{
 			application.NewService(musicService),
+			application.NewService(mediaKeyService),
 			application.NewService(depManager),
 		},
 		Assets: application.AssetOptions{
@@ -106,10 +112,17 @@ func initializeApp() error {
 	})
 
 	musicService.SetApp(app)
+	mediaKeyService.SetApp(app)
+	mediaKeyService.SetMusicService(musicService)
 
 	// 初始化音乐服务
 	if err := musicService.Init(); err != nil {
 		return fmt.Errorf("初始化音乐服务失败：%w", err)
+	}
+
+	// 注册系统媒体键
+	if err := mediaKeyService.RegisterMediaKeys(); err != nil {
+		log.Printf("⚠️ 注册媒体键失败: %v (应用将继续运行)", err)
 	}
 
 	// 设置 OrganizeService 的 LyricManager 引用
