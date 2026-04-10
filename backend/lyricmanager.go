@@ -40,16 +40,18 @@ type LyricInfo struct {
 
 // LyricManager 歌词管理器
 type LyricManager struct {
-	mu       sync.RWMutex
-	cache    map[string]*LyricInfo // 缓存：文件路径 -> 歌词信息
-	lyricDir string                // 歌词目录
+	mu            sync.RWMutex
+	cache         map[string]*LyricInfo    // 缓存：文件路径 -> 歌词信息
+	searchCache   map[string]string        // 搜索缓存：key -> 歌词内容 (避免重复API调用)
+	lyricDir      string                   // 歌词目录
 }
 
 // NewLyricManager 创建歌词管理器
 func NewLyricManager() *LyricManager {
 	return &LyricManager{
-		cache:    make(map[string]*LyricInfo),
-		lyricDir: filepath.Join(file.GetLibPath(), "lyrics"),
+		cache:       make(map[string]*LyricInfo),
+		searchCache: make(map[string]string),
+		lyricDir:    filepath.Join(file.GetLibPath(), "lyrics"),
 	}
 }
 
@@ -308,12 +310,63 @@ type LyricSource struct {
 	DownloadFn  func(title, artist, album string) (string, error)
 }
 
-// DownloadLyricFromLRCLib 从 lrclib.net 下载歌词
+// DownloadLyricFromLRCLib 从 lrclib.net 下载歌词(增强版 - 支持多种搜索策略)
 func (lm *LyricManager) DownloadLyricFromLRCLib(trackPath string, title, artist, album string) error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
 	log.Printf("🎵 尝试从 lrclib.net 下载歌词: %s - %s", artist, title)
+
+	// 定义多种搜索变体,按优先级尝试
+	searchVariants := []struct {
+		name   string
+		title  string
+		artist string
+		album  string
+	}{
+		{"标准格式", title, artist, album},
+		{"仅标题+艺术家", title, artist, ""},
+		{"清理特殊字符", cleanTitle(title), cleanArtist(artist), album},
+		{"艺术家-标题组合格式", fmt.Sprintf("%s - %s", artist, title), "", ""},
+		{"仅标题", title, "", ""},
+	}
+
+	var lastErr error
+	for i, variant := range searchVariants {
+		if variant.title == "" && variant.artist == "" {
+			continue
+		}
+
+		log.Printf("  🔄 尝试搜索变体 %d/%d: %s", i+1, len(searchVariants), variant.name)
+
+		err := lm.tryLRCLibSearch(trackPath, variant.title, variant.artist, variant.album)
+		if err == nil {
+			log.Printf("  ✓ 成功: %s", variant.name)
+			return nil
+		}
+
+		log.Printf("  ❌ 失败: %v", err)
+		lastErr = err
+	}
+
+	return fmt.Errorf("lrclib 所有搜索变体均失败: %w", lastErr)
+}
+
+// tryLRCLibSearch 尝试单次 lrclib 搜索(不锁定)
+func (lm *LyricManager) tryLRCLibSearch(trackPath, title, artist, album string) error {
+	// 构建缓存键
+	cacheKey := fmt.Sprintf("%s|%s|%s", title, artist, album)
+	
+	// 检查搜索缓存
+	lm.mu.RLock()
+	if cachedLyrics, ok := lm.searchCache[cacheKey]; ok {
+		lm.mu.RUnlock()
+		log.Printf("  ⚡ 使用缓存的搜索结果")
+		
+		// 直接使用缓存的歌词保存
+		return lm.saveLyricsToFile(trackPath, cachedLyrics)
+	}
+	lm.mu.RUnlock()
 
 	// 构建搜索参数
 	params := make([]string, 0)
@@ -332,7 +385,6 @@ func (lm *LyricManager) DownloadLyricFromLRCLib(trackPath string, title, artist,
 	}
 
 	searchURL := fmt.Sprintf("https://lrclib.net/api/get?%s", strings.Join(params, "&"))
-	log.Printf("🔍 搜索 URL: %s", searchURL)
 
 	// 创建 HTTP 客户端
 	client := &http.Client{
@@ -383,7 +435,17 @@ func (lm *LyricManager) DownloadLyricFromLRCLib(trackPath string, title, artist,
 		return fmt.Errorf("未找到可用的歌词")
 	}
 
+	// 保存到缓存
+	lm.mu.Lock()
+	lm.searchCache[cacheKey] = lyricsContent
+	lm.mu.Unlock()
+
 	// 保存歌词文件
+	return lm.saveLyricsToFile(trackPath, lyricsContent)
+}
+
+// saveLyricsToFile 保存歌词到文件(通用方法)
+func (lm *LyricManager) saveLyricsToFile(trackPath, lyricsContent string) error {
 	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
 	dirPath := filepath.Dir(trackPath)
 	lrcPath := filepath.Join(dirPath, baseName+".lrc")
@@ -405,10 +467,54 @@ func (lm *LyricManager) DownloadLyricFromLRCLib(trackPath string, title, artist,
 
 	log.Printf("✓ 歌词下载成功并保存到: %s", lrcPath)
 
-	// 清除缓存,确保下次加载时使用新歌词
+	// 清除解析缓存,确保下次加载时使用新歌词
 	delete(lm.cache, trackPath)
 
 	return nil
+}
+
+// cleanTitle 清理歌曲标题中的特殊字符和后缀
+func cleanTitle(title string) string {
+	// 移除括号内容: "歌曲名 (Live)" -> "歌曲名"
+	re := regexp.MustCompile(`\s*\(.*?\)\s*`)
+	title = re.ReplaceAllString(title, "")
+
+	// 移除方括号内容
+	re2 := regexp.MustCompile(`\s*\[.*?\]\s*`)
+	title = re2.ReplaceAllString(title, "")
+
+	// 移除常见后缀
+	suffixes := []string{
+		"Official", "MV", "HD", "HQ", "Audio", "Video",
+		"official", "mv", "hd", "hq", "audio", "video",
+		"官方版", "现场版", "伴奏", "翻唱",
+	}
+	for _, suffix := range suffixes {
+		title = strings.ReplaceAll(title, suffix, "")
+		title = strings.ReplaceAll(title, strings.ToLower(suffix), "")
+	}
+
+	// 移除多余空格
+	title = strings.TrimSpace(title)
+	// 合并多个空格为一个
+	re3 := regexp.MustCompile(`\s+`)
+	title = re3.ReplaceAllString(title, " ")
+
+	return title
+}
+
+// cleanArtist 清理艺术家名称
+func cleanArtist(artist string) string {
+	// 移除 feat./ft. 后面的内容
+	re := regexp.MustCompile(`\s*(feat\.?|ft\.?|featuring)\s+.*$`)
+	artist = re.ReplaceAllString(artist, "")
+
+	// 移除多余空格
+	artist = strings.TrimSpace(artist)
+	re2 := regexp.MustCompile(`\s+`)
+	artist = re2.ReplaceAllString(artist, " ")
+
+	return artist
 }
 
 // downloadFromNetease 从网易云音乐 API 下载歌词
