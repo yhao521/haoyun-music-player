@@ -13,7 +13,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// 应用版本信息
+// AppVersion 应用版本信息
 const AppVersion = "0.0.28"
 
 //go:embed all:frontend/dist
