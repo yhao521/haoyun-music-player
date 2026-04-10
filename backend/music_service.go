@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -16,6 +17,7 @@ type MusicService struct {
 	audioPlayer     *AudioPlayer      // beep 音频播放器
 	playlistManager *PlaylistManager  // 播放列表管理
 	libraryManager  *LibraryManager   // 音乐库管理
+	organizeService *OrganizeService  // 整理音乐服务
 	historyManager  *HistoryManager   // 播放历史管理
 	lyricManager    *LyricManager     // 歌词管理
 	coverManager    *CoverManager     // 专辑封面管理
@@ -28,6 +30,7 @@ func NewMusicService() *MusicService {
 		audioPlayer:     NewAudioPlayer(),
 		playlistManager: NewPlaylistManager(),
 		libraryManager:  NewLibraryManager(),
+		organizeService: NewOrganizeService(),
 		historyManager:  NewHistoryManager(),
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
@@ -41,6 +44,7 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.audioPlayer.SetApp(app)
 	m.playlistManager.SetApp(app)
 	m.libraryManager.SetApp(app)
+	m.organizeService.SetLibraryManager(m.libraryManager)
 	m.historyManager.SetApp(app)
 	
 	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
@@ -351,6 +355,14 @@ func (m *MusicService) AddLibrary() error {
 
 	// 使用目录名称作为库名称
 	libName := filepath.Base(dirPath)
+	
+	// 如果名称已存在，添加时间戳后缀
+	if m.libraryManager.LibraryExists(libName) {
+		timestamp := time.Now().Format("20060102_150405")
+		libName = fmt.Sprintf("%s_%s", libName, timestamp)
+		log.Printf("⚠️ 音乐库 '%s' 已存在，使用新名称: %s", filepath.Base(dirPath), libName)
+	}
+	
 	return m.libraryManager.AddLibrary(libName, dirPath)
 }
 
@@ -428,14 +440,12 @@ func (m *MusicService) LoadCurrentLibrary() error {
 		return fmt.Errorf("音乐库中没有音轨")
 	}
 
-	// 清空当前播放列表
+	// 清空当前播放列表（发送一次事件）
 	m.ClearPlaylist()
 
-	// 将所有音轨添加到播放列表
-	for _, track := range tracks {
-		if err := m.AddToPlaylist(track); err != nil {
-			log.Printf("添加音轨失败 %s: %v", track, err)
-		}
+	// 批量添加所有音轨到播放列表（只发送一次事件）
+	if err := m.playlistManager.AddToPlaylistBatch(tracks); err != nil {
+		log.Printf("批量添加音轨失败：%v", err)
 	}
 
 	// 播放第一首
@@ -643,8 +653,33 @@ func (m *MusicService) CompactLibraries() (int, error) {
 	return m.libraryManager.CompactLibraries()
 }
 
+// GetPlaylistManager 获取播放列表管理器（用于批量操作）
+func (m *MusicService) GetPlaylistManager() *PlaylistManager {
+	return m.playlistManager
+}
+
 // Shutdown 关闭服务
 func (m *MusicService) Shutdown() error {
 	m.audioPlayer.Stop()
 	return nil
+}
+
+// OrganizeLibrary 整理音乐库：将音乐文件和歌词文件分别移动到子目录
+func (m *MusicService) OrganizeLibrary() error {
+	return m.organizeService.OrganizeLibrary()
+}
+
+// DownloadLyricsForLibrary 为当前音乐库下载歌词
+func (m *MusicService) DownloadLyricsForLibrary() (successCount, failCount, skipCount int, errors []string) {
+	return m.organizeService.DownloadLyricsForLibrary()
+}
+
+// GetLyricManager 获取歌词管理器
+func (m *MusicService) GetLyricManager() *LyricManager {
+	return m.lyricManager
+}
+
+// GetOrganizeService 获取整理音乐服务
+func (m *MusicService) GetOrganizeService() *OrganizeService {
+	return m.organizeService
 }

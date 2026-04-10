@@ -8,6 +8,7 @@
     "favoriteSongs": "喜爱音乐",
     "playMode": "播放模式",
     "musicLibrary": "音乐库",
+    "organizeMusic": "整理音乐",
     "downloadMusic": "下载音乐",
     "keepAwake": "保持系统唤醒",
     "autoLaunch": "开机启动",
@@ -50,6 +51,16 @@
     "refreshSuccessWithCount": "音乐库刷新成功，共 %d 首歌曲",
     "scanning": "正在扫描音乐库...",
     "loadingToPlaylist": "正在加载到播放列表..."
+  },
+  "organize": {
+    "splitLyrics": "拆分歌词和音乐文件",
+    "downloadLyrics": "从网络下载歌词",
+    "processing": "处理中...",
+    "splittingLyrics": "正在拆分歌词和音乐文件...",
+    "splitSuccess": "歌词和音乐文件拆分完成",
+    "downloadingLyrics": "正在从 lrclib.net 下载歌词...",
+    "downloadSuccess": "歌词下载完成：成功 %d 首，失败 %d 首，跳过 %d 首",
+    "downloadFailed": "歌词下载失败"
   },
   "notification": {
     "success": "成功",

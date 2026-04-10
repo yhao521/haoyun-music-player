@@ -36,21 +36,15 @@ func createTrackInfo(path string) TrackInfo {
 
 // createTrackInfoFromLibrary 从音乐库获取完整的 TrackInfo（优先使用扫描结果）
 func createTrackInfoFromLibrary(path string, libraryManager *LibraryManager) TrackInfo {
-	// 策略 1: 尝试从音乐库中获取已扫描的信息
+	// 策略 1: 尝试从音乐库中获取已扫描的信息（使用 O(1) 索引查找）
 	if libraryManager != nil {
-		currentLib := libraryManager.GetCurrentLibrary()
-		if currentLib != nil {
-			for _, track := range currentLib.Tracks {
-				if track.Path == path {
-					log.Printf("✓ 从音乐库获取 TrackInfo：%s - %s", track.Artist, track.Title)
-					return track
-				}
-			}
+		track := libraryManager.GetTrackByPath(path)
+		if track != nil {
+			return *track
 		}
 	}
 	
 	// 策略 2: 降级到基本信息
-	log.Printf("⚠️ 音乐库中未找到 %s，使用基本信息", path)
 	return createTrackInfo(path)
 }
 
@@ -99,6 +93,30 @@ func (pm *PlaylistManager) AddToPlaylist(path string) error {
 	return nil
 }
 
+// AddToPlaylistBatch 批量添加到播放列表（只发送一次事件）
+func (pm *PlaylistManager) AddToPlaylistBatch(paths []string) error {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	validPaths := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			log.Printf("跳过不存在的文件：%s", path)
+			continue
+		}
+		validPaths = append(validPaths, path)
+	}
+
+	pm.playlist = append(pm.playlist, validPaths...)
+	
+	// 只发送一次事件
+	if pm.app != nil && len(validPaths) > 0 {
+		pm.app.Event.Emit("playlistUpdated", pm.playlist)
+	}
+	
+	return nil
+}
+
 // ClearPlaylist 清空播放列表
 func (pm *PlaylistManager) ClearPlaylist() error {
 	pm.mu.Lock()
@@ -139,9 +157,8 @@ func (pm *PlaylistManager) PlayIndex(index int) error {
 	path := pm.playlist[index]
 
 	if pm.app != nil {
-		// 使用音乐库获取完整的 TrackInfo
+		// 使用音乐库获取完整的 TrackInfo（O(1) 查找）
 		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
-		log.Printf("🎵 PlaylistManager.PlayIndex: 触发 currentTrackChanged 事件：%+v", trackInfo)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
 	}
 

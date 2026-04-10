@@ -45,6 +45,7 @@ type LibraryManager struct {
 	mu              sync.RWMutex
 	libDir          string
 	metadataManager *MetadataManager // 元数据管理器
+	tracksByPath    map[string]*TrackInfo // 路径索引：path -> TrackInfo，用于O(1)查找
 }
 
 // NewLibraryManager 创建音乐库管理器
@@ -82,6 +83,9 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
+	// 初始化路径索引
+	lm.tracksByPath = make(map[string]*TrackInfo)
+
 	files, err := os.ReadDir(lm.libDir)
 	if err != nil {
 		return err
@@ -96,27 +100,16 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 				continue
 			}
 			lm.libraries[libName] = lib
+			
+			// 构建该音乐库的路径索引
+			lm.buildTracksIndexForLibrary(lib)
+			
 			log.Printf("✓ 加载音乐库：%s (%d 首歌曲)", libName, len(lib.Tracks))
 		}
 	}
 
-	// 如果没有音乐库，创建一个默认的
-	if len(lm.libraries) == 0 {
-		defaultLib := &MusicLibrary{
-			Name:      "music",
-			Path:      "",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-			Tracks:    make([]TrackInfo, 0),
-		}
-		lm.libraries["music"] = defaultLib
-		lm.currentLib = "music"
-		if err := lm.saveLibrary(defaultLib); err != nil {
-			log.Printf("保存默认音乐库失败：%v", err)
-		}
-		log.Println("✓ 创建默认音乐库：music")
-	} else {
-		// 设置第一个库为当前库
+	// 设置第一个库为当前库（如果没有音乐库，currentLib 保持为空字符串）
+	if len(lm.libraries) > 0 {
 		for name := range lm.libraries {
 			lm.currentLib = name
 			break
@@ -189,6 +182,9 @@ func (lm *LibraryManager) AddLibrary(name, path string) error {
 
 	// 添加到 libraries map
 	lm.libraries[name] = lib
+	
+	// 构建该音乐库的路径索引
+	lm.buildTracksIndexForLibrary(lib)
 
 	// 设置为当前库
 	lm.currentLib = name
@@ -237,6 +233,14 @@ func (lm *LibraryManager) DeleteLibrary(name string) error {
 
 	log.Printf("✓ 已删除音乐库：%s", name)
 	return nil
+}
+
+// LibraryExists 检查音乐库是否存在
+func (lm *LibraryManager) LibraryExists(name string) bool {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	_, exists := lm.libraries[name]
+	return exists
 }
 
 // SwitchLibrary 切换音乐库
@@ -310,6 +314,9 @@ func (lm *LibraryManager) RefreshLibrary() error {
 
 	lib.Tracks = tracks
 	lib.UpdatedAt = time.Now()
+	
+	// 重建该音乐库的路径索引
+	lm.buildTracksIndexForLibrary(lib)
 
 	// 保存到 JSON 文件
 	if err := lm.saveLibrary(lib); err != nil {
@@ -377,6 +384,37 @@ func (lm *LibraryManager) RenameLibrary(newName string) error {
 func (lm *LibraryManager) scanDirectory(dirPath string) ([]TrackInfo, error) {
 	// 使用新的带元数据的扫描方法
 	return lm.scanDirectoryWithMetadata(dirPath)
+}
+
+// buildTracksIndexForLibrary 为指定音乐库构建路径索引（必须在持有锁的情况下调用）
+func (lm *LibraryManager) buildTracksIndexForLibrary(lib *MusicLibrary) {
+	if lm.tracksByPath == nil {
+		lm.tracksByPath = make(map[string]*TrackInfo)
+	}
+	
+	// 清除该音乐库的旧索引
+	for path := range lm.tracksByPath {
+		// 简单策略：清空所有索引后重建
+		// 更精细的策略可以只删除属于该音乐库的路径
+		delete(lm.tracksByPath, path)
+	}
+	
+	// 重新构建索引
+	for i := range lib.Tracks {
+		lm.tracksByPath[lib.Tracks[i].Path] = &lib.Tracks[i]
+	}
+}
+
+// GetTrackByPath 通过路径快速获取 TrackInfo（O(1) 时间复杂度）
+func (lm *LibraryManager) GetTrackByPath(path string) *TrackInfo {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	
+	if lm.tracksByPath == nil {
+		return nil
+	}
+	
+	return lm.tracksByPath[path]
 }
 
 // GetCurrentLibraryTracks 获取当前音乐库的所有音轨
@@ -595,4 +633,61 @@ func (lm *LibraryManager) CompactLibraries() (int, error) {
 
 	log.Printf("✓ 压缩完成：共处理 %d 个音乐库", compactedCount)
 	return compactedCount, nil
+}
+
+// ReloadCurrentLibrary 重新加载当前音乐库（扫描目录更新索引）
+func (lm *LibraryManager) ReloadCurrentLibrary() error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	if lm.currentLib == "" {
+		return fmt.Errorf("当前没有音乐库")
+	}
+
+	lib, exists := lm.libraries[lm.currentLib]
+	if !exists {
+		return fmt.Errorf("音乐库 %s 不存在", lm.currentLib)
+	}
+
+	if lib.Path == "" {
+		return fmt.Errorf("音乐库路径为空")
+	}
+
+	log.Printf("🔄 重新扫描音乐库：%s (路径：%s)", lib.Name, lib.Path)
+
+	// 清除旧的路径索引
+	lm.clearTracksIndexForLibrary(lib)
+
+	// 重新扫描目录
+	tracks, err := lm.scanDirectory(lib.Path)
+	if err != nil {
+		return fmt.Errorf("扫描目录失败：%w", err)
+	}
+
+	// 更新音乐库的音轨列表
+	lib.Tracks = tracks
+	lib.UpdatedAt = time.Now()
+
+	// 构建新的路径索引
+	lm.buildTracksIndexForLibrary(lib)
+
+	// 保存到 JSON 文件
+	if err := lm.saveLibrary(lib); err != nil {
+		return fmt.Errorf("保存音乐库失败：%w", err)
+	}
+
+	log.Printf("✓ 音乐库 %s 重新加载完成，共 %d 首歌曲", lib.Name, len(tracks))
+	return nil
+}
+
+// clearTracksIndexForLibrary 清除音乐库的路径索引
+func (lm *LibraryManager) clearTracksIndexForLibrary(lib *MusicLibrary) {
+	for _, track := range lib.Tracks {
+		delete(lm.tracksByPath, track.Path)
+	}
+}
+
+// GetMetadataManager 获取元数据管理器
+func (lm *LibraryManager) GetMetadataManager() *MetadataManager {
+	return lm.metadataManager
 }
