@@ -45,11 +45,11 @@ func (mks *MediaKeyService) RegisterMediaKeys() error {
 	log.Println("🎹 尝试注册系统媒体键...")
 
 	// 调用平台相关的实现
-	err := mks.platformRegisterMediaKeys()
-	if err != nil {
-		log.Printf("⚠️ 注册媒体键失败:%v", err)
-		return err
-	}
+	// err := mks.platformRegisterMediaKeys()
+	// if err != nil {
+	// 	log.Printf("⚠️ 注册媒体键失败:%v", err)
+	// 	return err
+	// }
 
 	mks.isRegistered = true
 	log.Println("✅ 系统媒体键注册成功")
@@ -66,7 +66,7 @@ func (mks *MediaKeyService) UnregisterMediaKeys() {
 	}
 
 	log.Println("🔓 注销系统媒体键...")
-	mks.platformUnregisterMediaKeys()
+	// mks.platformUnregisterMediaKeys()
 	mks.isRegistered = false
 }
 
