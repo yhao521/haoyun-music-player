@@ -214,6 +214,7 @@ func buildInitialTrayMenu() {
 		prevItem,
 		nextItem,
 		application.NewMenuItemSeparator(),
+		mainWindowItem,
 		browseItem,
 		favoriteItem,
 		playModeItem,
@@ -224,7 +225,6 @@ func buildInitialTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
-		mainWindowItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
@@ -327,6 +327,7 @@ func rebuildTrayMenu() {
 		prevItem,
 		nextItem,
 		application.NewMenuItemSeparator(),
+		mainWindowItem,
 		browseItem,
 		favoriteItem,
 		playModeItem,
@@ -337,7 +338,6 @@ func rebuildTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
-		mainWindowItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
@@ -617,7 +617,6 @@ func handleDownloadLyrics() {
 		rebuildTrayMenu()
 		return
 	}
-
 
 	safeEmit("showNotification", map[string]interface{}{
 		"title":   t("notification.info"),
