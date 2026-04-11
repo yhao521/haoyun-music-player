@@ -77,34 +77,34 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 	
 	configs := []HotkeyConfig{
 		{
-			mods:    []hotkey.Modifier{},
-			key:     hotkey.KeySpace,
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			key:     hotkey.KeyP,
 			handler: mks.handlePlayPause,
-			name:    "播放/暂停 (Space)",
+			name:    "播放/暂停 (Ctrl+Alt+Shift+P)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl},
-			key:     hotkey.KeyRight,
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			key:     hotkey.KeyN,
 			handler: mks.handleNext,
-			name:    "下一曲 (Ctrl+→)",
+			name:    "下一曲 (Ctrl+Alt+Shift+N)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl},
-			key:     hotkey.KeyLeft,
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			key:     hotkey.KeyB,
 			handler: mks.handlePrevious,
-			name:    "上一曲 (Ctrl+←)",
+			name:    "上一曲 (Ctrl+Alt+Shift+B)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
 			key:     hotkey.KeyUp,
 			handler: mks.handleVolumeUp,
-			name:    "音量增加 (Ctrl+↑)",
+			name:    "音量增加 (Ctrl+Alt+Shift+↑)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
 			key:     hotkey.KeyDown,
 			handler: mks.handleVolumeDown,
-			name:    "音量减少 (Ctrl+↓)",
+			name:    "音量减少 (Ctrl+Alt+Shift+↓)",
 		},
 	}
 	
