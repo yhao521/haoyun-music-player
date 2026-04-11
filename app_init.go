@@ -143,10 +143,14 @@ func checkDependencies() {
 				toolNames = append(toolNames, tool.Name)
 			}
 
-			app.Event.Emit("missingDependencies", map[string]interface{}{
-				"tools":   toolNames,
-				"message": fmt.Sprintf("检测到 %d 个依赖工具缺失，建议安装以获得完整功能", len(toolNames)),
-			})
+			if app != nil && app.Event != nil {
+				app.Event.Emit("missingDependencies", map[string]interface{}{
+					"tools":   toolNames,
+					"message": fmt.Sprintf("检测到 %d 个依赖工具缺失，建议安装以获得完整功能", len(toolNames)),
+				})
+			} else if app != nil {
+				log.Printf("[checkDependencies] 警告: app.Event 为 nil，跳过事件发送")
+			}
 		}
 	}()
 }

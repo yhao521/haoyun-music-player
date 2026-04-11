@@ -146,9 +146,12 @@ func (hm *HistoryManager) AddToHistory(track TrackInfo) {
 		}
 
 		// 发送事件通知
-		if hm.app != nil {
+		if hm.app != nil && hm.app.Event != nil {
 			hm.app.Event.Emit("historyUpdated", hm.records)
+		} else if hm.app != nil {
+			log.Printf("[HistoryManager] 警告: app.Event 为 nil，跳过事件发送")
 		}
+
 	}()
 }
 
@@ -180,8 +183,10 @@ func (hm *HistoryManager) ClearHistory() error {
 
 	log.Println("✓ 清空播放历史记录")
 
-	if hm.app != nil {
+	if hm.app != nil && hm.app.Event != nil {
 		hm.app.Event.Emit("historyUpdated", hm.records)
+	} else if hm.app != nil {
+		log.Printf("[HistoryManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -205,8 +210,10 @@ func (hm *HistoryManager) RemoveFromHistory(index int) error {
 
 	log.Printf("✓ 删除历史记录索引：%d", index)
 
-	if hm.app != nil {
+	if hm.app != nil && hm.app.Event != nil {
 		hm.app.Event.Emit("historyUpdated", hm.records)
+	} else if hm.app != nil {
+		log.Printf("[HistoryManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil

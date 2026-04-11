@@ -192,8 +192,11 @@ func (lm *LibraryManager) AddLibrary(name, path string) error {
 	log.Printf("✓ 添加音乐库：%s (路径：%s, 歌曲数：%d)", name, path, len(tracks))
 
 	// 发送事件通知
-	if lm.app != nil {
+	if lm.app != nil && lm.app.Event != nil {
+		lib := lm.libraries[name]
 		lm.app.Event.Emit("libraryUpdated", lib)
+	} else if lm.app != nil {
+		log.Printf("[LibraryManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -326,8 +329,10 @@ func (lm *LibraryManager) RefreshLibrary() error {
 	log.Printf("✓ 刷新音乐库：%s (歌曲数：%d)", lib.Name, len(tracks))
 
 	// 发送事件通知
-	if lm.app != nil {
+	if lm.app != nil && lm.app.Event != nil {
 		lm.app.Event.Emit("libraryUpdated", lib)
+	} else if lm.app != nil {
+		log.Printf("[LibraryManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -373,8 +378,10 @@ func (lm *LibraryManager) RenameLibrary(newName string) error {
 	log.Printf("✓ 重命名音乐库：%s -> %s", oldName, newName)
 
 	// 发送事件通知
-	if lm.app != nil {
+	if lm.app != nil && lm.app.Event != nil {
 		lm.app.Event.Emit("libraryUpdated", lib)
+	} else if lm.app != nil {
+		log.Printf("[LibraryManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil

@@ -11,6 +11,15 @@ import (
 	"github.com/yhao521/haoyun-music-player/backend"
 )
 
+// safeEmit 安全地发送事件，避免空指针异常
+func safeEmit(eventName string, data interface{}) {
+	if app != nil && app.Event != nil {
+		app.Event.Emit(eventName, data)
+	} else if app != nil {
+		log.Printf("[tray_menu] 警告: app.Event 为 nil，跳过事件发送 [%s]", eventName)
+	}
+}
+
 // 托盘菜单相关变量
 var (
 	tray             *application.SystemTray
@@ -530,7 +539,7 @@ func handleSplitLyricsAndMusic() {
 	currentLib := musicService.GetCurrentLibrary()
 	if currentLib == nil {
 		log.Println("当前没有音乐库")
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.info"),
 			"message": "当前没有音乐库",
 			"type":    "info",
@@ -540,7 +549,7 @@ func handleSplitLyricsAndMusic() {
 		return
 	}
 
-	app.Event.Emit("showNotification", map[string]interface{}{
+	safeEmit("showNotification", map[string]interface{}{
 		"title":   t("notification.info"),
 		"message": t("organize.splittingLyrics"),
 		"type":    "info",
@@ -551,7 +560,7 @@ func handleSplitLyricsAndMusic() {
 		// 调用后端的整理音乐库方法
 		if err := musicService.OrganizeLibrary(); err != nil {
 			log.Printf("整理音乐库失败：%v", err)
-			app.Event.Emit("showNotification", map[string]interface{}{
+			safeEmit("showNotification", map[string]interface{}{
 				"title":   t("notification.error"),
 				"message": fmt.Sprintf("整理音乐库失败: %v", err),
 				"type":    "error",
@@ -565,7 +574,7 @@ func handleSplitLyricsAndMusic() {
 		isOrganizingLibrary = false
 		rebuildTrayMenu()
 
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.success"),
 			"message": t("organize.splitSuccess"),
 			"type":    "success",
@@ -599,7 +608,7 @@ func handleDownloadLyrics() {
 	currentLib := musicService.GetCurrentLibrary()
 	if currentLib == nil {
 		log.Println("当前没有音乐库")
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.info"),
 			"message": "当前没有音乐库",
 			"type":    "info",
@@ -609,7 +618,8 @@ func handleDownloadLyrics() {
 		return
 	}
 
-	app.Event.Emit("showNotification", map[string]interface{}{
+
+	safeEmit("showNotification", map[string]interface{}{
 		"title":   t("notification.info"),
 		"message": t("organize.downloadingLyrics"),
 		"type":    "info",
@@ -633,7 +643,7 @@ func handleDownloadLyrics() {
 		}
 
 		message := fmt.Sprintf(t("organize.downloadSuccess"), successCount, failCount, skipCount)
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.success"),
 			"message": message,
 			"type":    "success",
