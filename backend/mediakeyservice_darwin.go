@@ -7,6 +7,11 @@ package backend
 #cgo LDFLAGS: -framework AppKit -framework Foundation
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
+// Media key codes (from IOKit/hidsystem/ev_keymap.h)
+#define NX_KEYTYPE_PLAY      16
+#define NX_KEYTYPE_NEXT      17
+#define NX_KEYTYPE_PREVIOUS  18
+
 
 // Forward declarations of Go exported functions
 extern void goPlayPauseHandler(void);
@@ -15,7 +20,7 @@ extern void goPreviousHandler(void);
 
 static id eventMonitor = nil;
 
-void setupMediaKeys() {
+static void setupMediaKeys() {
     // Register for system-defined events (media keys)
     eventMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSSystemDefinedMask handler:^(NSEvent *event) {
         if ([event type] == NSSystemDefined && [event subtype] == 8) {
@@ -42,7 +47,7 @@ void setupMediaKeys() {
     NSLog(@"✅ macOS system media keys registered successfully");
 }
 
-void cleanupMediaKeys() {
+static void cleanupMediaKeys() {
     if (eventMonitor != nil) {
         [NSEvent removeMonitor:eventMonitor];
         eventMonitor = nil;

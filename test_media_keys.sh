@@ -1,5 +1,54 @@
 #!/bin/bash
 
+# 测试系统媒体键和全局快捷键
+
+echo "======================================"
+echo "  Haoyun Music Player - 快捷键测试"
+echo "======================================"
+echo ""
+
+echo "📋 已注册的快捷键:"
+echo ""
+echo "【系统媒体键】(需要辅助功能权限)"
+echo "  F7 (⏮️)  - 上一曲"
+echo "  F8 (⏯️)  - 播放/暂停"
+echo "  F9 (⏭️)  - 下一曲"
+echo ""
+echo "【自定义全局快捷键】"
+echo "  Ctrl+Shift+P - 播放/暂停"
+echo "  Ctrl+Shift+N - 下一曲"
+echo "  Ctrl+Shift+B - 上一曲"
+echo "  Ctrl+Shift+↑ - 音量增加"
+echo "  Ctrl+Shift+↓ - 音量减少"
+echo ""
+
+echo "🔧 检查辅助功能权限..."
+# 使用正确的 tccutil 命令检查权限
+if tccutil reset Accessibility 2>&1 | grep -q "Usage"; then
+    echo "⚠️  无法自动检测权限状态"
+    echo ""
+    echo "💡 如何检查和授予权限:"
+    echo "  1. 打开 系统偏好设置 > 安全性与隐私 > 隐私"
+    echo "  2. 选择左侧的 '辅助功能'"
+    echo "  3. 查看列表中是否有 haoyun-music-player"
+    echo "  4. 如果没有,点击 '+' 添加应用并勾选"
+    echo "  5. 重启应用使权限生效"
+else
+    echo "✅ 辅助功能权限已授予"
+fi
+
+echo ""
+echo "📝 日志文件位置:"
+echo "  ~/.haoyun-music/runtime/logs/app-YYYYMMDD.log"
+echo ""
+echo "🎵 开始测试吧!"
+echo "  1. 启动应用: ./haoyun-music-player"
+echo "  2. 添加一些音乐到播放列表"
+echo "  3. 尝试按下上述快捷键"
+echo "  4. 查看日志确认按键是否被正确捕获"
+echo ""
+echo "======================================"
+
 # macOS 媒体键功能测试脚本
 # 用法: ./test_media_keys.sh
 
