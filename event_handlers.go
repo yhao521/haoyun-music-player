@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/yhao521/haoyun-music-player/backend"
 )
 
 // registerEventHandlers 注册所有事件处理器

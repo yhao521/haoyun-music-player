@@ -8,30 +8,30 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yhao521/wailsMusicPlay/backend"
+	"github.com/yhao521/haoyun-music-player/backend"
 )
 
 // 托盘菜单相关变量
 var (
-	tray           *application.SystemTray
-	menu           *application.Menu
-	playPauseItem  *application.MenuItem
-	prevItem       *application.MenuItem
-	nextItem       *application.MenuItem
-	mainWindowItem *application.MenuItem
-	browseItem     *application.MenuItem
-	favoriteItem   *application.MenuItem
-	playModeItem   *application.MenuItem
-	musicLibItem   *application.MenuItem
-	toolsMenuItem  *application.MenuItem
+	tray             *application.SystemTray
+	menu             *application.Menu
+	playPauseItem    *application.MenuItem
+	prevItem         *application.MenuItem
+	nextItem         *application.MenuItem
+	mainWindowItem   *application.MenuItem
+	browseItem       *application.MenuItem
+	favoriteItem     *application.MenuItem
+	playModeItem     *application.MenuItem
+	musicLibItem     *application.MenuItem
+	toolsMenuItem    *application.MenuItem
 	organizeMenuItem *application.MenuItem
-	nowPlayingItem *application.MenuItem
-	downloadItem   *application.MenuItem
-	wakeItem       *application.MenuItem
-	launchItem     *application.MenuItem
-	settingItem    *application.MenuItem
-	versionItem    *application.MenuItem
-	quitItem       *application.MenuItem
+	nowPlayingItem   *application.MenuItem
+	downloadItem     *application.MenuItem
+	wakeItem         *application.MenuItem
+	launchItem       *application.MenuItem
+	settingItem      *application.MenuItem
+	versionItem      *application.MenuItem
+	quitItem         *application.MenuItem
 
 	// 播放模式子菜单项
 	playModeOrder  *application.MenuItem
@@ -41,11 +41,11 @@ var (
 
 	// 音乐库菜单
 	musicLibMenu *application.Menu
-	
+
 	// 防重复提交标志
-	isAddingLibrary   bool
+	isAddingLibrary     bool
 	isRefreshingLibrary bool
-	
+
 	// 整理音乐操作标志
 	isOrganizingLibrary bool
 )
@@ -193,7 +193,7 @@ func buildInitialTrayMenu() {
 
 	// 构建工具菜单
 	buildToolsMenu()
-	
+
 	// 构建整理音乐菜单
 	buildOrganizeMenu()
 
@@ -650,11 +650,11 @@ func handleAddLibrary() {
 		log.Println("⚠️ 添加音乐库操作正在进行中,忽略重复请求")
 		return
 	}
-	
+
 	// 立即设置标志并更新菜单,禁用按钮
 	isAddingLibrary = true
 	rebuildTrayMenu()
-	
+
 	log.Println(t("library.addNew"))
 
 	if musicService == nil {
@@ -683,7 +683,7 @@ func handleAddLibrary() {
 	}
 
 	log.Println("✓ 音乐库添加成功,刷新菜单")
-	
+
 	// 重置标志并重建菜单
 	isAddingLibrary = false
 	rebuildTrayMenu()
@@ -701,11 +701,11 @@ func handleRefreshLibrary() {
 		log.Println("⚠️ 刷新音乐库操作正在进行中,忽略重复请求")
 		return
 	}
-	
+
 	// 立即设置标志并更新菜单,禁用按钮
 	isRefreshingLibrary = true
 	rebuildTrayMenu()
-	
+
 	log.Println(t("library.refreshCurrent"))
 
 	if musicService == nil {
@@ -749,7 +749,7 @@ func handleRefreshLibrary() {
 		// 操作完成后重置标志并重建菜单
 		isRefreshingLibrary = false
 		rebuildTrayMenu()
-		
+
 		loadLibraryToPlaylist()
 	}()
 }
@@ -787,7 +787,7 @@ func handleDeleteLibrary() {
 			break
 		}
 	}
-	
+
 	if !found {
 		log.Printf("⚠️ 音乐库 %s 在列表中不存在,可能已被删除", libName)
 		app.Event.Emit("showNotification", map[string]interface{}{
@@ -1044,4 +1044,3 @@ func buildToolsMenu() {
 
 	log.Println("✅ 依赖工具菜单构建完成")
 }
-

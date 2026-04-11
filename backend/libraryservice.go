@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
 )
 
 // MusicLibrary 音乐库结构
@@ -44,7 +44,7 @@ type LibraryManager struct {
 	currentLib      string
 	mu              sync.RWMutex
 	libDir          string
-	metadataManager *MetadataManager // 元数据管理器
+	metadataManager *MetadataManager      // 元数据管理器
 	tracksByPath    map[string]*TrackInfo // 路径索引：path -> TrackInfo，用于O(1)查找
 }
 
@@ -100,10 +100,10 @@ func (lm *LibraryManager) LoadAllLibraries() error {
 				continue
 			}
 			lm.libraries[libName] = lib
-			
+
 			// 构建该音乐库的路径索引
 			lm.buildTracksIndexForLibrary(lib)
-			
+
 			log.Printf("✓ 加载音乐库：%s (%d 首歌曲)", libName, len(lib.Tracks))
 		}
 	}
@@ -182,7 +182,7 @@ func (lm *LibraryManager) AddLibrary(name, path string) error {
 
 	// 添加到 libraries map
 	lm.libraries[name] = lib
-	
+
 	// 构建该音乐库的路径索引
 	lm.buildTracksIndexForLibrary(lib)
 
@@ -314,7 +314,7 @@ func (lm *LibraryManager) RefreshLibrary() error {
 
 	lib.Tracks = tracks
 	lib.UpdatedAt = time.Now()
-	
+
 	// 重建该音乐库的路径索引
 	lm.buildTracksIndexForLibrary(lib)
 
@@ -391,14 +391,14 @@ func (lm *LibraryManager) buildTracksIndexForLibrary(lib *MusicLibrary) {
 	if lm.tracksByPath == nil {
 		lm.tracksByPath = make(map[string]*TrackInfo)
 	}
-	
+
 	// 清除该音乐库的旧索引
 	for path := range lm.tracksByPath {
 		// 简单策略：清空所有索引后重建
 		// 更精细的策略可以只删除属于该音乐库的路径
 		delete(lm.tracksByPath, path)
 	}
-	
+
 	// 重新构建索引
 	for i := range lib.Tracks {
 		lm.tracksByPath[lib.Tracks[i].Path] = &lib.Tracks[i]
@@ -409,11 +409,11 @@ func (lm *LibraryManager) buildTracksIndexForLibrary(lib *MusicLibrary) {
 func (lm *LibraryManager) GetTrackByPath(path string) *TrackInfo {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
-	
+
 	if lm.tracksByPath == nil {
 		return nil
 	}
-	
+
 	return lm.tracksByPath[path]
 }
 

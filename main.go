@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/utils"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/utils"
 )
 
 func main() {
@@ -93,4 +93,3 @@ func setupMainMenuCallbacks(playPauseMenuItem, prevMenuItem, nextMenuItem *appli
 		}
 	})
 }
-

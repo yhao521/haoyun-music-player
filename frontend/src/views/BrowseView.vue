@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { t } from "../i18n";
-import type { MusicLibrary, TrackInfo } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/models";
+import type {
+  MusicLibrary,
+  TrackInfo,
+} from "../../bindings/github.com/yhao521/haoyun-music-player/backend/models";
 import {
   GetLibraries,
   GetCurrentLibrary,
@@ -10,7 +13,7 @@ import {
   AddToPlaylist,
   ClearPlaylist,
   LoadCurrentLibrary,
-} from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
+} from "../../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 音乐库列表
 const libraries = ref<string[]>([]);
@@ -38,7 +41,7 @@ const formatFileSize = (bytes: number): string => {
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 };
 
 // 加载所有音乐库列表
@@ -91,15 +94,15 @@ const playTrack = async (index: number) => {
   try {
     // 清空当前播放列表
     await ClearPlaylist();
-    
+
     // 将所有音轨添加到播放列表
     for (const track of tracks.value) {
       await AddToPlaylist(track.path);
     }
-    
+
     // 播放指定索引的歌曲
     await PlayIndex(index);
-    
+
     console.log(`开始播放第 ${index + 1} 首歌曲`);
   } catch (error) {
     console.error("播放歌曲失败:", error);
@@ -115,11 +118,12 @@ const handleDoubleClick = async (index: number) => {
 const filteredTracks = computed(() => {
   if (!searchQuery.value) return tracks.value;
   const query = searchQuery.value.toLowerCase();
-  return tracks.value.filter((track) =>
-    (track.title || "").toLowerCase().includes(query) ||
-    (track.artist || "").toLowerCase().includes(query) ||
-    (track.album || "").toLowerCase().includes(query) ||
-    track.filename.toLowerCase().includes(query)
+  return tracks.value.filter(
+    (track) =>
+      (track.title || "").toLowerCase().includes(query) ||
+      (track.artist || "").toLowerCase().includes(query) ||
+      (track.album || "").toLowerCase().includes(query) ||
+      track.filename.toLowerCase().includes(query),
   );
 });
 
@@ -140,11 +144,11 @@ const pageRange = computed(() => {
   const start = Math.max(1, currentPage.value - range);
   const end = Math.min(totalPages.value, currentPage.value + range);
   const pages: number[] = [];
-  
+
   for (let i = start; i <= end; i++) {
     pages.push(i);
   }
-  
+
   return pages;
 });
 
@@ -154,7 +158,7 @@ const changePage = (page: number) => {
   currentPage.value = page;
   // 滚动到列表顶部
   setTimeout(() => {
-    const container = document.querySelector('.tracks-container');
+    const container = document.querySelector(".tracks-container");
     if (container) {
       container.scrollTop = 0;
     }
@@ -201,11 +205,7 @@ onUnmounted(() => {
       <div class="library-selector">
         <label>{{ t("browse.library") }}:</label>
         <select :value="selectedLibrary" @change="handleLibraryChange">
-          <option
-            v-for="lib in libraries"
-            :key="lib"
-            :value="lib"
-          >
+          <option v-for="lib in libraries" :key="lib" :value="lib">
             {{ lib }}
           </option>
           <option v-if="libraries.length === 0" disabled>
@@ -228,9 +228,7 @@ onUnmounted(() => {
 
     <!-- 统计信息 -->
     <div class="stats-bar" v-if="currentLibrary">
-      <span class="stat-item">
-        📁 {{ currentLibrary.name }}
-      </span>
+      <span class="stat-item"> 📁 {{ currentLibrary.name }} </span>
       <span class="stat-item">
         🎵 {{ tracks.length }} {{ t("browse.songs") }}
       </span>
@@ -266,15 +264,21 @@ onUnmounted(() => {
         v-for="(track, index) in paginatedTracks"
         :key="track.path"
         class="track-item"
-        :class="{ 'even': index % 2 === 1 }"
-        @dblclick="() => handleDoubleClick((currentPage - 1) * pageSize + index)"
+        :class="{ even: index % 2 === 1 }"
+        @dblclick="
+          () => handleDoubleClick((currentPage - 1) * pageSize + index)
+        "
         :title="t('browse.doubleClickToPlay')"
       >
-        <div class="track-number">{{ (currentPage - 1) * pageSize + index + 1 }}</div>
+        <div class="track-number">
+          {{ (currentPage - 1) * pageSize + index + 1 }}
+        </div>
         <div class="track-title" :title="track.title">
           {{ track.title || track.filename }}
         </div>
-        <div class="track-artist">{{ track.artist || t("browse.unknown") }}</div>
+        <div class="track-artist">
+          {{ track.artist || t("browse.unknown") }}
+        </div>
         <div class="track-album">{{ track.album || t("browse.unknown") }}</div>
         <div class="track-duration">{{ formatDuration(track.duration) }}</div>
         <div class="track-size">{{ formatFileSize(track.size) }}</div>
@@ -284,11 +288,11 @@ onUnmounted(() => {
       <div class="empty-state" v-if="filteredTracks.length === 0">
         <div class="empty-icon">🎵</div>
         <p v-if="tracks.length === 0">
-          {{ t("browse.noTracksInLibrary") }}<br/>
+          {{ t("browse.noTracksInLibrary") }}<br />
           <small>{{ t("browse.addLibraryHint") }}</small>
         </p>
         <p v-else>
-          {{ t("browse.noMatchedTracks") }}<br/>
+          {{ t("browse.noMatchedTracks") }}<br />
           <small>{{ t("browse.tryOtherKeywords") }}</small>
         </p>
       </div>
@@ -297,30 +301,34 @@ onUnmounted(() => {
     <!-- 分页控件 -->
     <div class="pagination-container" v-if="totalPages > 1">
       <div class="pagination-info">
-        {{ t("browse.displayRange") }} {{ (currentPage - 1) * pageSize + 1 }} {{ t("browse.to") }} {{ Math.min(currentPage * pageSize, filteredTracks.length) }} {{ t("browse.total") }} {{ filteredTracks.length }} {{ t("browse.songs") }}
+        {{ t("browse.displayRange") }} {{ (currentPage - 1) * pageSize + 1 }}
+        {{ t("browse.to") }}
+        {{ Math.min(currentPage * pageSize, filteredTracks.length) }}
+        {{ t("browse.total") }} {{ filteredTracks.length }}
+        {{ t("browse.songs") }}
       </div>
-      
+
       <div class="pagination-controls">
-        <button 
-          class="page-btn" 
-          @click="firstPage" 
+        <button
+          class="page-btn"
+          @click="firstPage"
           :disabled="currentPage === 1"
           :title="t('browse.firstPage')"
         >
           ⏮
         </button>
-        <button 
-          class="page-btn" 
-          @click="prevPage" 
+        <button
+          class="page-btn"
+          @click="prevPage"
           :disabled="currentPage === 1"
           :title="t('browse.prevPage')"
         >
           ◀
         </button>
-        
+
         <div class="page-numbers">
-          <span 
-            v-for="page in pageRange" 
+          <span
+            v-for="page in pageRange"
             :key="page"
             class="page-number"
             :class="{ active: currentPage === page }"
@@ -329,25 +337,25 @@ onUnmounted(() => {
             {{ page }}
           </span>
         </div>
-        
-        <button 
-          class="page-btn" 
-          @click="nextPage" 
+
+        <button
+          class="page-btn"
+          @click="nextPage"
           :disabled="currentPage === totalPages"
           :title="t('browse.nextPage')"
         >
           ▶
         </button>
-        <button 
-          class="page-btn" 
-          @click="lastPage" 
+        <button
+          class="page-btn"
+          @click="lastPage"
           :disabled="currentPage === totalPages"
           :title="t('browse.lastPage')"
         >
           ⏭
         </button>
       </div>
-      
+
       <div class="page-size-selector">
         <label>{{ t("browse.perPage") }}：</label>
         <select v-model="pageSize" @change="currentPage = 1">
@@ -361,7 +369,9 @@ onUnmounted(() => {
 
     <!-- 底部操作提示 -->
     <div class="footer-hint">
-      <p>💡 {{ t("browse.doubleClickToPlay") }} | {{ t("browse.useSearchHint") }}</p>
+      <p>
+        💡 {{ t("browse.doubleClickToPlay") }} | {{ t("browse.useSearchHint") }}
+      </p>
     </div>
   </div>
 </template>

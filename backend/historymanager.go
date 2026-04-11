@@ -10,35 +10,35 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
 )
 
 // HistoryRecord 播放历史记录
 type HistoryRecord struct {
-	Path       string    `json:"path"`        // 歌曲路径
-	Title      string    `json:"title"`       // 标题
-	Artist     string    `json:"artist"`      // 艺术家
-	Album      string    `json:"album"`       // 专辑
-	PlayedAt   time.Time `json:"played_at"`   // 播放时间
-	Duration   int64     `json:"duration"`    // 播放时长（秒）
-	FileSize   int64     `json:"file_size"`   // 文件大小（字节）
-	PlayCount  int       `json:"play_count"`  // 播放次数
+	Path      string    `json:"path"`       // 歌曲路径
+	Title     string    `json:"title"`      // 标题
+	Artist    string    `json:"artist"`     // 艺术家
+	Album     string    `json:"album"`      // 专辑
+	PlayedAt  time.Time `json:"played_at"`  // 播放时间
+	Duration  int64     `json:"duration"`   // 播放时长（秒）
+	FileSize  int64     `json:"file_size"`  // 文件大小（字节）
+	PlayCount int       `json:"play_count"` // 播放次数
 }
 
 // HistoryManager 播放历史管理器
 type HistoryManager struct {
 	mu       sync.RWMutex
 	records  []HistoryRecord
-	maxSize  int          // 最大记录数
-	histFile string       // 历史文件路径
+	maxSize  int    // 最大记录数
+	histFile string // 历史文件路径
 	app      *application.App
 }
 
 // NewHistoryManager 创建播放历史管理器
 func NewHistoryManager() *HistoryManager {
 	return &HistoryManager{
-		records: make([]HistoryRecord, 0),
-		maxSize: 100, // 默认保存最近 100 条
+		records:  make([]HistoryRecord, 0),
+		maxSize:  100, // 默认保存最近 100 条
 		histFile: filepath.Join(file.GetLibPath(), "history.json"),
 	}
 }
@@ -124,7 +124,7 @@ func (hm *HistoryManager) AddToHistory(track TrackInfo) {
 			// 更新现有记录：增加播放次数，更新时间戳
 			existingRecord := hm.records[existingIndex]
 			newRecord.PlayCount = existingRecord.PlayCount + 1
-			
+
 			// 移到最前面
 			copy(hm.records[1:existingIndex+1], hm.records[:existingIndex])
 			hm.records[0] = newRecord

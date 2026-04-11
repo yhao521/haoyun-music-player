@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
 )
 
 // LyricLine 歌词行
@@ -30,20 +30,20 @@ type LyricLine struct {
 
 // LyricInfo 歌词信息
 type LyricInfo struct {
-	Title   string      `json:"title"`   // 歌曲标题
-	Artist  string      `json:"artist"`  // 艺术家
-	Album   string      `json:"album"`   // 专辑
-	Offset  float64     `json:"offset"`  // 时间偏移量（秒）
-	Lines   []LyricLine `json:"lines"`   // 歌词行列表（按时间排序）
-	HasLyric bool       `json:"has_lyric"` // 是否有歌词
+	Title    string      `json:"title"`     // 歌曲标题
+	Artist   string      `json:"artist"`    // 艺术家
+	Album    string      `json:"album"`     // 专辑
+	Offset   float64     `json:"offset"`    // 时间偏移量（秒）
+	Lines    []LyricLine `json:"lines"`     // 歌词行列表（按时间排序）
+	HasLyric bool        `json:"has_lyric"` // 是否有歌词
 }
 
 // LyricManager 歌词管理器
 type LyricManager struct {
-	mu            sync.RWMutex
-	cache         map[string]*LyricInfo    // 缓存：文件路径 -> 歌词信息
-	searchCache   map[string]string        // 搜索缓存：key -> 歌词内容 (避免重复API调用)
-	lyricDir      string                   // 歌词目录
+	mu          sync.RWMutex
+	cache       map[string]*LyricInfo // 缓存：文件路径 -> 歌词信息
+	searchCache map[string]string     // 搜索缓存：key -> 歌词内容 (避免重复API调用)
+	lyricDir    string                // 歌词目录
 }
 
 // NewLyricManager 创建歌词管理器
@@ -356,13 +356,13 @@ func (lm *LyricManager) DownloadLyricFromLRCLib(trackPath string, title, artist,
 func (lm *LyricManager) tryLRCLibSearch(trackPath, title, artist, album string) error {
 	// 构建缓存键
 	cacheKey := fmt.Sprintf("%s|%s|%s", title, artist, album)
-	
+
 	// 检查搜索缓存
 	lm.mu.RLock()
 	if cachedLyrics, ok := lm.searchCache[cacheKey]; ok {
 		lm.mu.RUnlock()
 		log.Printf("  ⚡ 使用缓存的搜索结果")
-		
+
 		// 直接使用缓存的歌词保存
 		return lm.saveLyricsToFile(trackPath, cachedLyrics)
 	}
@@ -522,7 +522,7 @@ func (lm *LyricManager) downloadFromNetease(title, artist string) (string, error
 	log.Printf("  🎵 尝试从网易云音乐搜索: %s - %s", artist, title)
 
 	// 第一步: 搜索歌曲
-	searchURL := fmt.Sprintf("https://music.163.com/api/search/get/web?csrf_token=&s=%s&type=1&limit=5", 
+	searchURL := fmt.Sprintf("https://music.163.com/api/search/get/web?csrf_token=&s=%s&type=1&limit=5",
 		urlEncode(fmt.Sprintf("%s %s", title, artist)))
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -667,7 +667,7 @@ func (lm *LyricManager) downloadFromAuralive(title, artist string) (string, erro
 	// Auralive Lyrics API 端点 (使用公共实例)
 	// API 文档: https://github.com/auralive/lyrics-api
 	apiBase := "https://api.auralive.net"
-	
+
 	// 构建搜索 URL
 	searchURL := fmt.Sprintf("%s/api/v1/lyrics/search?title=%s&artist=%s",
 		apiBase,
@@ -715,7 +715,7 @@ func (lm *LyricManager) downloadFromAuralive(title, artist string) (string, erro
 
 	// 获取第一首匹配歌曲的歌词
 	bestMatch := result.Data[0]
-	
+
 	// 优先使用同步歌词,否则使用普通歌词
 	lyricsContent := bestMatch.SyncedLyrics
 	if lyricsContent == "" {
@@ -739,14 +739,14 @@ type AuraliveResponse struct {
 
 // AuraliveResult Auralive 搜索结果
 type AuraliveResult struct {
-	ID            string `json:"id"`
-	Title         string `json:"title"`
-	Artist        string `json:"artist"`
-	Album         string `json:"album"`
-	Duration      int    `json:"duration"`
-	SyncedLyrics  string `json:"synced_lyrics"`  // 同步歌词(LRC格式)
-	PlainLyrics   string `json:"plain_lyrics"`   // 普通歌词
-	MatchScore    float64 `json:"match_score"`   // 匹配度分数
+	ID           string  `json:"id"`
+	Title        string  `json:"title"`
+	Artist       string  `json:"artist"`
+	Album        string  `json:"album"`
+	Duration     int     `json:"duration"`
+	SyncedLyrics string  `json:"synced_lyrics"` // 同步歌词(LRC格式)
+	PlainLyrics  string  `json:"plain_lyrics"`  // 普通歌词
+	MatchScore   float64 `json:"match_score"`   // 匹配度分数
 }
 
 // decodeBase64Gzip 解码 Base64 编码的 Gzip 压缩数据
@@ -1201,7 +1201,7 @@ func levenshteinDistance(s1, s2 string) int {
 
 			matrix[i][j] = min(
 				min(matrix[i-1][j]+1, matrix[i][j-1]+1), // 删除或插入
-				matrix[i-1][j-1]+cost,                    // 替换
+				matrix[i-1][j-1]+cost,                   // 替换
 			)
 		}
 	}
@@ -1270,9 +1270,9 @@ func (lm *LyricManager) searchLRCLibWithFallback(title, artist string) (*LRCLibR
 
 	// 计算每个结果的相似度评分
 	type scoredResult struct {
-		result     LRCLibResponse
-		score      float64
-		titleScore float64
+		result      LRCLibResponse
+		score       float64
+		titleScore  float64
 		artistScore float64
 	}
 
@@ -1282,7 +1282,7 @@ func (lm *LyricManager) searchLRCLibWithFallback(title, artist string) (*LRCLibR
 		titleScore := calculateSimilarity(title, result.TrackName)
 		// 计算艺术家相似度
 		artistScore := calculateSimilarity(artist, result.ArtistName)
-		
+
 		// 综合评分 (标题权重 60%, 艺术家权重 40%)
 		overallScore := titleScore*0.6 + artistScore*0.4
 

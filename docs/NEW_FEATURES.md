@@ -174,7 +174,7 @@ application.RegisterEvent[int]("currentLyricLineChanged")
 - **内存缓存**: `map[string]*AlbumArt`
 - **文件缓存**: `~/.haoyun-music/covers/`
 - **缓存键**: 文件路径的 MD5 哈希值
-- **缓存文件**: 
+- **缓存文件**:
   - `.dat` - 图片二进制数据
   - `.json` - 元数据（MIME 类型、尺寸）
 
@@ -225,50 +225,57 @@ ClearCoverCache()
 ### 播放历史记录
 
 ```typescript
-import { GetPlayHistory, ClearPlayHistory } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
+import {
+  GetPlayHistory,
+  ClearPlayHistory,
+} from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 获取最近 20 条播放历史
-const history = await GetPlayHistory(20)
-console.log(history) // Array of HistoryRecord
+const history = await GetPlayHistory(20);
+console.log(history); // Array of HistoryRecord
 
 // 清空历史
-await ClearPlayHistory()
+await ClearPlayHistory();
 ```
 
 ### 歌词显示
 
 ```typescript
-import { LoadLyric, GetCurrentLyricLine, GetAllLyrics } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
+import {
+  LoadLyric,
+  GetCurrentLyricLine,
+  GetAllLyrics,
+} from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 加载歌词
-const lyricInfo = await LoadLyric("/path/to/song.mp3")
+const lyricInfo = await LoadLyric("/path/to/song.mp3");
 if (lyricInfo.has_lyric) {
-  console.log(`共有 ${lyricInfo.lines.length} 行歌词`)
-  
+  console.log(`共有 ${lyricInfo.lines.length} 行歌词`);
+
   // 获取当前播放位置的歌词行
-  const currentLineIndex = await GetCurrentLyricLine("/path/to/song.mp3", 45.5)
-  console.log(`当前歌词: ${lyricInfo.lines[currentLineIndex].content}`)
-  
+  const currentLineIndex = await GetCurrentLyricLine("/path/to/song.mp3", 45.5);
+  console.log(`当前歌词: ${lyricInfo.lines[currentLineIndex].content}`);
+
   // 获取所有歌词
-  const allLines = await GetAllLyrics("/path/to/song.mp3")
-  allLines.forEach(line => {
-    console.log(`[${line.time.toFixed(2)}] ${line.content}`)
-  })
+  const allLines = await GetAllLyrics("/path/to/song.mp3");
+  allLines.forEach((line) => {
+    console.log(`[${line.time.toFixed(2)}] ${line.content}`);
+  });
 }
 ```
 
 ### 专辑封面
 
 ```typescript
-import { GetAlbumArtDataURL } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
+import { GetAlbumArtDataURL } from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 获取封面 Data URL
 try {
-  const dataURL = await GetAlbumArtDataURL("/path/to/song.mp3")
+  const dataURL = await GetAlbumArtDataURL("/path/to/song.mp3");
   // 直接在 img 标签中使用
   // <img :src="dataURL" alt="Album Art" />
 } catch (error) {
-  console.log("无专辑封面")
+  console.log("无专辑封面");
 }
 ```
 
@@ -285,7 +292,11 @@ try {
   <div class="history-list">
     <h3>播放历史</h3>
     <ul>
-      <li v-for="(record, index) in history" :key="index" @click="playFromHistory(record.path)">
+      <li
+        v-for="(record, index) in history"
+        :key="index"
+        @click="playFromHistory(record.path)"
+      >
         <div class="track-info">
           <span class="title">{{ record.title }}</span>
           <span class="artist">{{ record.artist }}</span>
@@ -298,30 +309,34 @@ try {
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue"
-import { GetPlayHistory, PlayIndex, AddToPlaylist } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
-import type { HistoryRecord } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/models"
+import { ref, onMounted } from "vue";
+import {
+  GetPlayHistory,
+  PlayIndex,
+  AddToPlaylist,
+} from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
+import type { HistoryRecord } from "../bindings/github.com/yhao521/haoyun-music-player/backend/models";
 
-const history = ref<HistoryRecord[]>([])
+const history = ref<HistoryRecord[]>([]);
 
 const loadHistory = async () => {
-  history.value = await GetPlayHistory(20)
-}
+  history.value = await GetPlayHistory(20);
+};
 
 const playFromHistory = async (path: string) => {
-  await AddToPlaylist(path)
+  await AddToPlaylist(path);
   // 播放最后一首（刚添加的）
-  const playlist = await GetPlaylist()
-  await PlayIndex(playlist.length - 1)
-}
+  const playlist = await GetPlaylist();
+  await PlayIndex(playlist.length - 1);
+};
 
 const formatTime = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString('zh-CN')
-}
+  return new Date(timestamp).toLocaleString("zh-CN");
+};
 
 onMounted(() => {
-  loadHistory()
-})
+  loadHistory();
+});
 </script>
 ```
 
@@ -334,8 +349,8 @@ onMounted(() => {
       <p>暂无歌词</p>
     </div>
     <div v-else class="lyric-content">
-      <div 
-        v-for="(line, index) in lyricInfo.lines" 
+      <div
+        v-for="(line, index) in lyricInfo.lines"
         :key="index"
         class="lyric-line"
         :class="{ active: index === currentLineIndex }"
@@ -347,60 +362,70 @@ onMounted(() => {
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue"
-import { LoadLyric, GetCurrentLyricLine, GetAllLyrics } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
-import { Events } from "@wailsio/runtime"
-import type { LyricInfo } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/models"
+import { ref, watch, onMounted } from "vue";
+import {
+  LoadLyric,
+  GetCurrentLyricLine,
+  GetAllLyrics,
+} from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
+import { Events } from "@wailsio/runtime";
+import type { LyricInfo } from "../bindings/github.com/yhao521/haoyun-music-player/backend/models";
 
 const props = defineProps<{
-  trackPath: string
-  currentPosition: number
-}>()
+  trackPath: string;
+  currentPosition: number;
+}>();
 
-const lyricInfo = ref<LyricInfo | null>(null)
-const currentLineIndex = ref(-1)
+const lyricInfo = ref<LyricInfo | null>(null);
+const currentLineIndex = ref(-1);
 
 const loadLyric = async () => {
-  lyricInfo.value = await LoadLyric(props.trackPath)
+  lyricInfo.value = await LoadLyric(props.trackPath);
   if (lyricInfo.value?.has_lyric) {
-    updateCurrentLine()
+    updateCurrentLine();
   }
-}
+};
 
 const updateCurrentLine = async () => {
-  if (!lyricInfo.value || !lyricInfo.value.has_lyric) return
-  
+  if (!lyricInfo.value || !lyricInfo.value.has_lyric) return;
+
   try {
     currentLineIndex.value = await GetCurrentLyricLine(
-      props.trackPath, 
-      props.currentPosition
-    )
-    
+      props.trackPath,
+      props.currentPosition,
+    );
+
     // 自动滚动到当前歌词行
     setTimeout(() => {
-      const activeElement = document.querySelector('.lyric-line.active')
+      const activeElement = document.querySelector(".lyric-line.active");
       if (activeElement) {
-        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        activeElement.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-    }, 100)
+    }, 100);
   } catch (error) {
-    console.error('获取当前歌词行失败:', error)
+    console.error("获取当前歌词行失败:", error);
   }
-}
+};
 
 // 监听播放位置变化
-watch(() => props.currentPosition, () => {
-  updateCurrentLine()
-})
+watch(
+  () => props.currentPosition,
+  () => {
+    updateCurrentLine();
+  },
+);
 
 // 监听歌曲切换
-watch(() => props.trackPath, () => {
-  loadLyric()
-})
+watch(
+  () => props.trackPath,
+  () => {
+    loadLyric();
+  },
+);
 
 onMounted(() => {
-  loadLyric()
-})
+  loadLyric();
+});
 </script>
 
 <style scoped>
@@ -440,9 +465,9 @@ onMounted(() => {
 ```vue
 <template>
   <div class="album-art">
-    <img 
-      v-if="coverDataURL" 
-      :src="coverDataURL" 
+    <img
+      v-if="coverDataURL"
+      :src="coverDataURL"
       alt="Album Art"
       @error="handleImageError"
     />
@@ -453,33 +478,36 @@ onMounted(() => {
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from "vue"
-import { GetAlbumArtDataURL } from "../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice"
+import { ref, watch } from "vue";
+import { GetAlbumArtDataURL } from "../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 const props = defineProps<{
-  trackPath: string
-}>()
+  trackPath: string;
+}>();
 
-const coverDataURL = ref<string>("")
+const coverDataURL = ref<string>("");
 
 const loadCover = async () => {
   try {
-    coverDataURL.value = await GetAlbumArtDataURL(props.trackPath)
+    coverDataURL.value = await GetAlbumArtDataURL(props.trackPath);
   } catch (error) {
-    console.log("无专辑封面或提取失败")
-    coverDataURL.value = ""
+    console.log("无专辑封面或提取失败");
+    coverDataURL.value = "";
   }
-}
+};
 
 const handleImageError = () => {
-  coverDataURL.value = ""
-}
+  coverDataURL.value = "";
+};
 
-watch(() => props.trackPath, () => {
-  loadCover()
-})
+watch(
+  () => props.trackPath,
+  () => {
+    loadCover();
+  },
+);
 
-loadCover()
+loadCover();
 </script>
 
 <style scoped>
@@ -566,13 +594,13 @@ deleteLibItem.OnClick(func(ctx *application.Context) {
         log.Println("当前没有音乐库")
         return
     }
-    
+
     libName := currentLib.Name
     if err := musicService.DeleteLibrary(libName); err != nil {
         log.Printf("删除音乐库失败：%v", err)
         return
     }
-    
+
     log.Printf("✓ 已删除音乐库：%s", libName)
     buildMusicLibMenu() // 重建菜单
 })
@@ -629,7 +657,7 @@ filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
     if supportedFormats[ext] {
         baseName := strings.TrimSuffix(info.Name(), ext)
         lyricPath := lyricMap[baseName] // 查找对应歌词
-        
+
         track := TrackInfo{
             Path:      path,
             Title:     baseName,

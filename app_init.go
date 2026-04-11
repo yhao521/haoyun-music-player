@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/config"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/i18n"
+	"github.com/yhao521/haoyun-music-player/backend"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/config"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/i18n"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )

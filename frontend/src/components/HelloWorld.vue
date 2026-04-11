@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { Events } from "@wailsio/runtime";
-// import {GreetService} from "../../bindings/github.com/yhao521/wailsMusicPlay";
+// import {GreetService} from "../../bindings/github.com/yhao521/haoyun-music-player";
 
 defineProps<{ msg: string }>();
 

@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from "vue";
 import { t, setLocale, getLocale, type Locale } from "../i18n";
 import { Events } from "@wailsio/runtime";
-import { CompactLibraries } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
+import { CompactLibraries } from "../../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 当前语言
 const currentLanguage = ref<Locale>(getLocale());

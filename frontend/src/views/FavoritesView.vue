@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { t } from "../i18n";
-import type { HistoryRecord } from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/models";
+import type { HistoryRecord } from "../../bindings/github.com/yhao521/haoyun-music-player/backend/models";
 import {
   GetFavoriteTracks,
   AddToPlaylist,
   ClearPlaylist,
   PlayIndex,
-} from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
+} from "../../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // 喜爱音乐列表
 const favorites = ref<HistoryRecord[]>([]);
@@ -88,7 +88,9 @@ onMounted(() => {
     <div class="header">
       <div class="header-content">
         <h1>{{ t("favorites.title") }}</h1>
-        <span class="track-count">{{ favorites.length }} {{ t("favorites.songs") }}</span>
+        <span class="track-count"
+          >{{ favorites.length }} {{ t("favorites.songs") }}</span
+        >
       </div>
       <button
         class="refresh-btn"
@@ -97,7 +99,9 @@ onMounted(() => {
         :title="t('favorites.refreshList')"
       >
         <span class="refresh-icon" :class="{ rotating: isLoading }">🔄</span>
-        <span class="refresh-text">{{ isLoading ? t("favorites.refreshing") : t("common.refresh") }}</span>
+        <span class="refresh-text">{{
+          isLoading ? t("favorites.refreshing") : t("common.refresh")
+        }}</span>
       </button>
     </div>
 
@@ -142,10 +146,16 @@ onMounted(() => {
           >
             <td class="col-rank">{{ index + 1 }}</td>
             <td class="col-title">
-              <div class="track-name">{{ track.title || t("favorites.unknownSong") }}</div>
+              <div class="track-name">
+                {{ track.title || t("favorites.unknownSong") }}
+              </div>
             </td>
-            <td class="col-artist">{{ track.artist || t("favorites.unknownArtist") }}</td>
-            <td class="col-album">{{ track.album || t("favorites.unknownAlbum") }}</td>
+            <td class="col-artist">
+              {{ track.artist || t("favorites.unknownArtist") }}
+            </td>
+            <td class="col-album">
+              {{ track.album || t("favorites.unknownAlbum") }}
+            </td>
             <td class="col-count">
               <span class="play-count-badge">{{ track.play_count }}</span>
             </td>

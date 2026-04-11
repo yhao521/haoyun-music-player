@@ -1,4 +1,4 @@
-module github.com/yhao521/wailsMusicPlay
+module github.com/yhao521/haoyun-music-player
 
 go 1.25
 

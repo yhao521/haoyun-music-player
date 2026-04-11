@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
 )
 
 // InitLogger 初始化日志系统，将日志输出到运行时目录下的 logs 子目录

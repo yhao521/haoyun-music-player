@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
+	"github.com/yhao521/haoyun-music-player/backend"
 )
 
 func main() {
@@ -51,19 +51,19 @@ func main() {
 
 	for _, audioFile := range audioFiles {
 		fmt.Printf("\n🎵 测试文件: %s\n", filepath.Base(audioFile))
-		
+
 		reader, sampleRate, channels, err := player.LoadAudioFileForTest(audioFile)
 		if err != nil {
 			fmt.Printf("   ❌ 解码失败: %v\n", err)
 			continue
 		}
-		
+
 		fmt.Printf("   ✅ 解码成功\n")
 		fmt.Printf("   - 采样率: %d Hz\n", sampleRate)
 		fmt.Printf("   - 声道数: %d\n", channels)
 		fmt.Printf("   - 时长: %d 秒\n", reader.Len())
 		fmt.Printf("   - 数据大小: %d KB\n", getDataSize(reader)/1024)
-		
+
 		reader.Close()
 	}
 
@@ -84,7 +84,7 @@ func findAudioFiles(dir string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		
+
 		if !info.IsDir() {
 			ext := filepath.Ext(path)
 			if supportedExts[ext] {
@@ -93,7 +93,7 @@ func findAudioFiles(dir string) ([]string, error) {
 		}
 		return nil
 	})
-	
+
 	return files, err
 }
 

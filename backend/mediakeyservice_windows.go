@@ -5,6 +5,7 @@ package backend
 
 /*
 #include <windows.h>
+#include <winuser.h>
 
 // 热键 ID 定义
 #define HK_PLAY_PAUSE 1
@@ -131,7 +132,6 @@ void poll_media_hotkeys() {
 }
 */
 import "C"
-
 import (
 	"log"
 	"runtime"
