@@ -48,18 +48,19 @@ func (mks *MediaKeyService) RegisterMediaKeys() error {
 	log.Println("🎹 尝试注册系统媒体键...")
 
 	// 调用平台相关的实现
-	// err := mks.platformRegisterMediaKeys()
-	// if err != nil {
-	// 	log.Printf("⚠️ 注册媒体键失败:%v", err)
-	// 	return err
-	// }
+	err := mks.platformRegisterMediaKeys()
+	if err != nil {
+		log.Printf("⚠️ 注册系统媒体键失败:%v", err)
+		log.Println("💡 降级使用全局快捷键方案")
+		// 如果系统媒体键注册失败，使用全局快捷键作为备选
+		go mks.registerGlobalHotkeys()
+	} else {
+		log.Println("✅ 系统媒体键注册成功")
+		// 同时注册全局快捷键作为补充
+		go mks.registerGlobalHotkeys()
+	}
 
 	mks.isRegistered = true
-	log.Println("✅ 系统媒体键注册成功")
-	
-	// 注册全局快捷键
-	go mks.registerGlobalHotkeys()
-	
 	return nil
 }
 
@@ -75,36 +76,38 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 		name    string
 	}
 	
+	// 根据平台选择不同的修饰键名称
+	// macOS 使用 ModOption, Windows/Linux 使用 ModAlt
 	configs := []HotkeyConfig{
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
 			key:     hotkey.KeyP,
 			handler: mks.handlePlayPause,
-			name:    "播放/暂停 (Ctrl+Alt+Shift+P)",
+			name:    "播放/暂停 (Ctrl+Shift+P)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
 			key:     hotkey.KeyN,
 			handler: mks.handleNext,
-			name:    "下一曲 (Ctrl+Alt+Shift+N)",
+			name:    "下一曲 (Ctrl+Shift+N)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
 			key:     hotkey.KeyB,
 			handler: mks.handlePrevious,
-			name:    "上一曲 (Ctrl+Alt+Shift+B)",
+			name:    "上一曲 (Ctrl+Shift+B)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
 			key:     hotkey.KeyUp,
 			handler: mks.handleVolumeUp,
-			name:    "音量增加 (Ctrl+Alt+Shift+↑)",
+			name:    "音量增加 (Ctrl+Shift+↑)",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModAlt, hotkey.ModShift},
+			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
 			key:     hotkey.KeyDown,
 			handler: mks.handleVolumeDown,
-			name:    "音量减少 (Ctrl+Alt+Shift+↓)",
+			name:    "音量减少 (Ctrl+Shift+↓)",
 		},
 	}
 	
@@ -142,7 +145,7 @@ func (mks *MediaKeyService) UnregisterMediaKeys() {
 	}
 
 	log.Println("🔓 注销系统媒体键...")
-	// mks.platformUnregisterMediaKeys()
+	mks.platformUnregisterMediaKeys()
 	
 	// 注销所有全局快捷键
 	for _, hk := range mks.hotkeys {
