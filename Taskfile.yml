@@ -455,6 +455,7 @@ tasks:
           "./releases/${PACKAGE_NAME_DMG}"
         echo "DMG 打包完成: releases/${PACKAGE_NAME_DMG}"
         cd ..
+        rm -f ./bin/{{._APP_NAME}}
       - task package-post
 
   package-windows:
