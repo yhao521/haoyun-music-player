@@ -1,4 +1,4 @@
-module github.com/yhao521/wailsMusicPlay
+module github.com/yhao521/haoyun-music-player
 
 go 1.25
 
@@ -9,6 +9,7 @@ require (
 	github.com/mewkiz/flac v1.0.13
 	github.com/wailsapp/wails/v2 v2.12.0
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.74
+	golang.design/x/hotkey v0.4.1
 )
 
 require (

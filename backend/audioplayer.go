@@ -685,7 +685,7 @@ func (ap *AudioPlayer) Play(path string) error {
 	ap.paused = false
 
 	// 使用局部变量避免并发问题
-	if app := ap.app; app != nil {
+	if app := ap.app; app != nil && app.Event != nil {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -694,6 +694,8 @@ func (ap *AudioPlayer) Play(path string) error {
 			}()
 			app.Event.Emit("playbackStateChanged", "playing")
 		}()
+	} else if app := ap.app; app != nil {
+		log.Printf("[Play] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -701,9 +703,6 @@ func (ap *AudioPlayer) Play(path string) error {
 
 // monitorPlayback 监控播放状态
 func (ap *AudioPlayer) monitorPlayback() {
-	// 保存 app 引用到局部变量,避免并发修改导致 nil pointer
-	app := ap.app
-	
 	for {
 		select {
 		case <-ap.stopChan:
@@ -727,18 +726,32 @@ func (ap *AudioPlayer) monitorPlayback() {
 			ap.mu.Unlock()
 
 			// 使用局部变量 app,并添加 panic 恢复
-			if app != nil {
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							log.Printf("[monitorPlayback] 发送事件时发生 panic: %v", r)
-						}
-					}()
-					app.Event.Emit("playbackStateChanged", "stopped")
-					// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
-					app.Event.Emit("playbackEnded", nil)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("[monitorPlayback] 发送事件时发生 panic: %v", r)
+					}
 				}()
-			}
+				
+				ap.mu.Lock()
+				currentApp := ap.app
+				ap.mu.Unlock()
+				
+				if currentApp == nil {
+					log.Printf("[monitorPlayback] 警告: app 为 nil，跳过事件发送")
+					return
+				}
+				
+				if currentApp.Event == nil {
+					log.Printf("[monitorPlayback] 警告: app.Event 为 nil，跳过事件发送")
+					return
+				}
+				
+				// 安全地发送事件
+				currentApp.Event.Emit("playbackStateChanged", "stopped")
+				// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
+				currentApp.Event.Emit("playbackEnded", nil)
+			}()
 			return
 		}
 
@@ -816,7 +829,7 @@ func (ap *AudioPlayer) Pause() error {
 	log.Printf("[Pause] 暂停完成 - isPlaying: %v, paused: %v, position: %d", ap.isPlaying, ap.paused, ap.pausePosition)
 
 	// 使用局部变量避免并发问题
-	if app := ap.app; app != nil {
+	if app := ap.app; app != nil && app.Event != nil {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -825,6 +838,8 @@ func (ap *AudioPlayer) Pause() error {
 			}()
 			app.Event.Emit("playbackStateChanged", "paused")
 		}()
+	} else if app := ap.app; app != nil {
+		log.Printf("[Pause] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -838,7 +853,7 @@ func (ap *AudioPlayer) Stop() error {
 	ap.stopPlayback()
 
 	// 使用局部变量避免并发问题
-	if app := ap.app; app != nil {
+	if app := ap.app; app != nil && app.Event != nil {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -847,6 +862,8 @@ func (ap *AudioPlayer) Stop() error {
 			}()
 			app.Event.Emit("playbackStateChanged", "stopped")
 		}()
+	} else if app := ap.app; app != nil {
+		log.Printf("[Stop] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -894,10 +911,19 @@ func (ap *AudioPlayer) Seek(position float64) error {
 
 	// 重置 oto player 以从新位置开始播放
 	if ap.player != nil {
+		// ⭐ 关键：先设置标志位，告诉 monitorPlayback 正在进行 Seek 操作
+		wasPlaying := ap.isPlaying && !ap.paused
+		
 		ap.player.Reset()
-		go func() {
-			ap.player.Play()
-		}()
+		
+		// 同步调用 Play，确保播放已经重新开始
+		ap.player.Play()
+		
+		// 如果之前正在播放，确保状态正确
+		if wasPlaying {
+			ap.isPlaying = true
+			ap.paused = false
+		}
 	}
 
 	return nil
@@ -1012,6 +1038,8 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 					}()
 					app.Event.Emit("playbackStateChanged", "playing")
 				}()
+			} else if app := ap.app; app != nil {
+				log.Printf("[TogglePlayPause-Resume] 警告: app.Event 为 nil，跳过事件发送")
 			}
 			
 			return true, nil
@@ -1068,7 +1096,7 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 		ap.mu.Unlock()
 		
 		// 使用局部变量避免并发问题
-		if app := ap.app; app != nil {
+		if app := ap.app; app != nil && app.Event != nil {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
@@ -1077,6 +1105,8 @@ func (ap *AudioPlayer) TogglePlayPause() (bool, error) {
 				}()
 				app.Event.Emit("playbackStateChanged", "paused")
 			}()
+		} else if app := ap.app; app != nil {
+			log.Printf("[TogglePlayPause-Pause] 警告: app.Event 为 nil，跳过事件发送")
 		}
 
 		return false, nil

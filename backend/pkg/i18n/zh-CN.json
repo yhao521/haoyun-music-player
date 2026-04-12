@@ -1,6 +1,8 @@
 {
   "menu": {
     "nowPlaying": "正在播放：无",
+    "play": "播放",
+    "pause": "暂停",
     "playPause": "播放/暂停",
     "previousTrack": "上一曲",
     "nextTrack": "下一曲",
@@ -32,6 +34,12 @@
     "copy": "复制",
     "paste": "粘贴",
     "openRuntimeDir": "打开运行时目录"
+  },
+  "lyric": {
+    "currentLyric": "当前歌词",
+    "noLyric": "🎵 无歌词",
+    "instrumental": "🎵 纯音乐",
+    "loading": "🎤 加载中..."
   },
   "playMode": {
     "order": "顺序播放",

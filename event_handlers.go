@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/yhao521/haoyun-music-player/backend"
 )
 
 // registerEventHandlers 注册所有事件处理器
@@ -120,11 +120,15 @@ func registerSettingEvents() {
 			rebuildTrayMenu()
 
 			// 通知前端需要重启才能完全生效
-			app.Event.Emit("languageChanged", map[string]interface{}{
-				"locale":      locale,
-				"needRestart": true,
-				"message":     "语言已切换，部分界面需要重启应用后才能完全生效",
-			})
+			if app != nil && app.Event != nil {
+				app.Event.Emit("languageChanged", map[string]interface{}{
+					"locale":      locale,
+					"needRestart": true,
+					"message":     "语言已切换，部分界面需要重启应用后才能完全生效",
+				})
+			} else if app != nil {
+				log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+			}
 		}
 	})
 
@@ -171,16 +175,20 @@ func registerSettingEvents() {
 	app.Event.On("getSettings", func(event *application.CustomEvent) {
 		cfg := configManager.Get()
 
-		app.Event.Emit("getSettings:response", map[string]interface{}{
-			"language":        cfg.Language,
-			"theme":           cfg.Theme,
-			"autoLaunch":      cfg.AutoLaunch,
-			"keepAwake":       cfg.KeepAwake,
-			"defaultVolume":   cfg.DefaultVolume,
-			"showLyrics":      cfg.ShowLyrics,
-			"enableMediaKeys": cfg.EnableMediaKeys,
-			"defaultPlayMode": cfg.DefaultPlayMode,
-		})
+		if app != nil && app.Event != nil {
+			app.Event.Emit("getSettings:response", map[string]interface{}{
+				"language":        cfg.Language,
+				"theme":           cfg.Theme,
+				"autoLaunch":      cfg.AutoLaunch,
+				"keepAwake":       cfg.KeepAwake,
+				"defaultVolume":   cfg.DefaultVolume,
+				"showLyrics":      cfg.ShowLyrics,
+				"enableMediaKeys": cfg.EnableMediaKeys,
+				"defaultPlayMode": cfg.DefaultPlayMode,
+			})
+		} else if app != nil {
+			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+		}
 
 		log.Println("📤 已发送配置到前端")
 	})
@@ -208,16 +216,51 @@ func registerLibraryEvents() {
 		count, err := musicService.CompactLibraries()
 		if err != nil {
 			log.Printf("⚠️ 压缩音乐库失败: %v", err)
-			app.Event.Emit("compactLibraries:response", map[string]interface{}{
-				"error": err.Error(),
-			})
+			if app != nil && app.Event != nil {
+				app.Event.Emit("compactLibraries:response", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else if app != nil {
+				log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+			}
 			return
 		}
 
 		log.Printf("✓ 压缩完成：共处理 %d 个音乐库", count)
-		app.Event.Emit("compactLibraries:response", map[string]interface{}{
-			"count": count,
-		})
+		if app != nil && app.Event != nil {
+			app.Event.Emit("compactLibraries:response", map[string]interface{}{
+				"count": count,
+			})
+		} else if app != nil {
+			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+		}
+	})
+
+	// 监听路径迁移请求
+	app.Event.On("migrateToRelativePaths", func(event *application.CustomEvent) {
+		log.Println("🔄 收到路径迁移请求...")
+
+		count, err := musicService.MigrateToRelativePaths()
+		if err != nil {
+			log.Printf("⚠️ 路径迁移失败: %v", err)
+			if app != nil && app.Event != nil {
+				app.Event.Emit("migrateToRelativePaths:response", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else if app != nil {
+				log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+			}
+			return
+		}
+
+		log.Printf("✓ 迁移完成：共处理 %d 个音乐库", count)
+		if app != nil && app.Event != nil {
+			app.Event.Emit("migrateToRelativePaths:response", map[string]interface{}{
+				"count": count,
+			})
+		} else if app != nil {
+			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 }
 
@@ -226,11 +269,15 @@ func setupDependencyManagerCallback() {
 	depManager.SetCallback(func(toolName string, status backend.ToolStatus, message string) {
 		log.Printf("🔧 工具状态变化: %s - %d (%s)", toolName, status, message)
 
-		app.Event.Emit("dependencyStatusChanged", map[string]interface{}{
-			"tool":    toolName,
-			"status":  status,
-			"message": message,
-		})
+		if app != nil && app.Event != nil {
+			app.Event.Emit("dependencyStatusChanged", map[string]interface{}{
+				"tool":    toolName,
+				"status":  status,
+				"message": message,
+			})
+		} else if app != nil {
+			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+		}
 
 		if status == backend.ToolInstalled || status == backend.ToolInstallFailed {
 			go func() {

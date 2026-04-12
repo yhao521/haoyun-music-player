@@ -5,9 +5,9 @@ import (
 	"log"
 	"runtime"
 
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/i18n"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/utils"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/i18n"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/utils"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -50,21 +50,33 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	menuPlayPauseItem.SetAccelerator("CmdOrCtrl+Space")
 	menuPlayPauseItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 播放/暂停")
-		app.Event.Emit("menu:playPause", nil)
+		if app != nil && app.Event != nil {
+			app.Event.Emit("menu:playPause", nil)
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuPrevItem := musicMenu.Add(t("menu.previousTrack"))
 	menuPrevItem.SetAccelerator("CmdOrCtrl+Shift+[")
 	menuPrevItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 上一曲")
-		app.Event.Emit("menu:prevTrack", nil)
+		if app != nil && app.Event != nil {
+			app.Event.Emit("menu:prevTrack", nil)
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuNextItem := musicMenu.Add(t("menu.nextTrack"))
 	menuNextItem.SetAccelerator("CmdOrCtrl+Shift+]")
 	menuNextItem.OnClick(func(ctx *application.Context) {
 		log.Println("主菜单: 下一曲")
-		app.Event.Emit("menu:nextTrack", nil)
+		if app != nil && app.Event != nil {
+			app.Event.Emit("menu:nextTrack", nil)
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	musicMenu.AddSeparator()
@@ -79,14 +91,22 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	menuMainWindowItem := musicMenu.Add(t("menu.showMainWindow"))
 	menuMainWindowItem.OnClick(func(ctx *application.Context) {
 		log.Println(t("menu.showMainWindow"))
-		app.Event.Emit("openWindow", map[string]interface{}{"type": "main"})
+		if app != nil && app.Event != nil {
+			app.Event.Emit("openWindow", map[string]interface{}{"type": "main"})
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuSettingItem := musicMenu.Add(t("menu.settings"))
 	menuSettingItem.SetAccelerator("CmdOrCtrl+Shift+S")
 	menuSettingItem.OnClick(func(ctx *application.Context) {
 		log.Println(t("menu.settings"))
-		app.Event.Emit("openWindow", map[string]interface{}{"type": "settings"})
+		if app != nil && app.Event != nil {
+			app.Event.Emit("openWindow", map[string]interface{}{"type": "settings"})
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	musicMenu.AddSeparator()
@@ -96,25 +116,41 @@ func createMenu(app *application.App) (*application.Menu, *application.MenuItem,
 	menuPlayModeOrder := playModeSubMenu.Add("  " + t("playMode.order"))
 	menuPlayModeOrder.OnClick(func(ctx *application.Context) {
 		log.Println("切换到顺序播放")
-		app.Event.Emit("setPlayMode", "order")
+		if app != nil && app.Event != nil {
+			app.Event.Emit("setPlayMode", "order")
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuPlayModeLoop := playModeSubMenu.Add("✓ " + t("playMode.loop"))
 	menuPlayModeLoop.OnClick(func(ctx *application.Context) {
 		log.Println("切换到循环播放")
-		app.Event.Emit("setPlayMode", "loop")
+		if app != nil && app.Event != nil {
+			app.Event.Emit("setPlayMode", "loop")
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuPlayModeRandom := playModeSubMenu.Add("  " + t("playMode.random"))
 	menuPlayModeRandom.OnClick(func(ctx *application.Context) {
 		log.Println("切换到随机播放")
-		app.Event.Emit("setPlayMode", "random")
+		if app != nil && app.Event != nil {
+			app.Event.Emit("setPlayMode", "random")
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	menuPlayModeSingle := playModeSubMenu.Add("  " + t("playMode.single"))
 	menuPlayModeSingle.OnClick(func(ctx *application.Context) {
 		log.Println("切换到单曲循环")
-		app.Event.Emit("setPlayMode", "single")
+		if app != nil && app.Event != nil {
+			app.Event.Emit("setPlayMode", "single")
+		} else if app != nil {
+			log.Printf("[main_menu] 警告: app.Event 为 nil，跳过事件发送")
+		}
 	})
 
 	// 音乐库子菜单

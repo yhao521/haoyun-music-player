@@ -1,3 +1,5 @@
+// Package backend 提供音乐播放器的后端服务
+// 包括音频播放、播放列表管理、音乐库管理、歌词管理等功能
 package backend
 
 import (
@@ -14,19 +16,20 @@ import (
 type MusicService struct {
 	ctx             context.Context
 	app             *application.App
-	audioPlayer     *AudioPlayer      // beep 音频播放器
-	playlistManager *PlaylistManager  // 播放列表管理
-	libraryManager  *LibraryManager   // 音乐库管理
-	organizeService *OrganizeService  // 整理音乐服务
-	historyManager  *HistoryManager   // 播放历史管理
-	lyricManager    *LyricManager     // 歌词管理
-	coverManager    *CoverManager     // 专辑封面管理
-	metadataManager *MetadataManager  // 元数据管理器
+	audioPlayer     *AudioPlayer     // beep 音频播放器
+	playlistManager *PlaylistManager // 播放列表管理
+	libraryManager  *LibraryManager  // 音乐库管理
+	organizeService *OrganizeService // 整理音乐服务
+	historyManager  *HistoryManager  // 播放历史管理
+	lyricManager    *LyricManager    // 歌词管理
+	coverManager    *CoverManager    // 专辑封面管理
+	metadataManager *MetadataManager // 元数据管理器
+	mediaKeyService *MediaKeyService // 媒体键服务
 }
 
 // NewMusicService 创建音乐服务实例
 func NewMusicService() *MusicService {
-	return &MusicService{
+	ms := &MusicService{
 		audioPlayer:     NewAudioPlayer(),
 		playlistManager: NewPlaylistManager(),
 		libraryManager:  NewLibraryManager(),
@@ -35,7 +38,13 @@ func NewMusicService() *MusicService {
 		lyricManager:    NewLyricManager(),
 		coverManager:    NewCoverManager(),
 		metadataManager: NewMetadataManager(),
+		mediaKeyService: NewMediaKeyService(),
 	}
+	
+	// 设置媒体键服务的引用
+	ms.mediaKeyService.SetMusicService(ms)
+	
+	return ms
 }
 
 // SetApp 设置应用实例
@@ -46,23 +55,24 @@ func (m *MusicService) SetApp(app *application.App) {
 	m.libraryManager.SetApp(app)
 	m.organizeService.SetLibraryManager(m.libraryManager)
 	m.historyManager.SetApp(app)
-	
+	m.mediaKeyService.SetApp(app)
+
 	// 设置 PlaylistManager 的 LibraryManager 引用，使其能够获取元数据
 	m.playlistManager.SetLibraryManager(m.libraryManager)
-	
+
 	// 监听播放结束事件，根据播放模式决定是否自动播放下一首
 	app.Event.On("playbackEnded", func(event *application.CustomEvent) {
 		log.Println("🎵 收到 playbackEnded 事件，检查是否需要自动播放下一首")
-		
+
 		// 获取当前播放模式
 		playMode, err := m.playlistManager.GetPlayMode()
 		if err != nil {
 			log.Printf("⚠️ 获取播放模式失败：%v", err)
 			return
 		}
-		
+
 		log.Printf("当前播放模式：%s", playMode)
-		
+
 		// 单曲循环模式下不自动播放下一首（保持当前歌曲）
 		if playMode == "single" {
 			log.Println("🔂 单曲循环模式，重新播放当前歌曲")
@@ -72,7 +82,7 @@ func (m *MusicService) SetApp(app *application.App) {
 			}
 			return
 		}
-		
+
 		// order 模式：顺序播放完最后一首后停止
 		if playMode == "order" {
 			currentIndex, _ := m.playlistManager.GetCurrentIndex()
@@ -82,7 +92,7 @@ func (m *MusicService) SetApp(app *application.App) {
 				return // 不自动播放下一首
 			}
 		}
-		
+
 		// loop 和 random 模式：自动播放下一首
 		log.Printf("🔄 %s 模式，自动播放下一首", playMode)
 		if err := m.Next(); err != nil {
@@ -133,6 +143,11 @@ func (m *MusicService) Init() error {
 		log.Printf("⚠️ 初始化专辑封面管理器失败：%v", err)
 	}
 
+	// 注册系统媒体键
+	if err := m.mediaKeyService.RegisterMediaKeys(); err != nil {
+		log.Printf("⚠️ 注册媒体键失败: %v (应用将继续运行)", err)
+	}
+
 	log.Println("✓ 所有服务初始化完成")
 	return nil
 }
@@ -163,13 +178,13 @@ func (m *MusicService) Play() error {
 	}
 
 	currentPath := playlist[currentIndex]
-	
+
 	// 异步记录播放历史（使用音乐库获取完整元数据）
 	go func() {
 		trackInfo := createTrackInfoFromLibrary(currentPath, m.libraryManager)
 		m.historyManager.AddToHistory(trackInfo)
 	}()
-	
+
 	return m.audioPlayer.Play(currentPath)
 }
 
@@ -186,7 +201,7 @@ func (m *MusicService) Stop() error {
 // TogglePlayPause 切换播放/暂停
 func (m *MusicService) TogglePlayPause() (bool, error) {
 	log.Println("[MusicService.TogglePlayPause] 开始")
-	
+
 	// 检查是否正在播放
 	isPlaying, err := m.audioPlayer.IsPlaying()
 	if err != nil {
@@ -204,7 +219,7 @@ func (m *MusicService) TogglePlayPause() (bool, error) {
 		}
 		return false, err
 	}
-	
+
 	log.Printf("[MusicService.TogglePlayPause] isPlaying: %v", isPlaying)
 
 	// 如果正在播放，则暂停；否则播放
@@ -311,6 +326,16 @@ func (m *MusicService) GetCurrentTrack() (string, error) {
 	return playlist[index], nil
 }
 
+// GetPosition 获取当前播放位置（秒）
+func (m *MusicService) GetPosition() (float64, error) {
+	return m.audioPlayer.GetPosition()
+}
+
+// GetDuration 获取当前歌曲总时长（秒）
+func (m *MusicService) GetDuration() (float64, error) {
+	return m.audioPlayer.GetDuration()
+}
+
 // ===== 播放列表方法 =====
 
 // AddToPlaylist 添加到播放列表
@@ -355,14 +380,14 @@ func (m *MusicService) AddLibrary() error {
 
 	// 使用目录名称作为库名称
 	libName := filepath.Base(dirPath)
-	
+
 	// 如果名称已存在，添加时间戳后缀
 	if m.libraryManager.LibraryExists(libName) {
 		timestamp := time.Now().Format("20060102_150405")
 		libName = fmt.Sprintf("%s_%s", libName, timestamp)
 		log.Printf("⚠️ 音乐库 '%s' 已存在，使用新名称: %s", filepath.Base(dirPath), libName)
 	}
-	
+
 	return m.libraryManager.AddLibrary(libName, dirPath)
 }
 
@@ -393,9 +418,7 @@ func (m *MusicService) GetCurrentLibraryTracks() ([]string, error) {
 		return nil, err
 	}
 	result := make([]string, len(tracks))
-	for i, track := range tracks {
-		result[i] = track // track 已经是 string 类型（Path）
-	}
+	copy(result, tracks)
 	return result, nil
 }
 
@@ -487,23 +510,23 @@ func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, err
 				if track.Path == path {
 					// 找到匹配的音轨，使用扫描时获取的元数据
 					metadata := map[string]interface{}{
-						"title":    track.Title,
-						"artist":   track.Artist,
-						"album":    track.Album,
-						"duration": track.Duration,
-						"path":     track.Path,
-						"filename": track.Filename,
-						"size":     track.Size,
+						"title":      track.Title,
+						"artist":     track.Artist,
+						"album":      track.Album,
+						"duration":   track.Duration,
+						"path":       track.Path,
+						"filename":   track.Filename,
+						"size":       track.Size,
 						"lyric_path": track.LyricPath,
 					}
-					
+
 					log.Printf("✓ 从音乐库缓存获取元数据：%s - %s", track.Artist, track.Title)
 					return metadata, nil
 				}
 			}
 		}
 	}
-	
+
 	// 策略 2: 如果音乐库中没有，尝试从元数据管理器缓存中获取
 	if m.metadataManager != nil {
 		metadata, err := m.metadataManager.GetMetadata(path)
@@ -513,17 +536,17 @@ func (m *MusicService) GetSongMetadata(path string) (map[string]interface{}, err
 		}
 		log.Printf("⚠️ 元数据管理器读取失败：%v，使用基本信息", err)
 	}
-	
+
 	// 策略 3: 降级到基本信息
 	filename := filepath.Base(path)
 	return map[string]interface{}{
-		"title":    filename,
-		"artist":   "未知艺术家",
-		"album":    "未知专辑",
-		"duration": int64(0),
-		"path":     path,
-		"filename": filename,
-		"size":     int64(0),
+		"title":      filename,
+		"artist":     "未知艺术家",
+		"album":      "未知专辑",
+		"duration":   int64(0),
+		"path":       path,
+		"filename":   filename,
+		"size":       int64(0),
 		"lyric_path": "",
 	}, nil
 }
@@ -542,7 +565,7 @@ func (m *MusicService) GetTrackInfo(trackPath string) (*TrackInfo, error) {
 			}
 		}
 	}
-	
+
 	// 如果音乐库中没有，实时获取元数据
 	if m.libraryManager != nil {
 		track, err := m.libraryManager.GetTrackMetadata(trackPath)
@@ -551,7 +574,7 @@ func (m *MusicService) GetTrackInfo(trackPath string) (*TrackInfo, error) {
 			return track, nil
 		}
 	}
-	
+
 	// 降级：返回基本信息
 	filename := filepath.Base(trackPath)
 	return &TrackInfo{
@@ -621,6 +644,16 @@ func (m *MusicService) HasLyric(trackPath string) bool {
 	return m.lyricManager.HasLyric(trackPath)
 }
 
+// SetLyricOffset 设置歌词偏移量（用于同步调整）
+func (m *MusicService) SetLyricOffset(trackPath string, offset float64) {
+	m.lyricManager.SetCustomOffset(trackPath, offset)
+}
+
+// GetLyricOffset 获取歌词偏移量
+func (m *MusicService) GetLyricOffset(trackPath string) float64 {
+	return m.lyricManager.GetCustomOffset(trackPath)
+}
+
 // ===== 专辑封面管理方法 =====
 
 // GetAlbumArtDataURL 获取专辑封面的 Data URL
@@ -653,9 +686,32 @@ func (m *MusicService) CompactLibraries() (int, error) {
 	return m.libraryManager.CompactLibraries()
 }
 
+// MigrateToRelativePaths 将所有音乐库的路径迁移为相对路径
+func (m *MusicService) MigrateToRelativePaths() (int, error) {
+	if m.libraryManager == nil {
+		return 0, fmt.Errorf("音乐库管理器未初始化")
+	}
+	return m.libraryManager.MigrateToRelativePaths()
+}
+
 // GetPlaylistManager 获取播放列表管理器（用于批量操作）
 func (m *MusicService) GetPlaylistManager() *PlaylistManager {
 	return m.playlistManager
+}
+
+// GetLyricManager 获取歌词管理器
+func (m *MusicService) GetLyricManager() *LyricManager {
+	return m.lyricManager
+}
+
+// GetOrganizeService 获取整理音乐服务
+func (m *MusicService) GetOrganizeService() *OrganizeService {
+	return m.organizeService
+}
+
+// GetMediaKeyService 获取媒体键服务
+func (m *MusicService) GetMediaKeyService() *MediaKeyService {
+	return m.mediaKeyService
 }
 
 // Shutdown 关闭服务
@@ -672,14 +728,4 @@ func (m *MusicService) OrganizeLibrary() error {
 // DownloadLyricsForLibrary 为当前音乐库下载歌词
 func (m *MusicService) DownloadLyricsForLibrary() (successCount, failCount, skipCount int, errors []string) {
 	return m.organizeService.DownloadLyricsForLibrary()
-}
-
-// GetLyricManager 获取歌词管理器
-func (m *MusicService) GetLyricManager() *LyricManager {
-	return m.lyricManager
-}
-
-// GetOrganizeService 获取整理音乐服务
-func (m *MusicService) GetOrganizeService() *OrganizeService {
-	return m.organizeService
 }

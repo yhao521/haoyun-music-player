@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/file"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
 
 	"github.com/wailsapp/wails/v2/pkg/options"
 	runtime2 "github.com/wailsapp/wails/v2/pkg/runtime"

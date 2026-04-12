@@ -62,7 +62,7 @@ echo "📝 更新 build/config.yml 中的版本号为: $version_number"
 # 使用 sed 更新 build/config.yml 中的版本号
 # 注意：macOS 下的 sed -i 需要提供一个空字符串作为备份后缀
 sed -i "s/version: \".*\" # The application version/version: \"$version_number\" # The application version/" build/config.yml
-sed -i "s/const AppVersion = \".*\"/const AppVersion = \"$version_number\"/" main.go
+sed -i "s/const AppVersion = \".*\"/const AppVersion = \"$version_number\"/" app_init.go
 
 echo "✅ 版本号已更新"
 
@@ -74,7 +74,7 @@ echo "✅ 构建资源已同步"
 
 # 提交更改
 echo "📦 提交版本更新..."
-git add build/config.yml build/ main.go
+git add build/config.yml build/ app_init.go
 git commit -m "chore: bump version to $version_number"
 
 # 推送代码到远程仓库

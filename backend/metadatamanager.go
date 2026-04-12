@@ -14,9 +14,9 @@ import (
 
 // MetadataManager 元数据管理器
 type MetadataManager struct {
-	mu               sync.RWMutex
-	cache            map[string]map[string]interface{} // 缓存：文件路径 -> 元数据
-	durationReader   *AudioDurationReader              // 时长读取器
+	mu             sync.RWMutex
+	cache          map[string]map[string]interface{} // 缓存：文件路径 -> 元数据
+	durationReader *AudioDurationReader              // 时长读取器
 }
 
 // NewMetadataManager 创建元数据管理器
@@ -51,7 +51,7 @@ func (mm *MetadataManager) GetMetadata(filePath string) (map[string]interface{},
 		metadata["duration"] = duration
 	} else {
 		metadata["duration"] = int64(0)
-		log.Printf("⚠️ 读取时长失败 %s：%v", filePath, durationErr)
+		// log.Printf("⚠️ 读取时长失败 %s：%v", filePath, durationErr)
 	}
 
 	// 缓存结果
@@ -129,7 +129,7 @@ func (mm *MetadataManager) readID3v2(file *os.File) (map[string]interface{}, err
 
 	// 解析帧
 	metadata := mm.parseID3v2Frames(tagData)
-	
+
 	// 添加基本信息
 	basicInfo := mm.getBasicMetadata(file.Name())
 	for k, v := range basicInfo {
@@ -227,7 +227,7 @@ func (mm *MetadataManager) decodeUTF16(data []byte) string {
 	// 检查 BOM
 	bom := binary.LittleEndian.Uint16(data[:2])
 	var utf16Bytes []uint16
-	
+
 	if bom == 0xFEFF {
 		// Little Endian
 		utf16Bytes = mm.decodeUTF16LE(data[2:])
@@ -327,7 +327,7 @@ func (mm *MetadataManager) readID3v1(file *os.File) (map[string]interface{}, err
 	}
 
 	metadata := make(map[string]interface{})
-	
+
 	// 解析字段（固定长度，需要去除空字符）
 	title := strings.TrimRight(string(data[3:33]), "\x00")
 	artist := strings.TrimRight(string(data[33:63]), "\x00")

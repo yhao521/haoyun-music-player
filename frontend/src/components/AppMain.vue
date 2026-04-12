@@ -16,7 +16,7 @@ import {
   GetPlaylist,
   SetPlayMode,
   GetPlayMode,
-} from "../../bindings/github.com/yhao521/wailsMusicPlay/backend/musicservice";
+} from "../../bindings/github.com/yhao521/haoyun-music-player/backend/musicservice";
 
 // TrackInfo 音乐文件信息
 interface TrackInfo {
@@ -462,7 +462,13 @@ onUnmounted(() => {
 
     <!-- 播放控制 -->
     <div class="controls">
-      <button class="control-btn" @click="previous" :title="t('main.previousTrack')">⏮</button>
+      <button
+        class="control-btn"
+        @click="previous"
+        :title="t('main.previousTrack')"
+      >
+        ⏮
+      </button>
       <button
         class="control-btn play-btn"
         @click="togglePlayPause"
@@ -470,8 +476,10 @@ onUnmounted(() => {
       >
         {{ isPlaying ? "⏸" : "▶️" }}
       </button>
-      <button class="control-btn" @click="next" :title="t('main.nextTrack')">⏭</button>
-      
+      <button class="control-btn" @click="next" :title="t('main.nextTrack')">
+        ⏭
+      </button>
+
       <!-- 播放模式按钮 -->
       <button
         class="control-btn mode-btn"
@@ -525,7 +533,11 @@ onUnmounted(() => {
           <!-- 折叠/展开按钮 -->
           <button
             class="collapse-btn"
-            :title="playlistCollapsed ? t('main.expandPlaylist') : t('main.collapsePlaylist')"
+            :title="
+              playlistCollapsed
+                ? t('main.expandPlaylist')
+                : t('main.collapsePlaylist')
+            "
           >
             {{ playlistCollapsed ? "▼" : "▲" }}
           </button>
@@ -835,7 +847,8 @@ onUnmounted(() => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.7;
     transform: scale(1);
   }

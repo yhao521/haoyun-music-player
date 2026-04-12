@@ -5,9 +5,15 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/utils"
 )
 
 func main() {
+	// 初始化日志系统
+	if err := utils.InitLogger(); err != nil {
+		log.Printf("⚠️ 日志系统初始化失败: %v", err)
+	}
+
 	// 初始化应用核心组件
 	if err := initializeApp(); err != nil {
 		log.Fatal(err)
@@ -87,4 +93,3 @@ func setupMainMenuCallbacks(playPauseMenuItem, prevMenuItem, nextMenuItem *appli
 		}
 	})
 }
-

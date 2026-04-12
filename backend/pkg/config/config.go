@@ -8,18 +8,18 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/i18n"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/i18n"
 )
 
 // AppConfig 应用程序配置结构
 type AppConfig struct {
-	Language      string `json:"language"`        // 语言设置: zh-CN, en-US
-	Theme         string `json:"theme"`           // 主题: auto, light, dark
-	AutoLaunch    bool   `json:"autoLaunch"`      // 开机启动
-	KeepAwake     bool   `json:"keepAwake"`       // 保持唤醒
-	DefaultVolume int    `json:"defaultVolume"`   // 默认音量 (0-100)
-	ShowLyrics    bool   `json:"showLyrics"`      // 显示歌词
-	EnableMediaKeys bool `json:"enableMediaKeys"` // 启用媒体键
+	Language        string `json:"language"`        // 语言设置: zh-CN, en-US
+	Theme           string `json:"theme"`           // 主题: auto, light, dark
+	AutoLaunch      bool   `json:"autoLaunch"`      // 开机启动
+	KeepAwake       bool   `json:"keepAwake"`       // 保持唤醒
+	DefaultVolume   int    `json:"defaultVolume"`   // 默认音量 (0-100)
+	ShowLyrics      bool   `json:"showLyrics"`      // 显示歌词
+	EnableMediaKeys bool   `json:"enableMediaKeys"` // 启用媒体键
 	DefaultPlayMode string `json:"defaultPlayMode"` // 默认播放模式: order, loop, random, single
 }
 
@@ -93,7 +93,7 @@ func (cm *ConfigManager) Load() error {
 	defer cm.mu.Unlock()
 
 	configPath := cm.getConfigPath()
-	
+
 	// 检查文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Printf("📝 配置文件不存在，创建默认配置: %s", configPath)
@@ -114,7 +114,7 @@ func (cm *ConfigManager) Load() error {
 
 	// 应用加载的配置
 	cm.config = &loadedConfig
-	
+
 	log.Printf("✅ 配置已加载: %s", configPath)
 	log.Printf("   - 语言: %s", cm.config.Language)
 	log.Printf("   - 主题: %s", cm.config.Theme)
@@ -127,14 +127,14 @@ func (cm *ConfigManager) Load() error {
 func (cm *ConfigManager) Save() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	return cm.saveUnsafe()
 }
 
 // saveUnsafe 内部保存方法（调用者需持有锁）
 func (cm *ConfigManager) saveUnsafe() error {
 	configPath := cm.getConfigPath()
-	
+
 	// 序列化为 JSON（格式化输出，便于阅读）
 	data, err := json.MarshalIndent(cm.config, "", "  ")
 	if err != nil {
@@ -154,7 +154,7 @@ func (cm *ConfigManager) saveUnsafe() error {
 func (cm *ConfigManager) Get() *AppConfig {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	// 返回副本，避免外部修改
 	configCopy := *cm.config
 	return &configCopy
@@ -165,13 +165,13 @@ func (cm *ConfigManager) SetLanguage(locale string) error {
 	cm.mu.Lock()
 	cm.config.Language = locale
 	cm.mu.Unlock()
-	
+
 	// 同时更新翻译器
 	translator := i18n.GetTranslator()
 	if err := translator.SetLocale(locale); err != nil {
 		return fmt.Errorf("设置翻译器语言失败: %w", err)
 	}
-	
+
 	// 保存到文件
 	return cm.Save()
 }
@@ -181,7 +181,7 @@ func (cm *ConfigManager) SetTheme(theme string) error {
 	cm.mu.Lock()
 	cm.config.Theme = theme
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -190,7 +190,7 @@ func (cm *ConfigManager) SetAutoLaunch(enabled bool) error {
 	cm.mu.Lock()
 	cm.config.AutoLaunch = enabled
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -199,7 +199,7 @@ func (cm *ConfigManager) SetKeepAwake(enabled bool) error {
 	cm.mu.Lock()
 	cm.config.KeepAwake = enabled
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -208,11 +208,11 @@ func (cm *ConfigManager) SetDefaultVolume(volume int) error {
 	if volume < 0 || volume > 100 {
 		return fmt.Errorf("音量必须在 0-100 之间")
 	}
-	
+
 	cm.mu.Lock()
 	cm.config.DefaultVolume = volume
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -221,7 +221,7 @@ func (cm *ConfigManager) SetShowLyrics(show bool) error {
 	cm.mu.Lock()
 	cm.config.ShowLyrics = show
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -230,7 +230,7 @@ func (cm *ConfigManager) SetEnableMediaKeys(enabled bool) error {
 	cm.mu.Lock()
 	cm.config.EnableMediaKeys = enabled
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -242,15 +242,15 @@ func (cm *ConfigManager) SetDefaultPlayMode(mode string) error {
 		"random": true,
 		"single": true,
 	}
-	
+
 	if !validModes[mode] {
 		return fmt.Errorf("无效的播放模式: %s", mode)
 	}
-	
+
 	cm.mu.Lock()
 	cm.config.DefaultPlayMode = mode
 	cm.mu.Unlock()
-	
+
 	return cm.Save()
 }
 
@@ -259,12 +259,12 @@ func (cm *ConfigManager) ApplyLanguageToTranslator() {
 	cm.mu.RLock()
 	locale := cm.config.Language
 	cm.mu.RUnlock()
-	
+
 	translator := i18n.GetTranslator()
 	if err := translator.SetLocale(locale); err != nil {
 		log.Printf("⚠️ 应用语言设置失败: %v", err)
 		return
 	}
-	
+
 	log.Printf("✓ 已应用语言设置: %s", locale)
 }

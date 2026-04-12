@@ -6,20 +6,20 @@ import (
 	"log"
 	"time"
 
-	"github.com/yhao521/wailsMusicPlay/backend"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/config"
-	"github.com/yhao521/wailsMusicPlay/backend/pkg/i18n"
+	"github.com/yhao521/haoyun-music-player/backend"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/config"
+	"github.com/yhao521/haoyun-music-player/backend/pkg/i18n"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// 应用版本信息
-const AppVersion = "0.0.28"
+// AppVersion 应用版本信息
+const AppVersion = "0.0.33"
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed frontend/public/wails.png
+//go:embed build/tubiao.png
 var trayIcon []byte
 
 // TrackInfo 音乐文件信息（用于事件注册）
@@ -58,6 +58,7 @@ func registerEvents() {
 	application.RegisterEvent[int]("currentLyricLineChanged")
 	application.RegisterEvent[map[string]interface{}]("showNotification")
 	application.RegisterEvent[map[string]interface{}]("compactLibraries")
+	application.RegisterEvent[map[string]interface{}]("migrateToRelativePaths")
 	application.RegisterEvent[string]("playModeChanged")
 }
 
@@ -85,9 +86,9 @@ func initializeApp() error {
 	depManager = backend.NewDependencyManager()
 	log.Println("✓ 依赖管理器已初始化")
 
-	// 创建统一的音乐服务
+	// 创建统一的音乐服务（包含媒体键服务）
 	musicService = backend.NewMusicService()
-	log.Println("✓ 音乐服务已创建")
+	log.Println("✓ 音乐服务已创建（包含媒体键服务）")
 
 	// 创建 Wails 应用
 	app = application.New(application.Options{
@@ -107,7 +108,7 @@ func initializeApp() error {
 
 	musicService.SetApp(app)
 
-	// 初始化音乐服务
+	// 初始化音乐服务（内部会自动注册媒体键）
 	if err := musicService.Init(); err != nil {
 		return fmt.Errorf("初始化音乐服务失败：%w", err)
 	}
@@ -143,10 +144,14 @@ func checkDependencies() {
 				toolNames = append(toolNames, tool.Name)
 			}
 
-			app.Event.Emit("missingDependencies", map[string]interface{}{
-				"tools":   toolNames,
-				"message": fmt.Sprintf("检测到 %d 个依赖工具缺失，建议安装以获得完整功能", len(toolNames)),
-			})
+			if app != nil && app.Event != nil {
+				app.Event.Emit("missingDependencies", map[string]interface{}{
+					"tools":   toolNames,
+					"message": fmt.Sprintf("检测到 %d 个依赖工具缺失，建议安装以获得完整功能", len(toolNames)),
+				})
+			} else if app != nil {
+				log.Printf("[checkDependencies] 警告: app.Event 为 nil，跳过事件发送")
+			}
 		}
 	}()
 }

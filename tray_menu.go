@@ -8,30 +8,40 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/yhao521/wailsMusicPlay/backend"
+	"github.com/yhao521/haoyun-music-player/backend"
 )
+
+// safeEmit 安全地发送事件，避免空指针异常
+func safeEmit(eventName string, data interface{}) {
+	if app != nil && app.Event != nil {
+		app.Event.Emit(eventName, data)
+	} else if app != nil {
+		log.Printf("[tray_menu] 警告: app.Event 为 nil，跳过事件发送 [%s]", eventName)
+	}
+}
 
 // 托盘菜单相关变量
 var (
-	tray           *application.SystemTray
-	menu           *application.Menu
-	playPauseItem  *application.MenuItem
-	prevItem       *application.MenuItem
-	nextItem       *application.MenuItem
-	mainWindowItem *application.MenuItem
-	browseItem     *application.MenuItem
-	favoriteItem   *application.MenuItem
-	playModeItem   *application.MenuItem
-	musicLibItem   *application.MenuItem
-	toolsMenuItem  *application.MenuItem
+	tray             *application.SystemTray
+	menu             *application.Menu
+	playPauseItem    *application.MenuItem
+	prevItem         *application.MenuItem
+	nextItem         *application.MenuItem
+	mainWindowItem   *application.MenuItem
+	browseItem       *application.MenuItem
+	favoriteItem     *application.MenuItem
+	playModeItem     *application.MenuItem
+	musicLibItem     *application.MenuItem
+	toolsMenuItem    *application.MenuItem
 	organizeMenuItem *application.MenuItem
-	nowPlayingItem *application.MenuItem
-	downloadItem   *application.MenuItem
-	wakeItem       *application.MenuItem
-	launchItem     *application.MenuItem
-	settingItem    *application.MenuItem
-	versionItem    *application.MenuItem
-	quitItem       *application.MenuItem
+	nowPlayingItem   *application.MenuItem
+	lyricDisplayItem *application.MenuItem // 歌词显示菜单项
+	downloadItem     *application.MenuItem
+	wakeItem         *application.MenuItem
+	launchItem       *application.MenuItem
+	settingItem      *application.MenuItem
+	versionItem      *application.MenuItem
+	quitItem         *application.MenuItem
 
 	// 播放模式子菜单项
 	playModeOrder  *application.MenuItem
@@ -41,13 +51,18 @@ var (
 
 	// 音乐库菜单
 	musicLibMenu *application.Menu
-	
+
 	// 防重复提交标志
-	isAddingLibrary   bool
+	isAddingLibrary     bool
 	isRefreshingLibrary bool
-	
+
 	// 整理音乐操作标志
 	isOrganizingLibrary bool
+
+	// 歌词更新控制
+	lyricUpdateTicker *time.Ticker
+	lyricUpdateStop   chan struct{}
+	lastLyricText     string // 用于智能更新，避免重复设置
 )
 
 // createTrayAndMenu 创建系统托盘和菜单
@@ -73,15 +88,19 @@ func createTrayMenuItems() {
 	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
 	nowPlayingItem.SetEnabled(false)
 
+	// 歌词显示菜单项
+	lyricDisplayItem = application.NewMenuItem(t("lyric.noLyric"))
+	lyricDisplayItem.SetEnabled(false)
+
 	// 播放控制菜单项
 	playPauseItem = application.NewMenuItem(t("menu.playPause"))
-	playPauseItem.SetAccelerator("Space")
+	playPauseItem.SetAccelerator("CmdOrCtrl+Shift+P")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		handlePlayPauseClick()
 	})
 
 	prevItem = application.NewMenuItem(t("menu.previousTrack"))
-	prevItem.SetAccelerator("CmdOrCtrl+[")
+	prevItem.SetAccelerator("CmdOrCtrl+Shift+B")
 	prevItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Previous(); err != nil {
 			log.Printf("切换上一曲失败：%v", err)
@@ -89,7 +108,7 @@ func createTrayMenuItems() {
 	})
 
 	nextItem = application.NewMenuItem(t("menu.nextTrack"))
-	nextItem.SetAccelerator("CmdOrCtrl+]")
+	nextItem.SetAccelerator("CmdOrCtrl+Shift+N")
 	nextItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Next(); err != nil {
 			log.Printf("切换下一曲失败：%v", err)
@@ -193,18 +212,20 @@ func buildInitialTrayMenu() {
 
 	// 构建工具菜单
 	buildToolsMenu()
-	
+
 	// 构建整理音乐菜单
 	buildOrganizeMenu()
 
 	// 组装完整菜单
 	menu = application.NewMenuFromItems(
 		nowPlayingItem,
+		lyricDisplayItem, // 添加歌词显示项
 		application.NewMenuItemSeparator(),
 		playPauseItem,
 		prevItem,
 		nextItem,
 		application.NewMenuItemSeparator(),
+		mainWindowItem,
 		browseItem,
 		favoriteItem,
 		playModeItem,
@@ -215,7 +236,6 @@ func buildInitialTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
-		mainWindowItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
@@ -287,6 +307,7 @@ func rebuildTrayMenu() {
 	log.Println("🔄 开始重建托盘菜单...")
 
 	// 更新所有菜单项的标签
+	// playPauseItem 恢复为默认标签，后续由 playbackStateChanged 事件驱动更新
 	playPauseItem.SetLabel(t("menu.playPause"))
 	prevItem.SetLabel(t("menu.previousTrack"))
 	nextItem.SetLabel(t("menu.nextTrack"))
@@ -310,14 +331,17 @@ func rebuildTrayMenu() {
 	buildOrganizeMenu()
 
 	updateNowPlayingItem()
+	updateLyricDisplay() // 更新歌词显示
 
 	menu = application.NewMenuFromItems(
 		nowPlayingItem,
+		lyricDisplayItem, // 添加歌词显示项
 		application.NewMenuItemSeparator(),
 		playPauseItem,
 		prevItem,
 		nextItem,
 		application.NewMenuItemSeparator(),
+		mainWindowItem,
 		browseItem,
 		favoriteItem,
 		playModeItem,
@@ -328,7 +352,6 @@ func rebuildTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
-		mainWindowItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
@@ -344,6 +367,10 @@ func setupTrayEventListeners() {
 	app.Event.On("currentTrackChanged", func(event *application.CustomEvent) {
 		log.Printf("收到歌曲变化事件：%v", event.Data)
 		updateNowPlayingItem()
+		// 歌曲切换时立即更新一次歌词
+		updateLyricDisplay()
+		// 如果正在播放，确保歌词更新在运行
+		startLyricUpdateTicker()
 	})
 
 	// 监听播放模式变化事件
@@ -351,6 +378,21 @@ func setupTrayEventListeners() {
 		if mode, ok := event.Data.(string); ok {
 			log.Printf("✓ 收到播放模式变化事件：%s", mode)
 			updatePlayModeMenuLabels(mode)
+		}
+	})
+
+	// 监听播放状态变化事件
+	app.Event.On("playbackStateChanged", func(event *application.CustomEvent) {
+		if state, ok := event.Data.(string); ok {
+			log.Printf("🎵 收到播放状态变化事件：%s", state)
+			updatePlayPauseItemLabel(state)
+
+			// 根据播放状态智能启停歌词更新
+			if state == "playing" {
+				startLyricUpdateTicker()
+			} else if state == "paused" || state == "stopped" {
+				stopLyricUpdateTicker()
+			}
 		}
 	})
 }
@@ -530,7 +572,7 @@ func handleSplitLyricsAndMusic() {
 	currentLib := musicService.GetCurrentLibrary()
 	if currentLib == nil {
 		log.Println("当前没有音乐库")
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.info"),
 			"message": "当前没有音乐库",
 			"type":    "info",
@@ -540,7 +582,7 @@ func handleSplitLyricsAndMusic() {
 		return
 	}
 
-	app.Event.Emit("showNotification", map[string]interface{}{
+	safeEmit("showNotification", map[string]interface{}{
 		"title":   t("notification.info"),
 		"message": t("organize.splittingLyrics"),
 		"type":    "info",
@@ -551,7 +593,7 @@ func handleSplitLyricsAndMusic() {
 		// 调用后端的整理音乐库方法
 		if err := musicService.OrganizeLibrary(); err != nil {
 			log.Printf("整理音乐库失败：%v", err)
-			app.Event.Emit("showNotification", map[string]interface{}{
+			safeEmit("showNotification", map[string]interface{}{
 				"title":   t("notification.error"),
 				"message": fmt.Sprintf("整理音乐库失败: %v", err),
 				"type":    "error",
@@ -565,7 +607,7 @@ func handleSplitLyricsAndMusic() {
 		isOrganizingLibrary = false
 		rebuildTrayMenu()
 
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.success"),
 			"message": t("organize.splitSuccess"),
 			"type":    "success",
@@ -599,7 +641,7 @@ func handleDownloadLyrics() {
 	currentLib := musicService.GetCurrentLibrary()
 	if currentLib == nil {
 		log.Println("当前没有音乐库")
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.info"),
 			"message": "当前没有音乐库",
 			"type":    "info",
@@ -609,7 +651,7 @@ func handleDownloadLyrics() {
 		return
 	}
 
-	app.Event.Emit("showNotification", map[string]interface{}{
+	safeEmit("showNotification", map[string]interface{}{
 		"title":   t("notification.info"),
 		"message": t("organize.downloadingLyrics"),
 		"type":    "info",
@@ -633,7 +675,7 @@ func handleDownloadLyrics() {
 		}
 
 		message := fmt.Sprintf(t("organize.downloadSuccess"), successCount, failCount, skipCount)
-		app.Event.Emit("showNotification", map[string]interface{}{
+		safeEmit("showNotification", map[string]interface{}{
 			"title":   t("notification.success"),
 			"message": message,
 			"type":    "success",
@@ -650,11 +692,11 @@ func handleAddLibrary() {
 		log.Println("⚠️ 添加音乐库操作正在进行中,忽略重复请求")
 		return
 	}
-	
+
 	// 立即设置标志并更新菜单,禁用按钮
 	isAddingLibrary = true
 	rebuildTrayMenu()
-	
+
 	log.Println(t("library.addNew"))
 
 	if musicService == nil {
@@ -683,7 +725,7 @@ func handleAddLibrary() {
 	}
 
 	log.Println("✓ 音乐库添加成功,刷新菜单")
-	
+
 	// 重置标志并重建菜单
 	isAddingLibrary = false
 	rebuildTrayMenu()
@@ -701,11 +743,11 @@ func handleRefreshLibrary() {
 		log.Println("⚠️ 刷新音乐库操作正在进行中,忽略重复请求")
 		return
 	}
-	
+
 	// 立即设置标志并更新菜单,禁用按钮
 	isRefreshingLibrary = true
 	rebuildTrayMenu()
-	
+
 	log.Println(t("library.refreshCurrent"))
 
 	if musicService == nil {
@@ -749,7 +791,7 @@ func handleRefreshLibrary() {
 		// 操作完成后重置标志并重建菜单
 		isRefreshingLibrary = false
 		rebuildTrayMenu()
-		
+
 		loadLibraryToPlaylist()
 	}()
 }
@@ -787,7 +829,7 @@ func handleDeleteLibrary() {
 			break
 		}
 	}
-	
+
 	if !found {
 		log.Printf("⚠️ 音乐库 %s 在列表中不存在,可能已被删除", libName)
 		app.Event.Emit("showNotification", map[string]interface{}{
@@ -1045,3 +1087,130 @@ func buildToolsMenu() {
 	log.Println("✅ 依赖工具菜单构建完成")
 }
 
+// updatePlayPauseItemLabel 根据播放状态更新播放/暂停菜单项标签
+func updatePlayPauseItemLabel(state string) {
+	var newLabel string
+	switch state {
+	case "playing":
+		newLabel = t("menu.pause")
+	case "paused":
+		newLabel = t("menu.play")
+	case "stopped":
+		newLabel = t("menu.play")
+	default:
+		newLabel = t("menu.playPause")
+	}
+
+	playPauseItem.SetLabel(newLabel)
+	log.Printf("✓ 播放/暂停菜单项已更新为：%s", newLabel)
+}
+
+// startLyricUpdateTicker 启动歌词定时更新
+func startLyricUpdateTicker() {
+	if lyricUpdateTicker != nil {
+		return // 已经在运行
+	}
+
+	log.Println("🎤 启动歌词定时更新")
+	lyricUpdateTicker = time.NewTicker(500 * time.Millisecond) // 每500ms更新一次
+	lyricUpdateStop = make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-lyricUpdateTicker.C:
+				updateLyricDisplay()
+			case <-lyricUpdateStop:
+				log.Println("🎤 停止歌词定时更新")
+				return
+			}
+		}
+	}()
+}
+
+// stopLyricUpdateTicker 停止歌词定时更新
+func stopLyricUpdateTicker() {
+	if lyricUpdateTicker == nil {
+		return
+	}
+
+	log.Println("🎤 请求停止歌词定时更新")
+	lyricUpdateTicker.Stop()
+	close(lyricUpdateStop)
+	lyricUpdateTicker = nil
+	lyricUpdateStop = nil
+}
+
+// updateLyricDisplay 更新歌词显示（智能更新，避免重复设置）
+func updateLyricDisplay() {
+	if musicService == nil || lyricDisplayItem == nil {
+		return
+	}
+
+	// 获取当前歌曲路径
+	trackPath, err := musicService.GetCurrentTrack()
+	if err != nil || trackPath == "" {
+		setLyricLabel(t("lyric.noLyric"))
+		return
+	}
+
+	// 获取当前播放位置
+	position, err := musicService.GetPosition()
+	if err != nil {
+		// log.Printf("⚠️ 获取播放位置失败: %v", err)
+		return // 静默失败，不干扰用户
+	}
+
+	// 先尝试加载歌词（这会触发 findLyricFile 并缓存结果）
+	lyricInfo, loadErr := musicService.LoadLyric(trackPath)
+	if loadErr != nil {
+		// log.Printf("⚠️ 加载歌词失败: %v", loadErr)
+	} else if lyricInfo != nil && lyricInfo.HasLyric {
+		// log.Printf("✅ 歌词加载成功 - 行数: %d", len(lyricInfo.Lines))
+	}
+
+	// 检查是否有歌词
+	hasLyric := musicService.HasLyric(trackPath)
+	// log.Printf("🎤 检查结果 - 路径: %s, 有歌词: %v", trackPath, hasLyric)
+
+	// 获取当前歌词行索引
+	lineIndex, err := musicService.GetCurrentLyricLine(trackPath, position)
+	if err != nil || lineIndex < 0 {
+		// log.Printf("🎤 未找到当前歌词行 - 错误: %v, 索引: %d", err, lineIndex)
+		// 检查是否有歌词文件
+		if hasLyric {
+			setLyricLabel(t("lyric.instrumental"))
+		} else {
+			setLyricLabel(t("lyric.noLyric"))
+		}
+		return
+	}
+
+	// 获取所有歌词
+	lyrics, err := musicService.GetAllLyrics(trackPath)
+	if err != nil || lineIndex >= len(lyrics) {
+		// log.Printf("🎤 获取歌词失败 - 错误: %v, 索引: %d, 总数: %d", err, lineIndex, len(lyrics))
+		setLyricLabel(t("lyric.loading"))
+		return
+	}
+
+	// 获取当前歌词文本并截断
+	lyricText := lyrics[lineIndex].Content
+	runes := []rune(lyricText)
+	if len(runes) > 25 {
+		lyricText = string(runes[:22]) + "..."
+	}
+
+	// 智能更新：只有当歌词变化时才更新UI
+	newLabel := "🎤 " + lyricText
+	// log.Printf("🎤 更新歌词显示: %s", newLabel)
+	setLyricLabel(newLabel)
+}
+
+// setLyricLabel 设置歌词标签（带智能去重）
+func setLyricLabel(newLabel string) {
+	if newLabel != lastLyricText {
+		lyricDisplayItem.SetLabel(newLabel)
+		lastLyricText = newLabel
+	}
+}

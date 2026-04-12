@@ -17,7 +17,7 @@
 ### 1. 在代码中使用
 
 ```go
-import "github.com/yhao521/wailsMusicPlay/backend"
+import "github.com/yhao521/haoyun-music-player/backend"
 
 // 创建服务
 musicService := backend.NewMusicService()
@@ -41,6 +41,7 @@ go build -o demo_metadata ./demo_metadata.go
 ```
 
 **示例输出：**
+
 ```
 🎵 音频文件元数据读取演示
 ===================================================
@@ -119,13 +120,13 @@ service.ClearMetadataCache()
 
 ## 📊 支持的格式
 
-| 格式 | 标签类型 | 支持状态 | 字段 |
-|------|---------|---------|------|
-| MP3 | ID3v1 | ✅ 完全支持 | title, artist, album, year, comment |
-| MP3 | ID3v2 | ✅ 完全支持 | title, artist, album, year, genre, track, comment |
+| 格式 | 标签类型       | 支持状态    | 字段                                                    |
+| ---- | -------------- | ----------- | ------------------------------------------------------- |
+| MP3  | ID3v1          | ✅ 完全支持 | title, artist, album, year, comment                     |
+| MP3  | ID3v2          | ✅ 完全支持 | title, artist, album, year, genre, track, comment       |
 | FLAC | Vorbis Comment | ✅ 完全支持 | TITLE, ARTIST, ALBUM, DATE, GENRE, TRACKNUMBER, COMMENT |
-| WAV | INFO chunk | ⚠️ 基本信息 | 仅文件名 |
-| OGG | Vorbis Comment | ⚠️ 基本信息 | 仅文件名 |
+| WAV  | INFO chunk     | ⚠️ 基本信息 | 仅文件名                                                |
+| OGG  | Vorbis Comment | ⚠️ 基本信息 | 仅文件名                                                |
 
 ## 💡 使用技巧
 
@@ -165,11 +166,13 @@ if needToFreeMemory {
 ### 问题 1: 读不到元数据
 
 **可能原因：**
+
 - 文件没有嵌入标签
 - 标签格式不支持
 - 文件损坏
 
 **解决方案：**
+
 ```bash
 # 检查文件是否有标签
 mp3info -p "%t - %a - %l\n" song.mp3
@@ -187,6 +190,7 @@ ffprobe -show_format song.mp3
 ### 问题 3: 内存占用过高
 
 **解决方案：**
+
 ```go
 // 定期清理缓存
 service.ClearMetadataCache()
@@ -197,12 +201,12 @@ defer service.ClearMetadataCache()
 
 ## 📈 性能指标
 
-| 操作 | 耗时 |
-|------|------|
-| 首次读取 MP3 | 5-20ms |
-| 首次读取 FLAC | 3-15ms |
-| 缓存命中 | <1ms |
-| 1000 首歌曲批量扫描 | 2-5 秒 |
+| 操作                | 耗时       |
+| ------------------- | ---------- |
+| 首次读取 MP3        | 5-20ms     |
+| 首次读取 FLAC       | 3-15ms     |
+| 缓存命中            | <1ms       |
+| 1000 首歌曲批量扫描 | 2-5 秒     |
 | 内存占用（1000 首） | 0.2-0.5 MB |
 
 ## 🎯 下一步
@@ -217,6 +221,7 @@ defer service.ClearMetadataCache()
 欢迎提交 Issue 和 Pull Request！
 
 可以改进的方向：
+
 - 添加更多音频格式支持（WAV、OGG、AAC 等）
 - 实现元数据编辑功能
 - 添加在线数据库集成（MusicBrainz）

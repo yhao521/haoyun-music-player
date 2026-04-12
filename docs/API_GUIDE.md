@@ -5,7 +5,7 @@
 ### 1.1 播放控制
 
 ```typescript
-import { MusicService } from "../bindings/github.com/yhao521/wailsMusicPlay";
+import { MusicService } from "../bindings/github.com/yhao521/haoyun-music-player";
 
 // 播放音乐
 await MusicService.Play();
@@ -203,7 +203,7 @@ EventsOn("libraryUpdated", (library: MusicLibrary) => {
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { MusicService } from "../bindings/github.com/yhao521/wailsMusicPlay";
+import { MusicService } from "../bindings/github.com/yhao521/haoyun-music-player";
 import { EventsOn, EventsOff } from "@wailsio/runtime";
 
 const isPlaying = ref(false);
@@ -329,7 +329,7 @@ button:hover {
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { MusicService } from "../bindings/github.com/yhao521/wailsMusicPlay";
+import { MusicService } from "../bindings/github.com/yhao521/haoyun-music-player";
 import { EventsOn, EventsOff } from "@wailsio/runtime";
 
 const playlist = ref<string[]>([]);
@@ -426,7 +426,7 @@ import { ref, onMounted } from "vue";
 import {
   MusicService,
   MusicLibrary,
-} from "../bindings/github.com/yhao521/wailsMusicPlay";
+} from "../bindings/github.com/yhao521/haoyun-music-player";
 import { EventsOn, EventsOff } from "@wailsio/runtime";
 
 const libraries = ref<MusicLibrary[]>([]);

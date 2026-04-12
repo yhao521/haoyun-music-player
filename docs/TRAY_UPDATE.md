@@ -62,10 +62,10 @@ func createSystemTray(app *application.App, musicService *MusicService) {
 
 #### 前端 TypeScript 绑定（自动生成）
 
-Wails v3 会自动扫描 `MusicService` 的公开方法，并在 `frontend/bindings/github.com/yhao521/wailsMusicPlay/` 目录下生成对应的 TypeScript 文件：
+Wails v3 会自动扫描 `MusicService` 的公开方法，并在 `frontend/bindings/github.com/yhao521/haoyun-music-player/` 目录下生成对应的 TypeScript 文件：
 
 ```typescript
-// frontend/bindings/github.com/yhao521/wailsMusicPlay/musicservice.ts (自动生成)
+// frontend/bindings/github.com/yhao521/haoyun-music-player/musicservice.ts (自动生成)
 export function TogglePlayPause(): Promise<boolean>;
 export function Play(): Promise<void>;
 export function Pause(): Promise<void>;
@@ -89,7 +89,7 @@ const togglePlayPause = async () => {
 #### 方式二：直接导入绑定模块
 
 ```typescript
-import { MusicService } from "../bindings/github.com/yhao521/wailsMusicPlay";
+import { MusicService } from "../bindings/github.com/yhao521/haoyun-music-player";
 
 await MusicService.Play();
 ```
@@ -211,10 +211,10 @@ wails3 dev -config ./build/config.yml
 
 ```bash
 # 查看生成的绑定文件
-ls -la frontend/bindings/github.com/yhao521/wailsMusicPlay/
+ls -la frontend/bindings/github.com/yhao521/haoyun-music-player/
 
 # 查看内容
-cat frontend/bindings/github.com/yhao521/wailsMusicPlay/*.ts
+cat frontend/bindings/github.com/yhao521/haoyun-music-player/*.ts
 ```
 
 ## 📊 完整调用流程示例

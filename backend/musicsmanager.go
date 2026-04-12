@@ -87,8 +87,10 @@ func (pm *PlaylistManager) AddToPlaylist(path string) error {
 	}
 
 	pm.playlist = append(pm.playlist, path)
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		pm.app.Event.Emit("playlistUpdated", pm.playlist)
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 	return nil
 }
@@ -110,8 +112,10 @@ func (pm *PlaylistManager) AddToPlaylistBatch(paths []string) error {
 	pm.playlist = append(pm.playlist, validPaths...)
 	
 	// 只发送一次事件
-	if pm.app != nil && len(validPaths) > 0 {
+	if pm.app != nil && pm.app.Event != nil && len(validPaths) > 0 {
 		pm.app.Event.Emit("playlistUpdated", pm.playlist)
+	} else if pm.app != nil && len(validPaths) > 0 {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 	
 	return nil
@@ -124,8 +128,10 @@ func (pm *PlaylistManager) ClearPlaylist() error {
 
 	pm.playlist = make([]string, 0)
 	pm.current = -1
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		pm.app.Event.Emit("playlistUpdated", pm.playlist)
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 	return nil
 }
@@ -156,10 +162,12 @@ func (pm *PlaylistManager) PlayIndex(index int) error {
 	pm.current = index
 	path := pm.playlist[index]
 
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		// 使用音乐库获取完整的 TrackInfo（O(1) 查找）
 		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -194,10 +202,12 @@ func (pm *PlaylistManager) Next() error {
 
 	path := pm.playlist[pm.current]
 
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		// 使用音乐库获取完整的 TrackInfo
 		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -231,10 +241,12 @@ func (pm *PlaylistManager) Previous() error {
 
 	path := pm.playlist[pm.current]
 
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		// 使用音乐库获取完整的 TrackInfo
 		trackInfo := createTrackInfoFromLibrary(path, pm.libraryManager)
 		pm.app.Event.Emit("currentTrackChanged", trackInfo)
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 
 	return nil
@@ -260,10 +272,12 @@ func (pm *PlaylistManager) SetPlayMode(mode string) error {
 	log.Printf("播放模式设置为：%s", mode)
 	
 	// 发送播放模式变化事件，通知所有监听者（前端和托盘菜单）
-	if pm.app != nil {
+	if pm.app != nil && pm.app.Event != nil {
 		go func() {
 			pm.app.Event.Emit("playModeChanged", mode)
 		}()
+	} else if pm.app != nil {
+		log.Printf("[PlaylistManager] 警告: app.Event 为 nil，跳过事件发送")
 	}
 	
 	return nil

@@ -1,6 +1,8 @@
 {
   "menu": {
     "nowPlaying": "Now Playing: None",
+    "play": "Play",
+    "pause": "Pause",
     "playPause": "Play/Pause",
     "previousTrack": "Previous Track",
     "nextTrack": "Next Track",
@@ -32,6 +34,12 @@
     "copy": "Copy",
     "paste": "Paste",
     "openRuntimeDir": "Open Runtime Directory"
+  },
+  "lyric": {
+    "currentLyric": "Current Lyric",
+    "noLyric": "🎵 No Lyrics",
+    "instrumental": "🎵 Instrumental",
+    "loading": "🎤 Loading..."
   },
   "playMode": {
     "order": "Order Play",
