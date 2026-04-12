@@ -169,9 +169,31 @@ func (mks *MediaKeyService) UnregisterMediaKeys() {
 // handlePlayPause 处理播放/暂停事件
 func (mks *MediaKeyService) handlePlayPause() {
 	log.Println("▶️⏸️  收到媒体键:播放/暂停")
-	if mks.musicService != nil {
-		mks.musicService.TogglePlayPause()
+	if mks.musicService == nil {
+		return
 	}
+
+	// 检查播放列表是否为空
+	playlist, _ := mks.musicService.GetPlaylist()
+	if len(playlist) == 0 {
+		log.Println("📋 播放列表为空，尝试加载当前音乐库")
+		currentLib := mks.musicService.GetCurrentLibrary()
+		if currentLib == nil {
+			log.Println("⚠️ 当前没有音乐库，请先添加音乐库")
+			return
+		}
+
+		if err := mks.musicService.LoadCurrentLibrary(); err != nil {
+			log.Printf("❌ 加载音乐库失败：%v", err)
+			return
+		}
+
+		log.Printf("✅ 已从音乐库 %s 加载并播放", currentLib.Name)
+		return
+	}
+
+	// 播放列表不为空，正常切换播放/暂停
+	mks.musicService.TogglePlayPause()
 }
 
 // handleNext 处理下一曲事件
