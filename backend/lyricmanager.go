@@ -1118,14 +1118,35 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 	for i, trackPath := range musicFiles {
 		log.Printf("[%d/%d] 处理: %s", i+1, len(musicFiles), filepath.Base(trackPath))
 
-		// 检查是否已有歌词文件（在 LIB_LYRIC 目录下）
+		// 检查是否已有歌词文件（三个位置）
 		baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-		lrcPath := filepath.Join(lyricsDir, baseName+".lrc")
-
-		if _, err := os.Stat(lrcPath); err == nil {
-			log.Printf("  ⏭️  跳过: 歌词文件已存在")
+		trackDir := filepath.Dir(trackPath)
+		
+		// 策略 1: 检查音乐文件同目录
+		lrcPath1 := filepath.Join(trackDir, baseName+".lrc")
+		if _, err := os.Stat(lrcPath1); err == nil {
+			log.Printf("  ⏭️  跳过: 歌词已存在（同目录）")
 			skipCount++
 			continue
+		}
+		
+		// 策略 2: 检查全局歌词目录
+		lrcPath2 := filepath.Join(lyricsDir, baseName+".lrc")
+		if _, err := os.Stat(lrcPath2); err == nil {
+			log.Printf("  ⏭️  跳过: 歌词已存在（全局目录）")
+			skipCount++
+			continue
+		}
+		
+		// 策略 3: 检查 LIB_LYRIC 分离目录
+		if strings.Contains(trackDir, "LIB_MUSIC") {
+			lyricDir := strings.Replace(trackDir, "LIB_MUSIC", "LIB_LYRIC", 1)
+			lrcPath3 := filepath.Join(lyricDir, baseName+".lrc")
+			if _, err := os.Stat(lrcPath3); err == nil {
+				log.Printf("  ⏭️  跳过: 歌词已存在（分离目录）")
+				skipCount++
+				continue
+			}
 		}
 
 		// 获取元数据
