@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yhao521/haoyun-music-player/backend/pkg/file"
@@ -1063,11 +1064,11 @@ func isUnreserved(r rune) bool {
 		r == '-' || r == '_' || r == '.' || r == '~'
 }
 
-// DownloadLyricsForLibrary 为音乐库中的所有歌曲下载歌词
+// DownloadLyricsForLibrary 为音乐库中的所有歌曲下载歌词（并发优化版）
 func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataManager *MetadataManager) (successCount, failCount, skipCount int, errors []string) {
 	log.Printf("🎵 开始为音乐库下载歌词: %s", libraryPath)
 
-	// 创建 LIB_LYRIC 目录
+	// 创建全局歌词目录
 	lyricsDir := lm.lyricDir
 	if err := os.MkdirAll(lyricsDir, 0755); err != nil {
 		errors = append(errors, fmt.Sprintf("创建歌词目录失败: %v", err))
@@ -1114,93 +1115,153 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 
 	log.Printf("📊 找到 %d 个音乐文件", len(musicFiles))
 
-	// 逐个下载歌词
-	for i, trackPath := range musicFiles {
-		log.Printf("[%d/%d] 处理: %s", i+1, len(musicFiles), filepath.Base(trackPath))
+	// ========== 阶段 1: 预检查，建立待下载列表 ==========
+	log.Println("🔍 阶段 1/2: 快速扫描已有歌词...")
+	type downloadTask struct {
+		trackPath string
+		baseName  string
+		title     string
+		artist    string
+		album     string
+	}
 
-		// 检查是否已有歌词文件（三个位置）
+	var tasks []downloadTask
+
+	for _, trackPath := range musicFiles {
 		baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
 		trackDir := filepath.Dir(trackPath)
-		
+
 		// 策略 1: 检查音乐文件同目录
 		lrcPath1 := filepath.Join(trackDir, baseName+".lrc")
 		if _, err := os.Stat(lrcPath1); err == nil {
-			log.Printf("  ⏭️  跳过: 歌词已存在（同目录）")
 			skipCount++
 			continue
 		}
-		
+
 		// 策略 2: 检查全局歌词目录
 		lrcPath2 := filepath.Join(lyricsDir, baseName+".lrc")
 		if _, err := os.Stat(lrcPath2); err == nil {
-			log.Printf("  ⏭️  跳过: 歌词已存在（全局目录）")
 			skipCount++
 			continue
 		}
-		
+
 		// 策略 3: 检查 LIB_LYRIC 分离目录
 		if strings.Contains(trackDir, "LIB_MUSIC") {
 			lyricDir := strings.Replace(trackDir, "LIB_MUSIC", "LIB_LYRIC", 1)
 			lrcPath3 := filepath.Join(lyricDir, baseName+".lrc")
 			if _, err := os.Stat(lrcPath3); err == nil {
-				log.Printf("  ⏭️  跳过: 歌词已存在（分离目录）")
 				skipCount++
 				continue
 			}
 		}
 
-		// 获取元数据
-		title := ""
-		artist := ""
-		album := ""
+		// 需要下载，准备任务
+		task := downloadTask{
+			trackPath: trackPath,
+			baseName:  baseName,
+		}
 
+		// 获取元数据
 		if metadataManager != nil {
 			meta, err := metadataManager.GetMetadata(trackPath)
 			if err == nil {
 				if t, ok := meta["title"].(string); ok {
-					title = t
+					task.title = t
 				}
 				if a, ok := meta["artist"].(string); ok {
-					artist = a
+					task.artist = a
 				}
 				if al, ok := meta["album"].(string); ok {
-					album = al
+					task.album = al
 				}
 			}
 		}
 
-		// 如果元数据中没有标题和艺术家,使用文件名
-		if title == "" || artist == "" {
-			fileName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
+		// 如果元数据中没有标题和艺术家，使用文件名
+		if task.title == "" || task.artist == "" {
+			fileName := baseName
 			parts := strings.Split(fileName, " - ")
 			if len(parts) >= 2 {
-				if artist == "" {
-					artist = strings.TrimSpace(parts[0])
+				if task.artist == "" {
+					task.artist = strings.TrimSpace(parts[0])
 				}
-				if title == "" {
-					title = strings.TrimSpace(parts[1])
+				if task.title == "" {
+					task.title = strings.TrimSpace(parts[1])
 				}
 			} else {
-				if title == "" {
-					title = fileName
+				if task.title == "" {
+					task.title = fileName
 				}
 			}
 		}
 
-		// 使用多源降级策略下载歌词，直接保存到 LIB_LYRIC 目录
-		err := lm.DownloadLyricWithFallbackToDir(trackPath, lyricsDir, title, artist, album)
-		if err != nil {
-			log.Printf("  ❌ 失败: %v", err)
-			failCount++
-			errors = append(errors, fmt.Sprintf("%s: %v", filepath.Base(trackPath), err))
-		} else {
-			log.Printf("  ✓ 成功")
-			successCount++
-		}
-
-		// 避免频繁请求,添加延迟
-		time.Sleep(500 * time.Millisecond)
+		tasks = append(tasks, task)
 	}
+
+	log.Printf("✅ 扫描完成: 跳过 %d 首，待下载 %d 首", skipCount, len(tasks))
+
+	if len(tasks) == 0 {
+		log.Println("✓ 所有歌曲已有歌词，无需下载")
+		return
+	}
+
+	// ========== 阶段 2: 并发下载 ==========
+	log.Printf("🚀 阶段 2/2: 开始并发下载歌词（最大并发数: 5）...")
+
+	const maxConcurrency = 5 // 最大并发数，避免 API 限流
+
+	// 使用信号量控制并发
+	sem := make(chan struct{}, maxConcurrency)
+	var wg sync.WaitGroup
+
+	// 原子计数器
+	var successAtomic int64
+	var failAtomic int64
+
+	// 错误收集（需要互斥锁保护）
+	var errorsMu sync.Mutex
+	var errorsList []string
+
+	// 进度跟踪
+	var processed int64
+	totalTasks := len(tasks)
+
+	for _, task := range tasks {
+		wg.Add(1)
+		sem <- struct{}{} // 获取信号量
+
+		go func(t downloadTask) {
+			defer wg.Done()
+			defer func() { <-sem }() // 释放信号量
+
+			// 执行下载
+			err := lm.DownloadLyricWithFallbackToDir(t.trackPath, lyricsDir, t.title, t.artist, t.album)
+
+			// 更新计数
+			currentProcessed := atomic.AddInt64(&processed, 1)
+
+			if err != nil {
+				atomic.AddInt64(&failAtomic, 1)
+				log.Printf("  [%d/%d] ❌ 失败: %s - %v", currentProcessed, totalTasks, t.baseName, err)
+
+				// 安全地收集错误
+				errorsMu.Lock()
+				errorsList = append(errorsList, fmt.Sprintf("%s: %v", t.baseName, err))
+				errorsMu.Unlock()
+			} else {
+				atomic.AddInt64(&successAtomic, 1)
+				log.Printf("  [%d/%d] ✓ 成功: %s", currentProcessed, totalTasks, t.baseName)
+			}
+		}(task)
+	}
+
+	// 等待所有任务完成
+	wg.Wait()
+
+	// 读取最终计数
+	successCount = int(atomic.LoadInt64(&successAtomic))
+	failCount = int(atomic.LoadInt64(&failAtomic))
+	errors = errorsList
 
 	log.Printf("✓ 歌词下载完成: 成功 %d, 失败 %d, 跳过 %d", successCount, failCount, skipCount)
 	return

@@ -41,7 +41,7 @@ func (adr *AudioDurationReader) GetDuration(filePath string) (int64, error) {
 	// 读取时长
 	duration, err := adr.readDuration(filePath)
 	if err != nil {
-		log.Printf("⚠️ 读取时长失败 %s：%v", filePath, err)
+		// log.Printf("⚠️ 读取时长失败 %s：%v", filePath, err)
 		return 0, err
 	}
 
@@ -76,9 +76,9 @@ func (adr *AudioDurationReader) readMP3Duration(filePath string) (int64, error) 
 	if err == nil {
 		return duration, nil
 	}
-	
-	log.Printf("⚠️ go-mp3 读取失败：%v，尝试使用 FFmpeg", err)
-	
+
+	// log.Printf("⚠️ go-mp3 读取失败：%v，尝试使用 FFmpeg", err)
+
 	// 策略 2: 降级到 FFmpeg（兼容性更好）
 	return adr.readDurationWithFFmpeg(filePath)
 }
@@ -91,7 +91,7 @@ func (adr *AudioDurationReader) readMP3DurationWithGoMP3(filePath string) (int64
 			log.Printf("⚠️ go-mp3 解码 panic：%v", r)
 		}
 	}()
-	
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return 0, fmt.Errorf("打开文件失败：%w", err)
@@ -163,7 +163,7 @@ func (adr *AudioDurationReader) readWAVDuration(filePath string) (int64, error) 
 	// WAV 文件结构：
 	// - 44 字节头部（标准 WAV 头）
 	// - 剩余部分是音频数据
-	
+
 	// 读取 WAV 头部信息
 	header := make([]byte, 44)
 	if _, err := file.Read(header); err != nil {
@@ -177,10 +177,10 @@ func (adr *AudioDurationReader) readWAVDuration(filePath string) (int64, error) 
 
 	// 读取采样率（偏移 24-27 字节）
 	sampleRate := binary.LittleEndian.Uint32(header[24:28])
-	
+
 	// 读取声道数（偏移 22-23 字节）
 	channels := binary.LittleEndian.Uint16(header[22:24])
-	
+
 	// 读取位深（偏移 34-35 字节）
 	bitsPerSample := binary.LittleEndian.Uint16(header[34:36])
 
@@ -190,10 +190,10 @@ func (adr *AudioDurationReader) readWAVDuration(filePath string) (int64, error) 
 
 	// 计算音频数据大小（文件大小 - 头部大小）
 	audioDataSize := fileInfo.Size() - 44
-	
+
 	// 计算每秒的字节数
 	bytesPerSecond := int64(sampleRate) * int64(channels) * int64(bitsPerSample/8)
-	
+
 	if bytesPerSecond == 0 {
 		return 0, fmt.Errorf("无效的字节率")
 	}
@@ -219,32 +219,32 @@ func (adr *AudioDurationReader) readDurationWithFFmpeg(filePath string) (int64, 
 		"-of", "csv=p=0",
 		filePath,
 	)
-	
+
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		return 0, fmt.Errorf("FFmpeg 执行失败：%w, stderr: %s", err, stderr.String())
 	}
-	
+
 	// 解析输出（秒数，可能是小数）
 	durationStr := strings.TrimSpace(stdout.String())
 	if durationStr == "" {
 		return 0, fmt.Errorf("FFmpeg 未返回时长信息")
 	}
-	
+
 	// 转换为浮点数再取整
 	var durationFloat float64
 	_, err = fmt.Sscanf(durationStr, "%f", &durationFloat)
 	if err != nil {
 		return 0, fmt.Errorf("解析时长失败：%w", err)
 	}
-	
+
 	// 转换为秒（整数）
 	duration := int64(durationFloat)
-	
+
 	log.Printf("✓ FFmpeg 读取时长成功：%d 秒", duration)
 	return duration, nil
 }
