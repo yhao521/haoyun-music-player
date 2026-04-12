@@ -84,13 +84,13 @@ func createTrayMenuItems() {
 
 	// 播放控制菜单项
 	playPauseItem = application.NewMenuItem(t("menu.playPause"))
-	playPauseItem.SetAccelerator("Space")
+	playPauseItem.SetAccelerator("CmdOrCtrl+Shift+P")
 	playPauseItem.OnClick(func(ctx *application.Context) {
 		handlePlayPauseClick()
 	})
 
 	prevItem = application.NewMenuItem(t("menu.previousTrack"))
-	prevItem.SetAccelerator("CmdOrCtrl+[")
+	prevItem.SetAccelerator("CmdOrCtrl+Shift+B")
 	prevItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Previous(); err != nil {
 			log.Printf("切换上一曲失败：%v", err)
@@ -98,7 +98,7 @@ func createTrayMenuItems() {
 	})
 
 	nextItem = application.NewMenuItem(t("menu.nextTrack"))
-	nextItem.SetAccelerator("CmdOrCtrl+]")
+	nextItem.SetAccelerator("CmdOrCtrl+Shift+N")
 	nextItem.OnClick(func(ctx *application.Context) {
 		if err := musicService.Next(); err != nil {
 			log.Printf("切换下一曲失败：%v", err)

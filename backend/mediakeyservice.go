@@ -2,6 +2,7 @@ package backend
 
 import (
 	"log"
+	"runtime"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -76,38 +77,47 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 		name    string
 	}
 	
-	// 根据平台选择不同的修饰键名称
-	// macOS 使用 ModOption, Windows/Linux 使用 ModAlt
+	// 根据平台选择不同的修饰键
+	// macOS 使用 ModCmd (Command), Windows/Linux 使用 ModCtrl (Control)
+	var primaryMod hotkey.Modifier
+	if runtime.GOOS == "darwin" {
+		primaryMod = hotkey.ModCmd
+		log.Println("🍎 macOS 平台: 使用 Command 键作为主修饰键")
+	} else {
+		primaryMod = hotkey.ModCtrl
+		log.Printf("💻 %s 平台: 使用 Ctrl 键作为主修饰键", runtime.GOOS)
+	}
+	
 	configs := []HotkeyConfig{
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
+			mods:    []hotkey.Modifier{primaryMod, hotkey.ModShift},
 			key:     hotkey.KeyP,
 			handler: mks.handlePlayPause,
-			name:    "播放/暂停 (Ctrl+Shift+P)",
+			name:    "播放/暂停",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
+			mods:    []hotkey.Modifier{primaryMod, hotkey.ModShift},
 			key:     hotkey.KeyN,
 			handler: mks.handleNext,
-			name:    "下一曲 (Ctrl+Shift+N)",
+			name:    "下一曲",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
+			mods:    []hotkey.Modifier{primaryMod, hotkey.ModShift},
 			key:     hotkey.KeyB,
 			handler: mks.handlePrevious,
-			name:    "上一曲 (Ctrl+Shift+B)",
+			name:    "上一曲",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
+			mods:    []hotkey.Modifier{primaryMod, hotkey.ModShift},
 			key:     hotkey.KeyUp,
 			handler: mks.handleVolumeUp,
-			name:    "音量增加 (Ctrl+Shift+↑)",
+			name:    "音量增加",
 		},
 		{
-			mods:    []hotkey.Modifier{hotkey.ModCtrl, hotkey.ModShift},
+			mods:    []hotkey.Modifier{primaryMod, hotkey.ModShift},
 			key:     hotkey.KeyDown,
 			handler: mks.handleVolumeDown,
-			name:    "音量减少 (Ctrl+Shift+↓)",
+			name:    "音量减少",
 		},
 	}
 	
@@ -121,7 +131,7 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 		}
 		
 		mks.hotkeys = append(mks.hotkeys, hk)
-		log.Printf("✅ 注册快捷键: %s", config.name)
+		log.Printf("✅ 注册快捷键: %s (%v+Shift+%c)", config.name, primaryMod, config.key)
 		
 		// 启动监听协程
 		go func(h *hotkey.Hotkey, handler func(), name string) {
