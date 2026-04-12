@@ -386,7 +386,7 @@ func setupTrayEventListeners() {
 		if state, ok := event.Data.(string); ok {
 			log.Printf("🎵 收到播放状态变化事件：%s", state)
 			updatePlayPauseItemLabel(state)
-			
+
 			// 根据播放状态智能启停歌词更新
 			if state == "playing" {
 				startLyricUpdateTicker()
@@ -1157,24 +1157,26 @@ func updateLyricDisplay() {
 	// 获取当前播放位置
 	position, err := musicService.GetPosition()
 	if err != nil {
-		log.Printf("⚠️ 获取播放位置失败: %v", err)
+		// log.Printf("⚠️ 获取播放位置失败: %v", err)
 		return // 静默失败，不干扰用户
 	}
 
 	// 先尝试加载歌词（这会触发 findLyricFile 并缓存结果）
-	_, loadErr := musicService.LoadLyric(trackPath)
+	lyricInfo, loadErr := musicService.LoadLyric(trackPath)
 	if loadErr != nil {
-		log.Printf("⚠️ 加载歌词失败: %v", loadErr)
+		// log.Printf("⚠️ 加载歌词失败: %v", loadErr)
+	} else if lyricInfo != nil && lyricInfo.HasLyric {
+		// log.Printf("✅ 歌词加载成功 - 行数: %d", len(lyricInfo.Lines))
 	}
 
 	// 检查是否有歌词
 	hasLyric := musicService.HasLyric(trackPath)
-	log.Printf("🎤 检查歌词 - 路径: %s, 有歌词: %v", trackPath, hasLyric)
+	// log.Printf("🎤 检查结果 - 路径: %s, 有歌词: %v", trackPath, hasLyric)
 
 	// 获取当前歌词行索引
 	lineIndex, err := musicService.GetCurrentLyricLine(trackPath, position)
 	if err != nil || lineIndex < 0 {
-		log.Printf("🎤 未找到当前歌词行 - 错误: %v, 索引: %d", err, lineIndex)
+		// log.Printf("🎤 未找到当前歌词行 - 错误: %v, 索引: %d", err, lineIndex)
 		// 检查是否有歌词文件
 		if hasLyric {
 			setLyricLabel(t("lyric.instrumental"))
@@ -1187,7 +1189,7 @@ func updateLyricDisplay() {
 	// 获取所有歌词
 	lyrics, err := musicService.GetAllLyrics(trackPath)
 	if err != nil || lineIndex >= len(lyrics) {
-		log.Printf("🎤 获取歌词失败 - 错误: %v, 索引: %d, 总数: %d", err, lineIndex, len(lyrics))
+		// log.Printf("🎤 获取歌词失败 - 错误: %v, 索引: %d, 总数: %d", err, lineIndex, len(lyrics))
 		setLyricLabel(t("lyric.loading"))
 		return
 	}
@@ -1201,7 +1203,7 @@ func updateLyricDisplay() {
 
 	// 智能更新：只有当歌词变化时才更新UI
 	newLabel := "🎤 " + lyricText
-	log.Printf("🎤 更新歌词显示: %s", newLabel)
+	// log.Printf("🎤 更新歌词显示: %s", newLabel)
 	setLyricLabel(newLabel)
 }
 

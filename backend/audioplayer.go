@@ -737,13 +737,20 @@ func (ap *AudioPlayer) monitorPlayback() {
 				currentApp := ap.app
 				ap.mu.Unlock()
 				
-				if currentApp != nil && currentApp.Event != nil {
-					currentApp.Event.Emit("playbackStateChanged", "stopped")
-					// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
-					currentApp.Event.Emit("playbackEnded", nil)
-				} else {
-					log.Printf("[monitorPlayback] 警告: app 或 app.Event 为 nil，跳过事件发送")
+				if currentApp == nil {
+					log.Printf("[monitorPlayback] 警告: app 为 nil，跳过事件发送")
+					return
 				}
+				
+				if currentApp.Event == nil {
+					log.Printf("[monitorPlayback] 警告: app.Event 为 nil，跳过事件发送")
+					return
+				}
+				
+				// 安全地发送事件
+				currentApp.Event.Emit("playbackStateChanged", "stopped")
+				// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
+				currentApp.Event.Emit("playbackEnded", nil)
 			}()
 			return
 		}
@@ -904,10 +911,19 @@ func (ap *AudioPlayer) Seek(position float64) error {
 
 	// 重置 oto player 以从新位置开始播放
 	if ap.player != nil {
+		// ⭐ 关键：先设置标志位，告诉 monitorPlayback 正在进行 Seek 操作
+		wasPlaying := ap.isPlaying && !ap.paused
+		
 		ap.player.Reset()
-		go func() {
-			ap.player.Play()
-		}()
+		
+		// 同步调用 Play，确保播放已经重新开始
+		ap.player.Play()
+		
+		// 如果之前正在播放，确保状态正确
+		if wasPlaying {
+			ap.isPlaying = true
+			ap.paused = false
+		}
 	}
 
 	return nil

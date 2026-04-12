@@ -132,16 +132,18 @@ func (lm *LyricManager) findLyricFile(trackPath string) string {
 	// 策略 1: 同目录下的 .lrc 文件
 	lrcPath1 := filepath.Join(dirPath, baseName+".lrc")
 	if _, err := os.Stat(lrcPath1); err == nil {
-		log.Printf("✓ 策略1成功(同目录): %s", lrcPath1)
+		log.Printf("✅ 找到歌词（策略1-同目录）: %s", lrcPath1)
 		return lrcPath1
 	}
+	log.Printf("⚪ 策略1失败（同目录不存在）: %s", lrcPath1)
 
 	// 策略 2: 歌词目录下的 .lrc 文件（全局歌词目录）
 	lrcPath2 := filepath.Join(lm.lyricDir, baseName+".lrc")
 	if _, err := os.Stat(lrcPath2); err == nil {
-		log.Printf("✓ 策略2成功(全局目录): %s", lrcPath2)
+		log.Printf("✅ 找到歌词（策略2-全局目录）: %s", lrcPath2)
 		return lrcPath2
 	}
+	log.Printf("⚪ 策略2失败（全局目录不存在）: %s", lrcPath2)
 
 	// 策略 3: 检测音乐库分离结构（LIB_MUSIC / LIB_LYRIC）
 	// 如果音乐文件在 LIB_MUSIC 目录中，尝试在对应的 LIB_LYRIC 目录中查找
@@ -149,13 +151,13 @@ func (lm *LyricManager) findLyricFile(trackPath string) string {
 		lyricDir := strings.Replace(dirPath, "LIB_MUSIC", "LIB_LYRIC", 1)
 		lrcPath3 := filepath.Join(lyricDir, baseName+".lrc")
 		if _, err := os.Stat(lrcPath3); err == nil {
-			log.Printf("✓ 策略3成功(分离目录): %s", lrcPath3)
+			log.Printf("✅ 找到歌词（策略3-分离目录）: %s", lrcPath3)
 			return lrcPath3
 		}
-		log.Printf("⚠️ 策略3失败(分离目录): %s", lrcPath3)
+		log.Printf("⚪ 策略3失败（分离目录不存在）: %s", lrcPath3)
 	}
 
-	log.Printf("⚠️ 未找到歌词文件")
+	log.Printf("❌ 未找到歌词文件（所有策略均失败）")
 	return ""
 }
 
