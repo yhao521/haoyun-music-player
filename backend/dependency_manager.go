@@ -113,21 +113,105 @@ func (dm *DependencyManager) CheckAllTools() map[string]*ToolInfo {
 
 // checkToolUnsafe 检查单个工具状态（不加锁，内部使用）
 func (dm *DependencyManager) checkToolUnsafe(name string, tool *ToolInfo) {
-	// 查找可执行文件
+	// 首先尝试从环境变量获取指定路径
+	if envPath := dm.getEnvPath(tool.Command); envPath != "" {
+		if dm.verifyExecutable(envPath) {
+			version := dm.getToolVersion(envPath)
+			tool.Status = ToolInstalled
+			tool.Version = version
+			log.Printf("✅ %s 已安装 (通过环境变量): %s (版本: %s)", tool.Name, envPath, version)
+			return
+		}
+	}
+	
+	// 尝试系统 PATH
 	path, err := exec.LookPath(tool.Command)
-	if err != nil {
-		tool.Status = ToolNotInstalled
-		tool.Version = ""
-		log.Printf("⚠️  %s 未找到: %v", tool.Name, err)
+	if err == nil && dm.verifyExecutable(path) {
+		version := dm.getToolVersion(path)
+		tool.Status = ToolInstalled
+		tool.Version = version
+		log.Printf("✅ %s 已安装: %s (版本: %s)", tool.Name, path, version)
 		return
 	}
 	
-	// 获取版本信息
-	version := dm.getToolVersion(tool.Command)
+	// 尝试常见安装路径
+	commonPaths := dm.getCommonInstallPaths(tool.Command)
+	for _, commonPath := range commonPaths {
+		if dm.verifyExecutable(commonPath) {
+			version := dm.getToolVersion(commonPath)
+			tool.Status = ToolInstalled
+			tool.Version = version
+			log.Printf("✅ %s 已安装 (常见路径): %s (版本: %s)", tool.Name, commonPath, version)
+			return
+		}
+	}
 	
-	tool.Status = ToolInstalled
-	tool.Version = version
-	log.Printf("✅ %s 已安装: %s (版本: %s)", tool.Name, path, version)
+	// 未找到
+	tool.Status = ToolNotInstalled
+	tool.Version = ""
+	log.Printf("⚠️  %s 未找到: 在系统 PATH 和常见安装路径中均未发现", tool.Name)
+}
+
+// getEnvPath 从环境变量获取工具路径
+func (dm *DependencyManager) getEnvPath(command string) string {
+	envVar := strings.ToUpper(command) + "_PATH"
+	return os.Getenv(envVar)
+}
+
+// verifyExecutable 验证文件是否为可执行文件
+func (dm *DependencyManager) verifyExecutable(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	
+	// 检查是否为文件且具有执行权限
+	if info.IsDir() {
+		return false
+	}
+	
+	// 检查执行权限
+	mode := info.Mode()
+	return mode&0111 != 0 // 任意执行位
+}
+
+// getCommonInstallPaths 获取常见安装路径
+func (dm *DependencyManager) getCommonInstallPaths(command string) []string {
+	var paths []string
+	
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS 常见路径
+		paths = []string{
+			"/opt/homebrew/bin/" + command,     // Apple Silicon Mac
+			"/usr/local/bin/" + command,         // Intel Mac
+			"/opt/local/bin/" + command,         // MacPorts
+			"/sw/bin/" + command,                // Fink
+		}
+	case "windows":
+		// Windows 常见路径
+		programFiles := os.Getenv("ProgramFiles")
+		programFilesX86 := os.Getenv("ProgramFiles(x86)")
+		localAppData := os.Getenv("LOCALAPPDATA")
+		
+		paths = []string{
+			"C:\\ffmpeg\\bin\\" + command + ".exe",
+			"C:\\Program Files\\ffmpeg\\bin\\" + command + ".exe",
+			programFiles + "\\ffmpeg\\bin\\" + command + ".exe",
+			programFilesX86 + "\\ffmpeg\\bin\\" + command + ".exe",
+			localAppData + "\\Microsoft\\WinGet\\Links\\" + command + ".exe", // WinGet
+		}
+	case "linux":
+		// Linux 常见路径
+		paths = []string{
+			"/usr/bin/" + command,
+			"/usr/local/bin/" + command,
+			"/snap/bin/" + command,
+			"/opt/ffmpeg/bin/" + command,
+		}
+	}
+	
+	return paths
 }
 
 // getToolVersion 获取工具版本信息
