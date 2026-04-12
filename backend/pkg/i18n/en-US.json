@@ -1,6 +1,8 @@
 {
   "menu": {
     "nowPlaying": "Now Playing: None",
+    "play": "Play",
+    "pause": "Pause",
     "playPause": "Play/Pause",
     "previousTrack": "Previous Track",
     "nextTrack": "Next Track",

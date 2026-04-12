@@ -1,6 +1,8 @@
 {
   "menu": {
     "nowPlaying": "正在播放：无",
+    "play": "播放",
+    "pause": "暂停",
     "playPause": "播放/暂停",
     "previousTrack": "上一曲",
     "nextTrack": "下一曲",

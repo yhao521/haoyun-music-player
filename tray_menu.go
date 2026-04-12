@@ -296,6 +296,7 @@ func rebuildTrayMenu() {
 	log.Println("🔄 开始重建托盘菜单...")
 
 	// 更新所有菜单项的标签
+	// playPauseItem 恢复为默认标签，后续由 playbackStateChanged 事件驱动更新
 	playPauseItem.SetLabel(t("menu.playPause"))
 	prevItem.SetLabel(t("menu.previousTrack"))
 	nextItem.SetLabel(t("menu.nextTrack"))
@@ -360,6 +361,14 @@ func setupTrayEventListeners() {
 		if mode, ok := event.Data.(string); ok {
 			log.Printf("✓ 收到播放模式变化事件：%s", mode)
 			updatePlayModeMenuLabels(mode)
+		}
+	})
+
+	// 监听播放状态变化事件
+	app.Event.On("playbackStateChanged", func(event *application.CustomEvent) {
+		if state, ok := event.Data.(string); ok {
+			log.Printf("🎵 收到播放状态变化事件：%s", state)
+			updatePlayPauseItemLabel(state)
 		}
 	})
 }
@@ -1052,4 +1061,22 @@ func buildToolsMenu() {
 	}
 
 	log.Println("✅ 依赖工具菜单构建完成")
+}
+
+// updatePlayPauseItemLabel 根据播放状态更新播放/暂停菜单项标签
+func updatePlayPauseItemLabel(state string) {
+	var newLabel string
+	switch state {
+	case "playing":
+		newLabel = t("menu.pause")
+	case "paused":
+		newLabel = t("menu.play")
+	case "stopped":
+		newLabel = t("menu.play")
+	default:
+		newLabel = t("menu.playPause")
+	}
+
+	playPauseItem.SetLabel(newLabel)
+	log.Printf("✓ 播放/暂停菜单项已更新为：%s", newLabel)
 }
