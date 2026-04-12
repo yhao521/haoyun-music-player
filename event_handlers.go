@@ -235,6 +235,33 @@ func registerLibraryEvents() {
 			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
 		}
 	})
+
+	// 监听路径迁移请求
+	app.Event.On("migrateToRelativePaths", func(event *application.CustomEvent) {
+		log.Println("🔄 收到路径迁移请求...")
+
+		count, err := musicService.MigrateToRelativePaths()
+		if err != nil {
+			log.Printf("⚠️ 路径迁移失败: %v", err)
+			if app != nil && app.Event != nil {
+				app.Event.Emit("migrateToRelativePaths:response", map[string]interface{}{
+					"error": err.Error(),
+				})
+			} else if app != nil {
+				log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+			}
+			return
+		}
+
+		log.Printf("✓ 迁移完成：共处理 %d 个音乐库", count)
+		if app != nil && app.Event != nil {
+			app.Event.Emit("migrateToRelativePaths:response", map[string]interface{}{
+				"count": count,
+			})
+		} else if app != nil {
+			log.Printf("[event_handlers] 警告: app.Event 为 nil，跳过事件发送")
+		}
+	})
 }
 
 // setupDependencyManagerCallback 设置依赖管理器回调

@@ -58,6 +58,7 @@ func registerEvents() {
 	application.RegisterEvent[int]("currentLyricLineChanged")
 	application.RegisterEvent[map[string]interface{}]("showNotification")
 	application.RegisterEvent[map[string]interface{}]("compactLibraries")
+	application.RegisterEvent[map[string]interface{}]("migrateToRelativePaths")
 	application.RegisterEvent[string]("playModeChanged")
 }
 

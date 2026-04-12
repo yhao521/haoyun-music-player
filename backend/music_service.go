@@ -686,6 +686,14 @@ func (m *MusicService) CompactLibraries() (int, error) {
 	return m.libraryManager.CompactLibraries()
 }
 
+// MigrateToRelativePaths 将所有音乐库的路径迁移为相对路径
+func (m *MusicService) MigrateToRelativePaths() (int, error) {
+	if m.libraryManager == nil {
+		return 0, fmt.Errorf("音乐库管理器未初始化")
+	}
+	return m.libraryManager.MigrateToRelativePaths()
+}
+
 // GetPlaylistManager 获取播放列表管理器（用于批量操作）
 func (m *MusicService) GetPlaylistManager() *PlaylistManager {
 	return m.playlistManager

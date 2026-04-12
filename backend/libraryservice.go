@@ -26,14 +26,14 @@ type MusicLibrary struct {
 
 // TrackInfo 音乐文件信息
 type TrackInfo struct {
-	Path      string `json:"path"`                 // 歌曲路径
+	Path      string `json:"path"`                 // 歌曲路径（相对于音乐库根目录）
 	Filename  string `json:"filename"`             // 文件名
 	Title     string `json:"title,omitempty"`      // 标题
 	Artist    string `json:"artist,omitempty"`     // 艺术家
 	Album     string `json:"album,omitempty"`      // 专辑
 	Duration  int64  `json:"duration"`             // 秒
 	Size      int64  `json:"size"`                 // 字节
-	LyricPath string `json:"lyric_path,omitempty"` // 歌词文件路径（如果有）
+	LyricPath string `json:"lyric_path,omitempty"` // 歌词文件路径（相对于全局歌词目录，或空表示在同目录）
 }
 
 // LibraryManager 音乐库管理器
@@ -413,9 +413,10 @@ func (lm *LibraryManager) buildTracksIndexForLibrary(lib *MusicLibrary) {
 		delete(lm.tracksByPath, path)
 	}
 
-	// 重新构建索引
+	// 重新构建索引（将相对路径转换为绝对路径作为键）
 	for i := range lib.Tracks {
-		lm.tracksByPath[lib.Tracks[i].Path] = &lib.Tracks[i]
+		absPath := lm.resolveTrackPath(lib, lib.Tracks[i].Path)
+		lm.tracksByPath[absPath] = &lib.Tracks[i]
 	}
 }
 
@@ -431,7 +432,7 @@ func (lm *LibraryManager) GetTrackByPath(path string) *TrackInfo {
 	return lm.tracksByPath[path]
 }
 
-// GetCurrentLibraryTracks 获取当前音乐库的所有音轨
+// GetCurrentLibraryTracks 获取当前音乐库的所有音轨（返回绝对路径）
 func (lm *LibraryManager) GetCurrentLibraryTracks() ([]string, error) {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
@@ -443,7 +444,8 @@ func (lm *LibraryManager) GetCurrentLibraryTracks() ([]string, error) {
 	lib := lm.libraries[lm.currentLib]
 	trackPaths := make([]string, len(lib.Tracks))
 	for i, track := range lib.Tracks {
-		trackPaths[i] = track.Path
+		// 将相对路径转换为绝对路径
+		trackPaths[i] = lm.resolveTrackPath(lib, track.Path)
 	}
 
 	return trackPaths, nil
@@ -633,6 +635,11 @@ func (lm *LibraryManager) scanDirectoryWithMetadata(dirPath string) ([]TrackInfo
 
 	log.Printf("🔍 开始扫描 %d 个音频文件...", len(audioFiles))
 
+	// 创建临时的 MusicLibrary 对象用于路径转换
+	tempLib := &MusicLibrary{
+		Path: dirPath,
+	}
+
 	// 逐个获取元数据
 	successCount := 0
 	for i, audioPath := range audioFiles {
@@ -647,6 +654,26 @@ func (lm *LibraryManager) scanDirectoryWithMetadata(dirPath string) ([]TrackInfo
 			baseName := strings.TrimSuffix(filepath.Base(audioPath), filepath.Ext(audioPath))
 			if lrcPath, ok := lyricMap[baseName]; ok {
 				track.LyricPath = lrcPath
+			}
+		}
+
+		// 转换为相对路径
+		relTrackPath, err := lm.makeRelativeTrackPath(tempLib, track.Path)
+		if err != nil {
+			log.Printf("⚠️ 转换歌曲相对路径失败 %s: %v", track.Path, err)
+			// 失败时保留绝对路径（向后兼容）
+		} else {
+			track.Path = relTrackPath
+		}
+
+		// 转换歌词路径为相对路径
+		if track.LyricPath != "" {
+			relLyricPath, err := lm.makeRelativeLyricPath(track.LyricPath)
+			if err != nil {
+				log.Printf("⚠️ 转换歌词相对路径失败 %s: %v", track.LyricPath, err)
+				// 失败时保留绝对路径（向后兼容）
+			} else {
+				track.LyricPath = relLyricPath
 			}
 		}
 
@@ -744,4 +771,109 @@ func (lm *LibraryManager) clearTracksIndexForLibrary(lib *MusicLibrary) {
 // GetMetadataManager 获取元数据管理器
 func (lm *LibraryManager) GetMetadataManager() *MetadataManager {
 	return lm.metadataManager
+}
+
+// MigrateToRelativePaths 将所有音乐库的路径迁移为相对路径
+func (lm *LibraryManager) MigrateToRelativePaths() (int, error) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	migratedCount := 0
+
+	for name, lib := range lm.libraries {
+		log.Printf("🔄 正在迁移音乐库 %s 到相对路径...", name)
+
+		needsSave := false
+		for i := range lib.Tracks {
+			track := &lib.Tracks[i]
+
+			// 转换歌曲路径
+			if filepath.IsAbs(track.Path) {
+				relPath, err := lm.makeRelativeTrackPath(lib, track.Path)
+				if err != nil {
+					log.Printf("⚠️ 转换歌曲路径失败 %s: %v", track.Path, err)
+					continue
+				}
+				track.Path = relPath
+				needsSave = true
+			}
+
+			// 转换歌词路径
+			if track.LyricPath != "" && filepath.IsAbs(track.LyricPath) {
+				relPath, err := lm.makeRelativeLyricPath(track.LyricPath)
+				if err != nil {
+					log.Printf("⚠️ 转换歌词路径失败 %s: %v", track.LyricPath, err)
+					continue
+				}
+				track.LyricPath = relPath
+				needsSave = true
+			}
+		}
+
+		if needsSave {
+			if err := lm.saveLibrary(lib); err != nil {
+				log.Printf("⚠️ 保存音乐库 %s 失败: %v", name, err)
+				continue
+			}
+			// 重建索引
+			lm.buildTracksIndexForLibrary(lib)
+			migratedCount++
+			log.Printf("✓ 音乐库 %s 迁移完成", name)
+		} else {
+			log.Printf("⏭️ 音乐库 %s 已是相对路径格式，跳过", name)
+		}
+	}
+
+	log.Printf("✓ 迁移完成：共处理 %d 个音乐库", migratedCount)
+	return migratedCount, nil
+}
+
+// resolveTrackPath 解析歌曲的绝对路径（相对路径 -> 绝对路径）
+func (lm *LibraryManager) resolveTrackPath(lib *MusicLibrary, relativePath string) string {
+	if filepath.IsAbs(relativePath) {
+		// 如果已经是绝对路径，直接返回（向后兼容旧数据）
+		return relativePath
+	}
+	return filepath.Join(lib.Path, relativePath)
+}
+
+// resolveLyricPath 解析歌词的绝对路径
+func (lm *LibraryManager) resolveLyricPath(relativePath string) string {
+	if relativePath == "" {
+		return ""
+	}
+	if filepath.IsAbs(relativePath) {
+		// 如果已经是绝对路径，直接返回（向后兼容旧数据）
+		return relativePath
+	}
+	// 相对路径是相对于全局歌词目录
+	return filepath.Join(lm.lyricDir, relativePath)
+}
+
+// makeRelativeTrackPath 将绝对路径转换为相对于音乐库的相对路径
+func (lm *LibraryManager) makeRelativeTrackPath(lib *MusicLibrary, absolutePath string) (string, error) {
+	relPath, err := filepath.Rel(lib.Path, absolutePath)
+	if err != nil {
+		return "", fmt.Errorf("计算相对路径失败：%w", err)
+	}
+	return relPath, nil
+}
+
+// makeRelativeLyricPath 将歌词绝对路径转换为相对于全局歌词目录的相对路径
+func (lm *LibraryManager) makeRelativeLyricPath(absolutePath string) (string, error) {
+	if absolutePath == "" {
+		return "", nil
+	}
+	
+	// 检查是否在全局歌词目录中
+	if strings.HasPrefix(absolutePath, lm.lyricDir) {
+		relPath, err := filepath.Rel(lm.lyricDir, absolutePath)
+		if err != nil {
+			return "", fmt.Errorf("计算歌词相对路径失败：%w", err)
+		}
+		return relPath, nil
+	}
+	
+	// 如果不在全局歌词目录，返回空字符串（表示在同目录或其他位置）
+	return "", nil
 }
