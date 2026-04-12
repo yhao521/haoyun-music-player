@@ -44,6 +44,7 @@ type LibraryManager struct {
 	currentLib      string
 	mu              sync.RWMutex
 	libDir          string
+	lyricDir        string                // 歌词目录
 	metadataManager *MetadataManager      // 元数据管理器
 	tracksByPath    map[string]*TrackInfo // 路径索引：path -> TrackInfo，用于O(1)查找
 }
@@ -72,6 +73,12 @@ func (lm *LibraryManager) Init() error {
 	lm.libDir = file.GetLibPath()
 	if err := os.MkdirAll(lm.libDir, 0755); err != nil {
 		return fmt.Errorf("创建音乐库目录失败：%w", err)
+	}
+
+	// 设置歌词目录
+	lm.lyricDir = filepath.Join(lm.libDir, "lyrics")
+	if err := os.MkdirAll(lm.lyricDir, 0755); err != nil {
+		return fmt.Errorf("创建歌词目录失败：%w", err)
 	}
 
 	// 加载已有的音乐库
@@ -502,10 +509,21 @@ func (lm *LibraryManager) findLyricFile(trackPath string) string {
 	// 常见的歌词文件扩展名
 	lyricExts := []string{".lrc", ".txt"}
 
+	// 策略 1: 同目录下的歌词文件
 	for _, ext := range lyricExts {
 		lyricPath := filepath.Join(dirPath, baseName+ext)
 		if _, err := os.Stat(lyricPath); err == nil {
 			return lyricPath
+		}
+	}
+
+	// 策略 2: 全局歌词目录 (lm.lyricDir)
+	if lm.lyricDir != "" {
+		for _, ext := range lyricExts {
+			lyricPath := filepath.Join(lm.lyricDir, baseName+ext)
+			if _, err := os.Stat(lyricPath); err == nil {
+				return lyricPath
+			}
 		}
 	}
 
@@ -545,6 +563,8 @@ func (lm *LibraryManager) scanDirectoryWithMetadata(dirPath string) ([]TrackInfo
 
 	// 首先扫描所有歌词文件，建立映射表
 	lyricMap := make(map[string]string) // 歌曲名(不含扩展名) -> 歌词路径
+	
+	// 扫描音乐库目录中的歌词文件
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -561,7 +581,34 @@ func (lm *LibraryManager) scanDirectoryWithMetadata(dirPath string) ([]TrackInfo
 	})
 
 	if err != nil {
-		log.Printf("⚠️ 扫描歌词文件失败：%v", err)
+		log.Printf("⚠️ 扫描音乐库目录歌词文件失败：%v", err)
+	}
+
+	// 扫描全局歌词目录 (lm.lyricDir) 中的歌词文件
+	if lm.lyricDir != "" && lm.lyricDir != dirPath {
+		err = filepath.Walk(lm.lyricDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			if ext == ".lrc" || ext == ".txt" {
+				baseName := strings.TrimSuffix(info.Name(), ext)
+				// 如果音乐库目录中已有同名歌词，优先使用音乐库目录的（向后兼容）
+				if _, exists := lyricMap[baseName]; !exists {
+					lyricMap[baseName] = path
+				}
+			}
+			return nil
+		})
+
+		if err != nil {
+			log.Printf("⚠️ 扫描全局歌词目录失败：%v", err)
+		} else {
+			log.Printf("📝 从全局歌词目录加载了 %d 个歌词文件", len(lyricMap))
+		}
 	}
 
 	// 收集所有音频文件路径

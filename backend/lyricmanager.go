@@ -480,10 +480,15 @@ func (lm *LyricManager) tryLRCLibSearch(trackPath, title, artist, album string) 
 // saveLyricsToFile 保存歌词到文件(通用方法)
 func (lm *LyricManager) saveLyricsToFile(trackPath, lyricsContent string) error {
 	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-	dirPath := filepath.Dir(trackPath)
-	lrcPath := filepath.Join(dirPath, baseName+".lrc")
+	// 修改：直接保存到 lm.lyricDir 目录
+	lrcPath := filepath.Join(lm.lyricDir, baseName+".lrc")
 
-	// 如果同目录下已有歌词文件,备份
+	// 确保歌词目录存在
+	if err := os.MkdirAll(lm.lyricDir, 0755); err != nil {
+		return fmt.Errorf("创建歌词目录失败: %w", err)
+	}
+
+	// 备份旧文件
 	if _, err := os.Stat(lrcPath); err == nil {
 		backupPath := lrcPath + ".bak"
 		if err := os.Rename(lrcPath, backupPath); err != nil {
@@ -827,10 +832,9 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 				if err != nil {
 					return "", err
 				}
-				// 读取刚保存的文件内容
+				// 读取刚保存的文件内容（从 lm.lyricDir 目录）
 				baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-				dirPath := filepath.Dir(trackPath)
-				lrcPath := filepath.Join(dirPath, baseName+".lrc")
+				lrcPath := filepath.Join(lm.lyricDir, baseName+".lrc")
 				content, err := os.ReadFile(lrcPath)
 				if err != nil {
 					return "", err
@@ -856,8 +860,15 @@ func (lm *LyricManager) DownloadLyricWithFallback(trackPath string, title, artis
 
 		// 保存歌词
 		baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-		dirPath := filepath.Dir(trackPath)
-		lrcPath := filepath.Join(dirPath, baseName+".lrc")
+		// 修改：直接保存到 lm.lyricDir 目录
+		lrcPath := filepath.Join(lm.lyricDir, baseName+".lrc")
+
+		// 确保歌词目录存在
+		if err := os.MkdirAll(lm.lyricDir, 0755); err != nil {
+			log.Printf("  ❌ 创建歌词目录失败: %v", err)
+			lastErr = err
+			continue
+		}
 
 		// 备份旧文件
 		if _, err := os.Stat(lrcPath); err == nil {
@@ -1011,8 +1022,13 @@ func (lm *LyricManager) downloadAndSaveFromLRCLib(trackPath, title, artist, albu
 
 	// 保存歌词文件
 	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-	dirPath := filepath.Dir(trackPath)
-	lrcPath := filepath.Join(dirPath, baseName+".lrc")
+	// 修改：直接保存到 lm.lyricDir 目录
+	lrcPath := filepath.Join(lm.lyricDir, baseName+".lrc")
+
+	// 确保歌词目录存在
+	if err := os.MkdirAll(lm.lyricDir, 0755); err != nil {
+		return fmt.Errorf("创建歌词目录失败: %w", err)
+	}
 
 	if _, err := os.Stat(lrcPath); err == nil {
 		backupPath := lrcPath + ".bak"
@@ -1050,7 +1066,7 @@ func (lm *LyricManager) DownloadLyricsForLibrary(libraryPath string, metadataMan
 	log.Printf("🎵 开始为音乐库下载歌词: %s", libraryPath)
 
 	// 创建 LIB_LYRIC 目录
-	lyricsDir := filepath.Join(libraryPath, "LIB_LYRIC")
+	lyricsDir := lm.lyricDir
 	if err := os.MkdirAll(lyricsDir, 0755); err != nil {
 		errors = append(errors, fmt.Sprintf("创建歌词目录失败: %v", err))
 		return
@@ -1384,8 +1400,13 @@ func (lm *LyricManager) DownloadLyricFromLRCLibEnhanced(trackPath string, title,
 
 	// 保存歌词文件
 	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
-	dirPath := filepath.Dir(trackPath)
-	lrcPath := filepath.Join(dirPath, baseName+".lrc")
+	// 修改：直接保存到 lm.lyricDir 目录
+	lrcPath := filepath.Join(lm.lyricDir, baseName+".lrc")
+
+	// 确保歌词目录存在
+	if err := os.MkdirAll(lm.lyricDir, 0755); err != nil {
+		return fmt.Errorf("创建歌词目录失败: %w", err)
+	}
 
 	// 备份旧文件
 	if _, err := os.Stat(lrcPath); err == nil {
