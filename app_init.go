@@ -14,7 +14,7 @@ import (
 )
 
 // AppVersion 应用版本信息
-const AppVersion = "0.0.32"
+const AppVersion = "0.0.33"
 
 //go:embed all:frontend/dist
 var assets embed.FS
