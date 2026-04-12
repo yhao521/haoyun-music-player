@@ -35,6 +35,12 @@
     "paste": "粘贴",
     "openRuntimeDir": "打开运行时目录"
   },
+  "lyric": {
+    "currentLyric": "当前歌词",
+    "noLyric": "🎵 无歌词",
+    "instrumental": "🎵 纯音乐",
+    "loading": "🎤 加载中..."
+  },
   "playMode": {
     "order": "顺序播放",
     "loop": "循环播放",

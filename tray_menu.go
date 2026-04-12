@@ -35,6 +35,7 @@ var (
 	toolsMenuItem    *application.MenuItem
 	organizeMenuItem *application.MenuItem
 	nowPlayingItem   *application.MenuItem
+	lyricDisplayItem *application.MenuItem // 歌词显示菜单项
 	downloadItem     *application.MenuItem
 	wakeItem         *application.MenuItem
 	launchItem       *application.MenuItem
@@ -57,6 +58,11 @@ var (
 
 	// 整理音乐操作标志
 	isOrganizingLibrary bool
+
+	// 歌词更新控制
+	lyricUpdateTicker *time.Ticker
+	lyricUpdateStop   chan struct{}
+	lastLyricText     string // 用于智能更新，避免重复设置
 )
 
 // createTrayAndMenu 创建系统托盘和菜单
@@ -81,6 +87,10 @@ func createTrayMenuItems() {
 	// 正在播放菜单项
 	nowPlayingItem = application.NewMenuItem(t("status.notPlaying"))
 	nowPlayingItem.SetEnabled(false)
+
+	// 歌词显示菜单项
+	lyricDisplayItem = application.NewMenuItem(t("lyric.noLyric"))
+	lyricDisplayItem.SetEnabled(false)
 
 	// 播放控制菜单项
 	playPauseItem = application.NewMenuItem(t("menu.playPause"))
@@ -209,6 +219,7 @@ func buildInitialTrayMenu() {
 	// 组装完整菜单
 	menu = application.NewMenuFromItems(
 		nowPlayingItem,
+		lyricDisplayItem, // 添加歌词显示项
 		application.NewMenuItemSeparator(),
 		playPauseItem,
 		prevItem,
@@ -320,9 +331,11 @@ func rebuildTrayMenu() {
 	buildOrganizeMenu()
 
 	updateNowPlayingItem()
+	updateLyricDisplay() // 更新歌词显示
 
 	menu = application.NewMenuFromItems(
 		nowPlayingItem,
+		lyricDisplayItem, // 添加歌词显示项
 		application.NewMenuItemSeparator(),
 		playPauseItem,
 		prevItem,
@@ -354,6 +367,10 @@ func setupTrayEventListeners() {
 	app.Event.On("currentTrackChanged", func(event *application.CustomEvent) {
 		log.Printf("收到歌曲变化事件：%v", event.Data)
 		updateNowPlayingItem()
+		// 歌曲切换时立即更新一次歌词
+		updateLyricDisplay()
+		// 如果正在播放，确保歌词更新在运行
+		startLyricUpdateTicker()
 	})
 
 	// 监听播放模式变化事件
@@ -369,6 +386,13 @@ func setupTrayEventListeners() {
 		if state, ok := event.Data.(string); ok {
 			log.Printf("🎵 收到播放状态变化事件：%s", state)
 			updatePlayPauseItemLabel(state)
+			
+			// 根据播放状态智能启停歌词更新
+			if state == "playing" {
+				startLyricUpdateTicker()
+			} else if state == "paused" || state == "stopped" {
+				stopLyricUpdateTicker()
+			}
 		}
 	})
 }
@@ -1079,4 +1103,112 @@ func updatePlayPauseItemLabel(state string) {
 
 	playPauseItem.SetLabel(newLabel)
 	log.Printf("✓ 播放/暂停菜单项已更新为：%s", newLabel)
+}
+
+// startLyricUpdateTicker 启动歌词定时更新
+func startLyricUpdateTicker() {
+	if lyricUpdateTicker != nil {
+		return // 已经在运行
+	}
+
+	log.Println("🎤 启动歌词定时更新")
+	lyricUpdateTicker = time.NewTicker(500 * time.Millisecond) // 每500ms更新一次
+	lyricUpdateStop = make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-lyricUpdateTicker.C:
+				updateLyricDisplay()
+			case <-lyricUpdateStop:
+				log.Println("🎤 停止歌词定时更新")
+				return
+			}
+		}
+	}()
+}
+
+// stopLyricUpdateTicker 停止歌词定时更新
+func stopLyricUpdateTicker() {
+	if lyricUpdateTicker == nil {
+		return
+	}
+
+	log.Println("🎤 请求停止歌词定时更新")
+	lyricUpdateTicker.Stop()
+	close(lyricUpdateStop)
+	lyricUpdateTicker = nil
+	lyricUpdateStop = nil
+}
+
+// updateLyricDisplay 更新歌词显示（智能更新，避免重复设置）
+func updateLyricDisplay() {
+	if musicService == nil || lyricDisplayItem == nil {
+		return
+	}
+
+	// 获取当前歌曲路径
+	trackPath, err := musicService.GetCurrentTrack()
+	if err != nil || trackPath == "" {
+		setLyricLabel(t("lyric.noLyric"))
+		return
+	}
+
+	// 获取当前播放位置
+	position, err := musicService.GetPosition()
+	if err != nil {
+		log.Printf("⚠️ 获取播放位置失败: %v", err)
+		return // 静默失败，不干扰用户
+	}
+
+	// 先尝试加载歌词（这会触发 findLyricFile 并缓存结果）
+	_, loadErr := musicService.LoadLyric(trackPath)
+	if loadErr != nil {
+		log.Printf("⚠️ 加载歌词失败: %v", loadErr)
+	}
+
+	// 检查是否有歌词
+	hasLyric := musicService.HasLyric(trackPath)
+	log.Printf("🎤 检查歌词 - 路径: %s, 有歌词: %v", trackPath, hasLyric)
+
+	// 获取当前歌词行索引
+	lineIndex, err := musicService.GetCurrentLyricLine(trackPath, position)
+	if err != nil || lineIndex < 0 {
+		log.Printf("🎤 未找到当前歌词行 - 错误: %v, 索引: %d", err, lineIndex)
+		// 检查是否有歌词文件
+		if hasLyric {
+			setLyricLabel(t("lyric.instrumental"))
+		} else {
+			setLyricLabel(t("lyric.noLyric"))
+		}
+		return
+	}
+
+	// 获取所有歌词
+	lyrics, err := musicService.GetAllLyrics(trackPath)
+	if err != nil || lineIndex >= len(lyrics) {
+		log.Printf("🎤 获取歌词失败 - 错误: %v, 索引: %d, 总数: %d", err, lineIndex, len(lyrics))
+		setLyricLabel(t("lyric.loading"))
+		return
+	}
+
+	// 获取当前歌词文本并截断
+	lyricText := lyrics[lineIndex].Content
+	runes := []rune(lyricText)
+	if len(runes) > 25 {
+		lyricText = string(runes[:22]) + "..."
+	}
+
+	// 智能更新：只有当歌词变化时才更新UI
+	newLabel := "🎤 " + lyricText
+	log.Printf("🎤 更新歌词显示: %s", newLabel)
+	setLyricLabel(newLabel)
+}
+
+// setLyricLabel 设置歌词标签（带智能去重）
+func setLyricLabel(newLabel string) {
+	if newLabel != lastLyricText {
+		lyricDisplayItem.SetLabel(newLabel)
+		lastLyricText = newLabel
+	}
 }

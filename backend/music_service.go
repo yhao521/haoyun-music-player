@@ -326,6 +326,16 @@ func (m *MusicService) GetCurrentTrack() (string, error) {
 	return playlist[index], nil
 }
 
+// GetPosition 获取当前播放位置（秒）
+func (m *MusicService) GetPosition() (float64, error) {
+	return m.audioPlayer.GetPosition()
+}
+
+// GetDuration 获取当前歌曲总时长（秒）
+func (m *MusicService) GetDuration() (float64, error) {
+	return m.audioPlayer.GetDuration()
+}
+
 // ===== 播放列表方法 =====
 
 // AddToPlaylist 添加到播放列表
@@ -632,6 +642,16 @@ func (m *MusicService) GetAllLyrics(trackPath string) ([]LyricLine, error) {
 // HasLyric 检查是否有歌词
 func (m *MusicService) HasLyric(trackPath string) bool {
 	return m.lyricManager.HasLyric(trackPath)
+}
+
+// SetLyricOffset 设置歌词偏移量（用于同步调整）
+func (m *MusicService) SetLyricOffset(trackPath string, offset float64) {
+	m.lyricManager.SetCustomOffset(trackPath, offset)
+}
+
+// GetLyricOffset 获取歌词偏移量
+func (m *MusicService) GetLyricOffset(trackPath string) float64 {
+	return m.lyricManager.GetCustomOffset(trackPath)
 }
 
 // ===== 专辑封面管理方法 =====

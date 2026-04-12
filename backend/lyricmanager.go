@@ -40,18 +40,20 @@ type LyricInfo struct {
 
 // LyricManager 歌词管理器
 type LyricManager struct {
-	mu          sync.RWMutex
-	cache       map[string]*LyricInfo // 缓存：文件路径 -> 歌词信息
-	searchCache map[string]string     // 搜索缓存：key -> 歌词内容 (避免重复API调用)
-	lyricDir    string                // 歌词目录
+	mu            sync.RWMutex
+	cache         map[string]*LyricInfo // 缓存：文件路径 -> 歌词信息
+	searchCache   map[string]string     // 搜索缓存：key -> 歌词内容 (避免重复API调用)
+	lyricDir      string                // 歌词目录
+	customOffsets map[string]float64    // 用户自定义偏移量：trackPath -> offset(秒)
 }
 
 // NewLyricManager 创建歌词管理器
 func NewLyricManager() *LyricManager {
 	return &LyricManager{
-		cache:       make(map[string]*LyricInfo),
-		searchCache: make(map[string]string),
-		lyricDir:    filepath.Join(file.GetLibPath(), "lyrics"),
+		cache:         make(map[string]*LyricInfo),
+		searchCache:   make(map[string]string),
+		customOffsets: make(map[string]float64),
+		lyricDir:      filepath.Join(file.GetLibPath(), "lyrics"),
 	}
 }
 
@@ -87,8 +89,18 @@ func (lm *LyricManager) LoadLyric(trackPath string) (*LyricInfo, error) {
 		return emptyLyric, nil
 	}
 
-	// 解析歌词文件
-	lyric, err := lm.parseLRCFile(lrcPath)
+	// 获取用户自定义偏移量
+	customOffset := lm.customOffsets[trackPath]
+
+	// 解析歌词文件（应用自定义偏移量）
+	var lyric *LyricInfo
+	var err error
+	if customOffset != 0 {
+		lyric, err = lm.parseLRCFileWithCustomOffset(lrcPath, customOffset)
+	} else {
+		lyric, err = lm.parseLRCFile(lrcPath)
+	}
+
 	if err != nil {
 		log.Printf("⚠️ 解析歌词文件失败 %s：%v", lrcPath, err)
 		emptyLyric := &LyricInfo{
@@ -101,7 +113,11 @@ func (lm *LyricManager) LoadLyric(trackPath string) (*LyricInfo, error) {
 
 	// 缓存结果
 	lm.cache[trackPath] = lyric
-	log.Printf("✓ 加载歌词：%d 行", len(lyric.Lines))
+	if customOffset != 0 {
+		log.Printf("✓ 加载歌词：%d 行 (偏移量: %.2f秒)", len(lyric.Lines), customOffset)
+	} else {
+		log.Printf("✓ 加载歌词：%d 行", len(lyric.Lines))
+	}
 
 	return lyric, nil
 }
@@ -111,18 +127,35 @@ func (lm *LyricManager) findLyricFile(trackPath string) string {
 	baseName := strings.TrimSuffix(filepath.Base(trackPath), filepath.Ext(trackPath))
 	dirPath := filepath.Dir(trackPath)
 
+	log.Printf("🔍 查找歌词 - 歌曲: %s, 基础名: %s", trackPath, baseName)
+
 	// 策略 1: 同目录下的 .lrc 文件
 	lrcPath1 := filepath.Join(dirPath, baseName+".lrc")
 	if _, err := os.Stat(lrcPath1); err == nil {
+		log.Printf("✓ 策略1成功(同目录): %s", lrcPath1)
 		return lrcPath1
 	}
 
-	// 策略 2: 歌词目录下的 .lrc 文件
+	// 策略 2: 歌词目录下的 .lrc 文件（全局歌词目录）
 	lrcPath2 := filepath.Join(lm.lyricDir, baseName+".lrc")
 	if _, err := os.Stat(lrcPath2); err == nil {
+		log.Printf("✓ 策略2成功(全局目录): %s", lrcPath2)
 		return lrcPath2
 	}
 
+	// 策略 3: 检测音乐库分离结构（LIB_MUSIC / LIB_LYRIC）
+	// 如果音乐文件在 LIB_MUSIC 目录中，尝试在对应的 LIB_LYRIC 目录中查找
+	if strings.Contains(dirPath, "LIB_MUSIC") {
+		lyricDir := strings.Replace(dirPath, "LIB_MUSIC", "LIB_LYRIC", 1)
+		lrcPath3 := filepath.Join(lyricDir, baseName+".lrc")
+		if _, err := os.Stat(lrcPath3); err == nil {
+			log.Printf("✓ 策略3成功(分离目录): %s", lrcPath3)
+			return lrcPath3
+		}
+		log.Printf("⚠️ 策略3失败(分离目录): %s", lrcPath3)
+	}
+
+	log.Printf("⚠️ 未找到歌词文件")
 	return ""
 }
 
@@ -1509,4 +1542,148 @@ func (lm *LyricManager) downloadAndSaveFromLRCLibToDir(trackPath, lyricsDir stri
 	}
 
 	return os.WriteFile(lrcPath, []byte(lyricsContent), 0644)
+}
+
+// SetCustomOffset 设置用户自定义歌词偏移量
+func (lm *LyricManager) SetCustomOffset(trackPath string, offset float64) {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	lm.customOffsets[trackPath] = offset
+	log.Printf("🎵 设置歌词偏移量: %s -> %.2f秒", trackPath, offset)
+
+	// 如果歌词已缓存，重新应用偏移量
+	if cachedLyric, ok := lm.cache[trackPath]; ok && cachedLyric.HasLyric {
+		lm.reapplyOffset(trackPath, cachedLyric)
+	}
+}
+
+// GetCustomOffset 获取用户自定义歌词偏移量
+func (lm *LyricManager) GetCustomOffset(trackPath string) float64 {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+
+	if offset, ok := lm.customOffsets[trackPath]; ok {
+		return offset
+	}
+	return 0.0
+}
+
+// reapplyOffset 重新应用偏移量到已缓存的歌词
+func (lm *LyricManager) reapplyOffset(trackPath string, lyric *LyricInfo) {
+	// 注意：这里需要重新解析原始 LRC 文件来获取原始时间戳
+	// 简化方案：直接从当前缓存的时间戳中减去旧的 offset，再加上新的 offset
+	// 但更好的方式是保存原始时间戳
+
+	// 查找歌词文件
+	lrcPath := lm.findLyricFile(trackPath)
+	if lrcPath == "" {
+		log.Printf("⚠️ 无法重新应用偏移量：未找到歌词文件")
+		return
+	}
+
+	// 重新解析（会应用新的 custom offset）
+	newLyric, err := lm.parseLRCFileWithCustomOffset(lrcPath, lm.customOffsets[trackPath])
+	if err != nil {
+		log.Printf("⚠️ 重新解析歌词失败: %v", err)
+		return
+	}
+
+	// 更新缓存
+	lm.cache[trackPath] = newLyric
+	log.Printf("✓ 已重新应用偏移量并更新缓存")
+}
+
+// parseLRCFileWithCustomOffset 解析 LRC 文件并应用自定义偏移量
+func (lm *LyricManager) parseLRCFileWithCustomOffset(filePath string, customOffset float64) (*LyricInfo, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("打开歌词文件失败：%w", err)
+	}
+	defer file.Close()
+
+	lyric := &LyricInfo{
+		Lines: make([]LyricLine, 0),
+	}
+
+	// 正则表达式匹配时间标签 [mm:ss.xx] 或 [mm:ss:xx]
+	timePattern := regexp.MustCompile(`\[(\d{2}):(\d{2})[.:](\d{2,3})\]`)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		if line == "" {
+			continue
+		}
+
+		// 解析元数据标签
+		if strings.HasPrefix(line, "[ti:") {
+			lyric.Title = strings.TrimSuffix(strings.TrimPrefix(line, "[ti:"), "]")
+			continue
+		}
+		if strings.HasPrefix(line, "[ar:") {
+			lyric.Artist = strings.TrimSuffix(strings.TrimPrefix(line, "[ar:"), "]")
+			continue
+		}
+		if strings.HasPrefix(line, "[al:") {
+			lyric.Album = strings.TrimSuffix(strings.TrimPrefix(line, "[al:"), "]")
+			continue
+		}
+		if strings.HasPrefix(line, "[offset:") {
+			offsetStr := strings.TrimSuffix(strings.TrimPrefix(line, "[offset:"), "]")
+			if offset, err := strconv.ParseFloat(offsetStr, 64); err == nil {
+				lyric.Offset = offset / 1000.0 // 转换为秒
+			}
+			continue
+		}
+
+		// 解析歌词行
+		matches := timePattern.FindAllStringSubmatch(line, -1)
+		if len(matches) > 0 {
+			// 提取歌词内容（去除所有时间标签）
+			content := timePattern.ReplaceAllString(line, "")
+			content = strings.TrimSpace(content)
+
+			// 一个歌词行可能有多个时间标签
+			for _, match := range matches {
+				minutes, _ := strconv.Atoi(match[1])
+				seconds, _ := strconv.Atoi(match[2])
+				hundredths, _ := strconv.Atoi(match[3])
+
+				// 处理百分秒或毫秒
+				var timeSeconds float64
+				if len(match[3]) == 3 {
+					// 毫秒格式 [mm:ss:xxx]
+					timeSeconds = float64(minutes)*60 + float64(seconds) + float64(hundredths)/1000.0
+				} else {
+					// 百分秒格式 [mm:ss.xx]
+					timeSeconds = float64(minutes)*60 + float64(seconds) + float64(hundredths)/100.0
+				}
+
+				// 应用 LRC 文件中的偏移量 + 用户自定义偏移量
+				timeSeconds += lyric.Offset + customOffset
+
+				lyricLine := LyricLine{
+					Time:    timeSeconds,
+					Content: content,
+				}
+				lyric.Lines = append(lyric.Lines, lyricLine)
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("读取歌词文件失败：%w", err)
+	}
+
+	// 按时间排序
+	sort.Slice(lyric.Lines, func(i, j int) bool {
+		return lyric.Lines[i].Time < lyric.Lines[j].Time
+	})
+
+	lyric.HasLyric = len(lyric.Lines) > 0
+
+	return lyric, nil
 }

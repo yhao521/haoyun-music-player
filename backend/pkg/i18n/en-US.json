@@ -35,6 +35,12 @@
     "paste": "Paste",
     "openRuntimeDir": "Open Runtime Directory"
   },
+  "lyric": {
+    "currentLyric": "Current Lyric",
+    "noLyric": "🎵 No Lyrics",
+    "instrumental": "🎵 Instrumental",
+    "loading": "🎤 Loading..."
+  },
   "playMode": {
     "order": "Order Play",
     "loop": "Loop Play",
