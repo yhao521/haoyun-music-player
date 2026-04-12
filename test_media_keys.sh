@@ -53,9 +53,122 @@ echo "======================================"
 # 用法: ./test_media_keys.sh
 
 echo "=========================================="
-echo "  Haoyun Music Player - 媒体键功能测试"
+echo "  Haoyun Music Player - 媒体键调试工具"
 echo "=========================================="
 echo ""
+
+# 检查日志文件
+LOG_FILE=$(ls -t ~/.haoyun-music/runtime/logs/app-*.log 2>/dev/null | head -1)
+
+if [ -z "$LOG_FILE" ]; then
+    echo "❌ 未找到日志文件"
+    echo "💡 请先启动应用: ./haoyun-music-player"
+    exit 1
+fi
+
+echo "📝 使用日志文件: $LOG_FILE"
+echo ""
+
+# 检查媒体键注册状态
+echo "🔍 检查媒体键注册状态..."
+echo "----------------------------------------"
+
+if grep -q "setupMediaKeys called" "$LOG_FILE"; then
+    echo "✅ C 函数 setupMediaKeys 已被调用"
+else
+    echo "❌ C 函数 setupMediaKeys 未被调用"
+    echo "   可能原因："
+    echo "   - platformRegisterMediaKeys() 未被执行"
+    echo "   - CGO 编译有问题"
+fi
+
+if grep -q "Setting up NSEvent monitor" "$LOG_FILE"; then
+    echo "✅ NSEvent 监听器设置已启动"
+else
+    echo "⚠️  未看到 NSEvent 监听器设置日志"
+fi
+
+if grep -q "macOS system media keys registered successfully" "$LOG_FILE"; then
+    echo "✅ 系统媒体键注册成功"
+else
+    echo "❌ 系统媒体键注册失败或未执行"
+fi
+
+echo ""
+echo "🎹 检查媒体键事件捕获..."
+echo "----------------------------------------"
+
+EVENT_COUNT=$(grep -c "Received system event" "$LOG_FILE" 2>/dev/null || echo "0")
+if [ "$EVENT_COUNT" -gt 0 ]; then
+    echo "✅ 捕获到 $EVENT_COUNT 个系统事件"
+    echo ""
+    echo "最近的事件："
+    grep "Received system event" "$LOG_FILE" | tail -3
+else
+    echo "⚠️  未捕获到任何系统事件"
+    echo ""
+    echo "可能原因："
+    echo "1. 辅助功能权限未正确授予"
+    echo "2. 需要完全重启应用（Cmd+Q）"
+    echo "3. 需要从辅助功能列表中移除并重新添加应用"
+fi
+
+echo ""
+echo "🔑 检查按键按下事件..."
+echo "----------------------------------------"
+
+PLAY_COUNT=$(grep -c "Play/Pause key pressed" "$LOG_FILE" 2>/dev/null || echo "0")
+NEXT_COUNT=$(grep -c "Next key pressed" "$LOG_FILE" 2>/dev/null || echo "0")
+PREV_COUNT=$(grep -c "Previous key pressed" "$LOG_FILE" 2>/dev/null || echo "0")
+
+echo "播放/暂停 (F8): $PLAY_COUNT 次"
+echo "下一曲 (F9):    $NEXT_COUNT 次"
+echo "上一曲 (F7):    $PREV_COUNT 次"
+
+if [ "$PLAY_COUNT" -eq 0 ] && [ "$NEXT_COUNT" -eq 0 ] && [ "$PREV_COUNT" -eq 0 ]; then
+    echo ""
+    echo "⚠️  未检测到任何媒体键按下"
+fi
+
+echo ""
+echo "🛠️  故障排除步骤"
+echo "=========================================="
+echo ""
+echo "如果媒体键不工作，请按以下步骤操作："
+echo ""
+echo "1️⃣  完全退出应用"
+echo "   - 使用 Cmd+Q，不是关闭窗口"
+echo ""
+echo "2️⃣  重置辅助功能权限"
+echo "   a. 打开 系统偏好设置 > 安全性与隐私 > 隐私"
+echo "   b. 选择 '辅助功能'"
+echo "   c. 点击锁图标解锁"
+echo "   d. 选中 haoyun-music-player，点击 '-' 移除"
+echo "   e. 点击 '+' 重新添加应用"
+echo "   f. 确保勾选了应用"
+echo ""
+echo "3️⃣  重启应用并测试"
+echo "   ./haoyun-music-player"
+echo ""
+echo "4️⃣  实时监控日志"
+echo "   tail -f $LOG_FILE | grep -i 'media\|event\|key'"
+echo ""
+echo "5️⃣  按下 F7/F8/F9 测试"
+echo ""
+echo "6️⃣  查看实时日志输出"
+echo "   应该看到："
+echo "   📨 Received system event: type=14, subtype=8"
+echo "   🎹 Media key detected: keyCode=XX, keyState=1"
+echo "   ▶️ Play/Pause key pressed (或 Next/Previous)"
+echo ""
+echo "=========================================="
+echo ""
+echo "💡 备选方案：使用自定义快捷键"
+echo "   Ctrl+Shift+P - 播放/暂停"
+echo "   Ctrl+Shift+N - 下一曲"
+echo "   Ctrl+Shift+B - 上一曲"
+echo ""
+echo "=========================================="
 
 # 检查是否在 macOS 上
 if [[ "$OSTYPE" != "darwin"* ]]; then
