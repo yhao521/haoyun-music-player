@@ -2,7 +2,6 @@ package backend
 
 import (
 	"log"
-	"runtime"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -78,15 +77,7 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 	}
 	
 	// 根据平台选择不同的修饰键
-	// macOS 使用 ModCmd (Command), Windows/Linux 使用 ModCtrl (Control)
-	var primaryMod hotkey.Modifier
-	if runtime.GOOS == "darwin" {
-		primaryMod = hotkey.ModCmd
-		log.Println("🍎 macOS 平台: 使用 Command 键作为主修饰键")
-	} else {
-		primaryMod = hotkey.ModCtrl
-		log.Printf("💻 %s 平台: 使用 Ctrl 键作为主修饰键", runtime.GOOS)
-	}
+	primaryMod := mks.getPrimaryModifier()
 	
 	configs := []HotkeyConfig{
 		{
@@ -131,7 +122,7 @@ func (mks *MediaKeyService) registerGlobalHotkeys() {
 		}
 		
 		mks.hotkeys = append(mks.hotkeys, hk)
-		log.Printf("✅ 注册快捷键: %s (%v+Shift+%c)", config.name, primaryMod, config.key)
+		log.Printf("✅ 注册快捷键: %s", config.name)
 		
 		// 启动监听协程
 		go func(h *hotkey.Hotkey, handler func(), name string) {
