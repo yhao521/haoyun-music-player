@@ -524,6 +524,13 @@ section {
     color: white;
 }
 
+.screenshot-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+}
+
 .placeholder-icon {
     font-size: 4rem;
     margin-bottom: 1rem;
