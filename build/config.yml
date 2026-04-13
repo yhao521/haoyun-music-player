@@ -11,7 +11,7 @@ info:
   description: "基于 Wails v3 + Vue 3 的现代化菜单栏音乐播放器，支持 MP3/WAV/FLAC 格式播放、音乐库管理、播放列表控制等功能" # The application description
   copyright: "(c) 2025, yhao521" # Copyright text
   comments: "Haoyun Music Player - A modern menu bar music player" # Comments
-  version: "0.0.33" # The application version
+  version: "0.0.34" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension
   #                               # If not set and Assets.car exists, defaults to "appicon"
