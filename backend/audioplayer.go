@@ -441,6 +441,7 @@ type AudioPlayer struct {
 	player         *oto.Player      // oto 播放器
 	streamer       AudioReader      // 音频流式读取器
 	stopChan       chan struct{}    // 停止信号通道
+	monitorWg      sync.WaitGroup   // 监控协程的 WaitGroup
 	app            *application.App // Wails 应用引用
 	ctxInitialized bool             // Context 是否已初始化
 }
@@ -679,6 +680,7 @@ func (ap *AudioPlayer) Play(path string) error {
 
 	// 启动监控协程
 	ap.stopChan = make(chan struct{}, 1)
+	ap.monitorWg.Add(1)
 	go ap.monitorPlayback()
 
 	ap.isPlaying = true
@@ -703,6 +705,8 @@ func (ap *AudioPlayer) Play(path string) error {
 
 // monitorPlayback 监控播放状态
 func (ap *AudioPlayer) monitorPlayback() {
+	defer ap.monitorWg.Done()
+
 	for {
 		select {
 		case <-ap.stopChan:
@@ -727,15 +731,16 @@ func (ap *AudioPlayer) monitorPlayback() {
 
 			// 使用局部变量 app,并添加 panic 恢复
 			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						log.Printf("[monitorPlayback] 发送事件时发生 panic: %v", r)
-					}
-				}()
-				
 				ap.mu.Lock()
 				currentApp := ap.app
 				ap.mu.Unlock()
+				
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("[monitorPlayback] 发送事件时发生 panic: %v", r)
+						log.Printf("[monitorPlayback] currentApp: %v, currentApp.Event: %v", currentApp != nil, currentApp != nil && currentApp.Event != nil)
+					}
+				}()
 				
 				if currentApp == nil {
 					log.Printf("[monitorPlayback] 警告: app 为 nil，跳过事件发送")
@@ -748,9 +753,14 @@ func (ap *AudioPlayer) monitorPlayback() {
 				}
 				
 				// 安全地发送事件
+				log.Printf("[monitorPlayback] 准备发送 playbackStateChanged 事件")
 				currentApp.Event.Emit("playbackStateChanged", "stopped")
+				log.Printf("[monitorPlayback] playbackStateChanged 事件发送成功")
+				
 				// 发出播放结束事件，由上层（MusicService）根据播放模式决定是否自动播放下一首
+				log.Printf("[monitorPlayback] 准备发送 playbackEnded 事件")
 				currentApp.Event.Emit("playbackEnded", nil)
+				log.Printf("[monitorPlayback] playbackEnded 事件发送成功")
 			}()
 			return
 		}
@@ -767,6 +777,9 @@ func (ap *AudioPlayer) stopPlayback() {
 		default:
 		}
 	}
+
+	// 等待监控协程退出，避免竞态条件
+	ap.monitorWg.Wait()
 
 	ap.closeOto()
 
