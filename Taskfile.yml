@@ -249,7 +249,7 @@ tasks:
         cd ..
 
   package-post:
-    summary: Package the application with version and timestamp
+    summary: Package the application with version
     cmds:
       - echo "开始打包应用..."
       - |
@@ -260,14 +260,14 @@ tasks:
         rm -rf "./releases/tmp_dmg"
 
   package-all:
-    summary: Package the application with version and timestamp 在macos生成windows和macos安装包
+    summary: Package the application with version 在macos生成windows和macos安装包
     cmds:
       - echo "开始打包应用..."
       - task package-macos
       - task package-win-macos
 
   package-win-macos:
-    summary: Package the application with version and timestamp 在macos生成windows安装包
+    summary: Package the application with version 在macos生成windows安装包
     cmds:
       - |
         # 获取版本号
@@ -275,8 +275,8 @@ tasks:
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
         _VERSION=$(git describe --tags --abbrev=0)
 
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d")
+
+        
 
         # 创建打包目录并准备文件
         # rm -rf ./bin/releases
@@ -291,7 +291,7 @@ tasks:
         cd ./bin
 
 
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_arm64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Windows_arm64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-arm64-installer.exe" "README.md" "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
@@ -301,19 +301,19 @@ tasks:
         task windows:package
         # Windows 打包 amd64
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_amd64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Windows_amd64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-amd64-installer.exe" "README.md" "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
 
         # Windows 打包 universal
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_universal.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Windows_universal.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}-amd64-installer.exe" "{{._APP_NAME}}-arm64-installer.exe" "README.md" "LICENSE"
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
       - task package-post
 
   package-linux-macos:
-    summary: Package the application with version and timestamp for Linux
+    summary: Package the application with version for Linux
     cmds:
       - echo "开始打包应用..."
       - |
@@ -322,8 +322,8 @@ tasks:
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
         _VERSION=$(git describe --tags --abbrev=0)
 
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d")
+
+        
         # 创建打包目录并准备文件
         rm -rf ./bin/releases
         task package-pre
@@ -336,14 +336,14 @@ tasks:
         task linux:package
         # Linux 打包
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_arm64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Linux_arm64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}" "LICENSE" 'README.md'
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ../
       - task package-post
 
   package-macos:
-    summary: Package the application with version and timestamp for macOS
+    summary: Package the application with version for macOS
     cmds:
       - echo "开始打包应用..."
       - |
@@ -352,8 +352,8 @@ tasks:
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
         _VERSION=$(git describe --tags --abbrev=0)
 
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d")
+
+        
 
         # 创建打包目录并准备文件
         rm -rf ./bin/releases
@@ -368,8 +368,8 @@ tasks:
         # macOS 打包
         cd ./bin
 
-        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_arm64.zip"
-        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_arm64.dmg"
+        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_macOS_arm64.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_macOS_arm64.dmg"
 
         # 创建临时目录用于 DMG 打包
         mkdir -p "./releases/tmp_dmg"
@@ -400,8 +400,8 @@ tasks:
         task darwin:package
         # macOS 打包
         cd ./bin
-        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.zip"
-        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_amd64.dmg"
+        # PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_macOS_amd64.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_macOS_amd64.dmg"
 
         # 创建临时目录用于 DMG 打包
         mkdir -p "./releases/tmp_dmg"
@@ -431,8 +431,8 @@ tasks:
         task darwin:package:universal
         # macOS 打包universal
         cd ./bin
-        PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.zip"
-        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_macOS_universal.dmg"
+        PACKAGE_NAME_ZIP="{{._APP_NAME}}_${_VERSION}_macOS_universal.zip"
+        PACKAGE_NAME_DMG="{{._APP_NAME}}_${_VERSION}_macOS_universal.dmg"
 
         # 创建临时目录用于 DMG 打包
         mkdir -p "./releases/tmp_dmg"
@@ -459,7 +459,7 @@ tasks:
       - task package-post
 
   package-windows:
-    summary: Package the application with version and timestamp for Windows
+    summary: Package the application with version for Windows
     cmds:
       - echo "开始打包应用..."
       - |
@@ -468,8 +468,8 @@ tasks:
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
         _VERSION=$(git describe --tags --abbrev=0)
 
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d")
+
+        
         # 创建打包目录并准备文件
         rm -rf ./bin/releases
         task package-pre
@@ -528,7 +528,7 @@ tasks:
         fi
 
         # Compress package
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Windows_${BUILD_ARCH}.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Windows_${BUILD_ARCH}.zip"
         powershell Compress-Archive -Path "$EXPECTED_FILE",'README.md','LICENSE' -DestinationPath "./releases/${PACKAGE_NAME}" -Force
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ..
@@ -536,7 +536,7 @@ tasks:
       - task package-post
 
   package-linux:
-    summary: Package the application with version and timestamp for Linux
+    summary: Package the application with version for Linux
     cmds:
       - echo "开始打包应用..."
       - |
@@ -545,8 +545,8 @@ tasks:
         # _VERSION=v{{.VERSION_1}}.{{.VERSION_2}}.${VERSION_3}
         _VERSION=$(git describe --tags --abbrev=0)
 
-        # 获取当前时间戳 %Y%m%d_%H%M%S
-        TIMESTAMP=$(date +"%Y%m%d")
+
+        
         # 创建打包目录并准备文件
         rm -rf ./bin/releases
         task package-pre
@@ -559,7 +559,7 @@ tasks:
         task linux:package
         # Linux 打包
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_arm64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Linux_arm64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}" "LICENSE" 'README.md'
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ../
@@ -569,7 +569,7 @@ tasks:
         task linux:package
         # Linux 打包
         cd ./bin
-        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_${TIMESTAMP}_Linux_amd64.zip"
+        PACKAGE_NAME="{{._APP_NAME}}_${_VERSION}_Linux_amd64.zip"
         zip -r "./releases/${PACKAGE_NAME}" "{{._APP_NAME}}" "LICENSE" 'README.md'
         echo "打包完成: releases/${PACKAGE_NAME}"
         cd ../
