@@ -1,10 +1,10 @@
 {
 	"fixed": {
-		"file_version": "0.0.36"
+		"file_version": "0.0.37"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.0.36",
+			"ProductVersion": "0.0.37",
 			"CompanyName": "yhao521",
 			"FileDescription": "基于 Wails v3 + Vue 3 的现代化菜单栏音乐播放器，支持 MP3/WAV/FLAC 格式播放、音乐库管理、播放列表控制等功能",
 			"LegalCopyright": "(c) 2025, yhao521",
