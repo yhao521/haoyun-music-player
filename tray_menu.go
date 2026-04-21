@@ -40,6 +40,7 @@ var (
 	wakeItem         *application.MenuItem
 	launchItem       *application.MenuItem
 	settingItem      *application.MenuItem
+	supportItem      *application.MenuItem // 支持菜单项
 	versionItem      *application.MenuItem
 	quitItem         *application.MenuItem
 
@@ -142,6 +143,12 @@ func createTrayMenuItems() {
 		toggleWindowVisibility(settingsWindow, "设置窗口")
 	})
 
+	// 支持菜单项
+	supportItem = application.NewMenuItem(t("menu.support"))
+	supportItem.OnClick(func(ctx *application.Context) {
+		openSupportPage()
+	})
+
 	// 其他功能菜单项
 	downloadItem = application.NewMenuItem(t("menu.downloadMusic"))
 	downloadItem.SetAccelerator("CmdOrCtrl+D")
@@ -236,6 +243,7 @@ func buildInitialTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
+		supportItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
@@ -318,6 +326,7 @@ func rebuildTrayMenu() {
 	wakeItem.SetLabel(t("menu.keepAwake"))
 	launchItem.SetLabel(t("menu.autoLaunch"))
 	settingItem.SetLabel(t("menu.settings"))
+	supportItem.SetLabel(t("menu.support"))
 	versionItem.SetLabel(fmt.Sprintf(t("menu.version"), AppVersion))
 	quitItem.SetLabel(t("menu.quit"))
 
@@ -352,6 +361,7 @@ func rebuildTrayMenu() {
 		wakeItem,
 		launchItem,
 		settingItem,
+		supportItem,
 		application.NewMenuItemSeparator(),
 		versionItem,
 		quitItem,
