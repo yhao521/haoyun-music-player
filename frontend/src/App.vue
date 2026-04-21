@@ -4,6 +4,7 @@ import AppMain from "./components/AppMain.vue";
 import BrowseView from "./views/BrowseView.vue";
 import FavoritesView from "./views/FavoritesView.vue";
 import SettingsView from "./views/SettingsView.vue";
+import DonateView from "./views/DonateView.vue";
 import NotificationToast from "./components/NotificationToast.vue";
 import { Events } from "@wailsio/runtime";
 // 当前视图
@@ -50,6 +51,13 @@ const checkRoute = () => {
     return;
   }
 
+  // 检查 hash 路由（#/donate）
+  if (hash === "#/donate" || hash.startsWith("#/donate/")) {
+    console.log("[路由匹配] 匹配到 donate 视图");
+    currentView.value = "donate";
+    return;
+  }
+
   // 检查 path 路由（/browse）
   if (pathname === "/browse" || pathname.startsWith("/browse/")) {
     console.log("[路由匹配] 匹配到 browse 视图 (pathname)");
@@ -68,6 +76,13 @@ const checkRoute = () => {
   if (pathname === "/settings" || pathname.startsWith("/settings/")) {
     console.log("[路由匹配] 匹配到 settings 视图 (pathname)");
     currentView.value = "settings";
+    return;
+  }
+
+  // 检查 path 路由（/donate）
+  if (pathname === "/donate" || pathname.startsWith("/donate/")) {
+    console.log("[路由匹配] 匹配到 donate 视图 (pathname)");
+    currentView.value = "donate";
     return;
   }
 
@@ -102,7 +117,19 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container">
-    <component :is="currentView === 'browse' ? BrowseView : currentView === 'favorites' ? FavoritesView : currentView === 'settings' ? SettingsView : AppMain" />
+    <component
+      :is="
+        currentView === 'browse'
+          ? BrowseView
+          : currentView === 'favorites'
+            ? FavoritesView
+            : currentView === 'settings'
+              ? SettingsView
+              : currentView === 'donate'
+                ? DonateView
+                : AppMain
+      "
+    />
     <NotificationToast />
   </div>
 </template>

@@ -111,5 +111,19 @@
     "libraryRefreshSuccessWithCount": "音乐库刷新成功，共 %d 首歌曲",
     "scanning": "正在扫描音乐库...",
     "loadingToPlaylist": "正在加载到播放列表..."
+  },
+  "donate": {
+    "title": "支持 Haoyun Music Player 开发",
+    "subtitle": "Haoyun Music Player 是一个开源免费的音乐播放器，如果您觉得它对您有帮助，欢迎通过以下方式支持开发者继续改进！",
+    "alipay": "支付宝",
+    "wechat": "微信支付",
+    "scanToDonate": "扫码即可捐赠",
+    "thankYou": "感谢您的支持",
+    "thankYouDesc": "每一份支持都是对我们最大的鼓励！您的捐赠将用于：",
+    "usage1": "持续功能开发和优化",
+    "usage2": "Bug 修复和性能提升",
+    "usage3": "服务器和维护成本",
+    "usage4": "更好的用户体验设计",
+    "footer": "Haoyun Music Player | Made with ❤️ for music lovers"
   }
 }

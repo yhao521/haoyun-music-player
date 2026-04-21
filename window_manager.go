@@ -13,6 +13,7 @@ var (
 	browseWindow    *application.WebviewWindow
 	favoritesWindow *application.WebviewWindow
 	settingsWindow  *application.WebviewWindow
+	donateWindow    *application.WebviewWindow
 )
 
 // createAllWindows 创建所有应用窗口
@@ -21,6 +22,7 @@ func createAllWindows() {
 	createBrowseWindow()
 	createFavoritesWindow()
 	createSettingsWindow()
+	createDonateWindow()
 	registerWindowCloseHooks()
 }
 
@@ -96,25 +98,52 @@ func createSettingsWindow() {
 	log.Println("✓ Settings window created and hidden")
 }
 
+// createDonateWindow 创建捐赠窗口
+func createDonateWindow() {
+	donateWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Title: "支持开发 - Haoyun Music Player",
+		Mac: application.MacWindow{
+			InvisibleTitleBarHeight: 50,
+			Backdrop:                application.MacBackdropTranslucent,
+			TitleBar:                application.MacTitleBarHiddenInset,
+		},
+		BackgroundColour: application.NewRGB(27, 38, 54),
+		URL:              "#/donate",
+		Width:            700,
+		Height:           650,
+	})
+	donateWindow.Hide()
+	log.Println("✓ Donate window created and hidden")
+}
+
 // hasOtherVisibleWindows 检查是否还有其他可见窗口
 func hasOtherVisibleWindows(currentWindow string) bool {
 	switch currentWindow {
 	case "main":
 		return (browseWindow != nil && browseWindow.IsVisible()) ||
 			(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
-			(settingsWindow != nil && settingsWindow.IsVisible())
+			(settingsWindow != nil && settingsWindow.IsVisible()) ||
+			(donateWindow != nil && donateWindow.IsVisible())
 	case "browse":
 		return (mainWindow != nil && mainWindow.IsVisible()) ||
 			(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
-			(settingsWindow != nil && settingsWindow.IsVisible())
+			(settingsWindow != nil && settingsWindow.IsVisible()) ||
+			(donateWindow != nil && donateWindow.IsVisible())
 	case "favorites":
 		return (mainWindow != nil && mainWindow.IsVisible()) ||
 			(browseWindow != nil && browseWindow.IsVisible()) ||
-			(settingsWindow != nil && settingsWindow.IsVisible())
+			(settingsWindow != nil && settingsWindow.IsVisible()) ||
+			(donateWindow != nil && donateWindow.IsVisible())
 	case "settings":
 		return (mainWindow != nil && mainWindow.IsVisible()) ||
 			(browseWindow != nil && browseWindow.IsVisible()) ||
-			(favoritesWindow != nil && favoritesWindow.IsVisible())
+			(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
+			(donateWindow != nil && donateWindow.IsVisible())
+	case "donate":
+		return (mainWindow != nil && mainWindow.IsVisible()) ||
+			(browseWindow != nil && browseWindow.IsVisible()) ||
+			(favoritesWindow != nil && favoritesWindow.IsVisible()) ||
+			(settingsWindow != nil && settingsWindow.IsVisible())
 	default:
 		return false
 	}
@@ -189,6 +218,23 @@ func registerWindowCloseHooks() {
 		log.Println("✅ [设置窗口] 已隐藏并取消关闭")
 	})
 	log.Println("✅ 设置窗口关闭拦截钩子注册成功")
+
+	// 拦截捐赠窗口关闭事件
+	log.Println("🔧 正在为捐赠窗口注册关闭拦截钩子...")
+	donateWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		log.Println("⚠️ [捐赠窗口] 关闭事件触发")
+
+		if hasOtherVisibleWindows("donate") {
+			log.Println("ℹ️ [捐赠窗口] 检测到其他可见窗口，但仍执行隐藏操作")
+		} else {
+			log.Println("ℹ️ [捐赠窗口] 这是最后一个可见窗口")
+		}
+
+		donateWindow.Hide()
+		e.Cancel()
+		log.Println("✅ [捐赠窗口] 已隐藏并取消关闭")
+	})
+	log.Println("✅ 捐赠窗口关闭拦截钩子注册成功")
 }
 
 // toggleWindowVisibility 切换窗口显示/隐藏状态

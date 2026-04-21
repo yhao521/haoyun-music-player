@@ -15,6 +15,7 @@
     "keepAwake": "Keep System Awake",
     "autoLaunch": "Auto Launch",
     "settings": "Settings",
+    "support": "Support",
     "version": "Version %s",
     "quit": "Quit",
     "showMainWindow": "Show Main Window",
@@ -93,5 +94,19 @@
   "help": {
     "documentation": "Documentation",
     "about": "About"
+  },
+  "donate": {
+    "title": "Support Haoyun Music Player Development",
+    "subtitle": "Haoyun Music Player is an open-source and free music player. If you find it helpful, welcome to support the developer to continue improving!",
+    "alipay": "Alipay",
+    "wechat": "WeChat Pay",
+    "scanToDonate": "Scan to donate",
+    "thankYou": "Thank You for Your Support",
+    "thankYouDesc": "Every bit of support is our greatest encouragement! Your donation will be used for:",
+    "usage1": "Continuous feature development and optimization",
+    "usage2": "Bug fixes and performance improvements",
+    "usage3": "Server and maintenance costs",
+    "usage4": "Better user experience design",
+    "footer": "Haoyun Music Player | Made with ❤️ for music lovers"
   }
 }
